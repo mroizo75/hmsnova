@@ -1,113 +1,101 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
+import { NextResponse } from "next/server"
 import prisma from "@/lib/db"
+import { requireAuth } from "@/lib/utils/auth"
+import { z } from "zod"
+
+const createChangeSchema = z.object({
+  title: z.string().min(3),
+  description: z.string().min(10),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  type: z.enum(["CORRECTION", "IMPROVEMENT", "PREVENTIVE"])
+})
+
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
-    console.log("1. Starting GET section changes request")
-    
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      console.log("2. No session found")
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
-    }
-
-    const { id: sectionId } = params
-    console.log("3. Section ID:", sectionId)
+    const session = await requireAuth()
+    const { id } = await context.params
 
     const changes = await prisma.hMSChange.findMany({
       where: {
-        companyId: session.user.companyId,
-        OR: [
-          {
-            sectionId: sectionId
-          },
-          {
-            status: "PLANNED",
-            sectionId: null
-          }
-        ]
+        sectionId: id,
+        companyId: session.user.companyId
       },
-      include: {
-        measures: true,
-        deviations: {
-          include: {
-            deviation: {
-              select: {
-                id: true,
-                title: true,
-                description: true,
-                measures: {
-                  select: {
-                    id: true,
-                    description: true,
-                    type: true,
-                    status: true
-                  }
-                }
-              }
-            }
-          }
-        }
+      orderBy: {
+        createdAt: 'desc'
       }
     })
 
-    console.log("4. Found changes:", changes.length)
-    console.log("5. Changes data:", JSON.stringify(changes, null, 2))
-
     return NextResponse.json(changes)
   } catch (error) {
-    console.error("6. Error in GET section changes:", error)
+    console.error("Error fetching HMS changes:", error)
     return NextResponse.json(
-      { error: "Kunne ikke hente endringer" },
+      { error: "Kunne ikke hente HMS-endringer" },
       { status: 500 }
     )
   }
 }
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
-    }
+    const session = await requireAuth()
+    const body = await request.json()
+    
+    const validatedData = createChangeSchema.parse(body)
+    const { id: sectionId } = await context.params
 
-    const sectionId = params.id
-    const { changeIds } = await request.json()
-
-    console.log("1. Assigning changes to section:", {
-      sectionId,
-      changeIds
-    })
-
-    await prisma.hMSChange.updateMany({
-      where: {
-        id: {
-          in: changeIds
-        },
-        companyId: session.user.companyId,
-        status: "PLANNED"
-      },
+    const change = await prisma.hMSChange.create({
       data: {
+        ...validatedData,
         sectionId,
-        status: "IN_PROGRESS"
+        companyId: session.user.companyId,
+        priority: validatedData.priority,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        implementedAt: new Date(),
+        dueDate: new Date(),
+        changeType: validatedData.type,
+        createdBy: session.user.id,
+        status: 'OPEN'
       }
     })
 
-    console.log("2. Changes assigned successfully")
+    // Logg opprettelsen
+    await prisma.auditLog.create({
+      data: {
+        action: "CREATE_HMS_CHANGE",
+        entityType: "HMS_CHANGE",
+        entityId: change.id,
+        userId: session.user.id,
+        companyId: session.user.companyId,
+        details: {
+          title: validatedData.title,
+          type: validatedData.type,
+          priority: validatedData.priority
+        }
+      }
+    })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json(change)
   } catch (error) {
-    console.error("3. Error assigning changes:", error)
+    console.error("Error creating HMS change:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Validation error", details: error.errors },
+        { status: 400 }
+      )
+    }
     return NextResponse.json(
-      { error: "Kunne ikke tilordne endringer" },
+      { error: "Kunne ikke opprette HMS-endring" },
       { status: 500 }
     )
   }

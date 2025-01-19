@@ -6,10 +6,19 @@ import { Input } from "@/components/ui/input"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { toast } from "sonner"
+import Image from "next/image"
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -63,8 +72,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            <Link href="/" className="text-2xl font-bold text-green-700">
-              innut.io
+            <Link href="/" className="text-2xl font-bold text-[#3F546E]">
+              <Image src="/HMSNova-logo.svg" alt="HMS Nova" width={100} height={100} className="w-full h-full"/>
             </Link>
           </div>
           <CardTitle className="text-2xl text-center">
@@ -98,7 +107,7 @@ export default function LoginPage() {
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-green-700 hover:bg-green-800"
+              className="w-full bg-[#3F546E] hover:bg-[#2C435F]"
               disabled={isLoading}
             >
               {isLoading ? "Logger inn..." : "Logg inn"}
@@ -107,13 +116,13 @@ export default function LoginPage() {
           {!isAdminLogin && (
             <>
               <div className="mt-4 text-center text-sm">
-                <Link href="/forgot-password" className="text-green-700 hover:underline">
+                <Link href="/forgot-password" className="text-[#3F546E] hover:underline">
                   Glemt passord?
                 </Link>
               </div>
               <div className="mt-4 text-center text-sm">
                 Har du ikke en konto?{" "}
-                <Link href="/register" className="text-green-700 hover:underline">
+                <Link href="/register" className="text-[#3F546E] hover:underline">
                   Registrer deg her
                 </Link>
               </div>

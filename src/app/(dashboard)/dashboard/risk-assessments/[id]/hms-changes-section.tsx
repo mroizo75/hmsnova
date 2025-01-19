@@ -11,6 +11,29 @@ import { RiskAssessment } from "@prisma/client"
 
 interface Props {
   riskAssessment: RiskAssessment & {
+    hazards?: Array<{
+      id: string
+      description: string
+      riskLevel: number
+      riskMeasures: Array<{
+        id: string
+        description: string
+        status: string
+        type: string
+        priority: string
+        hazardId: string
+        riskAssessmentId: string
+        hmsChanges: Array<{
+          hmsChange: {
+            id: string
+            title: string
+            description: string
+            status: string
+            implementedAt: Date | null
+          }
+        }>
+      }>
+    }>
     hmsChanges?: Array<{
       hmsChange: {
         id: string
@@ -59,7 +82,7 @@ export function HMSChangesSection({ riskAssessment }: Props) {
                     {change.description}
                   </p>
                 </div>
-                <Badge variant={change.implementedAt ? "success" : "secondary"}>
+                <Badge variant={change.implementedAt ? "default" : "secondary"}>
                   {change.implementedAt ? "Implementert" : "Ikke implementert"}
                 </Badge>
               </div>
@@ -75,7 +98,6 @@ export function HMSChangesSection({ riskAssessment }: Props) {
             <HMSChanges 
               sectionId={riskAssessment.department || 'general'}
               riskAssessmentId={riskAssessment.id}
-              mode="create"
             />
           </DialogContent>
         </Dialog>
@@ -84,8 +106,12 @@ export function HMSChangesSection({ riskAssessment }: Props) {
           isOpen={showLinkModal}
           onClose={() => setShowLinkModal(false)}
           riskAssessmentId={riskAssessment.id}
-          hazards={riskAssessment.hazards}
-          changes={riskAssessment.hmsChanges.map(c => c.hmsChange)}
+          hazards={riskAssessment?.hazards?.map(h => ({
+            id: h.id,
+            description: h.description,
+            riskLevel: h.riskLevel
+          })) || []}
+          changes={changes}
         />
       </CardContent>
     </Card>

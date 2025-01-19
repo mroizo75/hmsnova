@@ -40,7 +40,7 @@ export function MeasureList({ measures, type = 'standard' }: MeasureListProps) {
                 Type: {measure.type} | Prioritet: {measure.priority}
               </p>
             </div>
-            <Badge variant={measure.status === "OPEN" ? "secondary" : "success"}>
+            <Badge variant={measure.status === "OPEN" ? "secondary" : "default"}>
               {measure.status}
             </Badge>
           </div>

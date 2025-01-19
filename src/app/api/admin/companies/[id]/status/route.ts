@@ -3,36 +3,38 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
     if (!session?.user || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await req.json()
-    const { isActive } = body
-    const companyId = params.id
+    const { id } = await context.params
+    const data = await request.json()
 
     const company = await prisma.company.update({
-      where: { 
-        id: companyId 
+      where: {
+        id: id
       },
-      data: { 
-        isActive 
+      data: {
+        isActive: data.isActive
       }
     })
 
     return NextResponse.json(company)
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return new NextResponse("Invalid JSON in request body", { status: 400 })
-    }
     console.error('Error updating company status:', error)
-    return new NextResponse("Internal error", { status: 500 })
+    return NextResponse.json(
+      { error: "Kunne ikke oppdatere bedriftsstatus" },
+      { status: 500 }
+    )
   }
 } 

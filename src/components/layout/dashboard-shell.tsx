@@ -16,7 +16,7 @@ interface DashboardShellProps {
 export function DashboardShell({ children, modules, user }: DashboardShellProps) {
   return (
     <div className="relative min-h-screen">
-      <Header user={user} className="fixed top-0 right-0 left-0 z-50" />
+      <Header user={user as any} className="fixed top-0 right-0 left-0 z-50" />
       <div className="flex pt-5 bg-gray-50">
         <Sidebar modules={modules} />
         <div className="flex-1 lg:pl-72">

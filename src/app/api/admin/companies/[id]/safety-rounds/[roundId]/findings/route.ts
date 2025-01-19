@@ -79,9 +79,9 @@ export async function POST(
     return NextResponse.json(finding)
   } catch (error) {
     console.error('Error details:', {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack
+      name: (error as any)?.name,
+      message: (error as any)?.message,
+      stack: (error as any)?.stack
     })
 
     if (error instanceof z.ZodError) {

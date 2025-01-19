@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("11. Main error:", error)
     return NextResponse.json(
-      { error: "Kunne ikke hente HMS-endringer", details: error.message },
+      { error: "Kunne ikke hente HMS-endringer", details: error instanceof Error ? error.message : "Ukjent feil" },
       { status: 500 }
     )
   }

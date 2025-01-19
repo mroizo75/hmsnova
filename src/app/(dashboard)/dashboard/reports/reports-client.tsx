@@ -47,7 +47,7 @@ export function ReportsClient({ stats, auditData }: ReportsClientProps) {
         </TabsContent>
 
         <TabsContent value="custom">
-          <CustomReport companyId={stats.companyId} />
+          <CustomReport companyId={stats[0].companyId} />
         </TabsContent>
 
         <TabsContent value="audit">

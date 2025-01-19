@@ -20,9 +20,7 @@ const closeMeasureSchema = z.object({
 })
 
 interface RouteParams {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
 }
 
 const typeLabels: Record<string, string> = {
@@ -42,7 +40,7 @@ const priorityLabels: Record<string, string> = {
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -56,21 +54,18 @@ export async function POST(
     const data = await request.json()
     console.log("Creating measure with data:", data)
 
-    // Hent id fra params asynkront
-    const { id } = await params
+    const { id } = await context.params
 
-    // Opprett tiltaket direkte på avviket
     const measure = await prisma.deviationMeasure.create({
       data: {
         description: data.description,
-        type: data.type,        // ELIMINATION, SUBSTITUTION, ENGINEERING, ADMINISTRATIVE, PPE
-        priority: data.priority, // LOW, MEDIUM, HIGH, CRITICAL
-        status: "OPEN",         // Default verdi i schema
-        deviationId: id,        // Kobling til avviket
+        type: data.type,
+        priority: data.priority,
+        status: "OPEN",
+        deviationId: id,
         createdBy: session.user.id,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         assignedTo: data.assignedTo || null,
-        // Disse feltene settes automatisk eller senere
         completedAt: null,
         closedAt: null,
         closedBy: null,
@@ -84,7 +79,6 @@ export async function POST(
       status: 201,
       headers: { 'Content-Type': 'application/json' }
     })
-
   } catch (error) {
     console.error("Error creating measure:", error)
     return new Response(JSON.stringify({
@@ -98,42 +92,32 @@ export async function POST(
 }
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Korrekt håndtering av params.id for Next.js 15+
-    const deviationId = (await Promise.resolve(params.id)).toString()
+    const { id } = await context.params
 
     const measures = await prisma.deviationMeasure.findMany({
       where: {
-        deviationId
+        deviationId: id
       },
-      select: {
-        id: true,
-        description: true,
-        type: true,
-        status: true,
-        priority: true,
-        dueDate: true,
-        completedAt: true,
-        assignedTo: true,
-        closedAt: true,
-        closedBy: true,
-        closeComment: true,
-        closureVerifiedBy: true,
-        closureVerifiedAt: true
+      include: {
+
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
     })
 
     return NextResponse.json(measures)
   } catch (error) {
-    console.error("Error fetching measures:", error)
+    console.error('Error fetching measures:', error)
     return NextResponse.json(
       { error: "Kunne ikke hente tiltak" },
       { status: 500 }
@@ -142,18 +126,17 @@ export async function GET(
 }
 
 export async function PATCH(
-  req: Request,
-  context: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
     const session = await requireAuth()
-    const body = await req.json()
+    const body = await request.json()
     
     const { measureId } = body
     const validatedData = closeMeasureSchema.parse(body)
     
-    // Korrekt håndtering av params.id for Next.js 15+
-    const deviationId = context.params.id
+    const { id: deviationId } = await context.params
 
     const measure = await prisma.deviationMeasure.update({
       where: {

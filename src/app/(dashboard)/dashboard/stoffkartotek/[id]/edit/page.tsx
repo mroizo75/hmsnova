@@ -3,34 +3,47 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { notFound } from "next/navigation"
 import { EditProductForm } from "./edit-product-form"
+import { Suspense } from "react"
 
 interface PageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function EditProductPage({ params }: PageProps) {
+export default async function EditProductPage(props: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
-  const { id } = await params
+  const { id } = await props.params
+  const searchParamsResolved = await props.searchParams
 
-  const product = await prisma.stoffkartotek.findUnique({
+  const product = await prisma.stoffkartotek.findFirst({
     where: {
-      id: id
+      id,
+      company: {
+        users: {
+          some: {
+            id: session.user.id
+          }
+        }
+      }
     },
     include: {
-      fareSymboler: true
+      fareSymboler: true,
     }
   })
 
   if (!product) return notFound()
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Rediger produkt</h1>
+    <Suspense fallback={<div>Laster...</div>}>
       <EditProductForm product={product} />
-    </div>
+    </Suspense>
   )
+}
+
+// Behold metadata hvis den finnes
+export const metadata = {
+  title: 'Rediger produkt',
+  description: 'Rediger produktinformasjon'
 } 

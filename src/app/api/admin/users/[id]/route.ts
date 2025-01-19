@@ -3,32 +3,22 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== 'ADMIN') {
-      return new Response(JSON.stringify({ error: "Ikke autorisert" }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      })
+    if (!session?.user || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await context.params
     const data = await request.json()
-    const { id } = await params
-
-    const existingUser = await prisma.user.findUnique({
-      where: { id }
-    })
-
-    if (!existingUser) {
-      return new Response(JSON.stringify({ error: "Bruker ikke funnet" }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
 
     const user = await prisma.user.update({
       where: { id },
@@ -36,7 +26,8 @@ export async function PATCH(
         name: data.name,
         email: data.email,
         role: data.role,
-        isActive: data.isActive
+        isActive: data.isActive,
+        companyId: data.companyId
       },
       select: {
         id: true,
@@ -44,23 +35,21 @@ export async function PATCH(
         email: true,
         role: true,
         isActive: true,
-        createdAt: true,
-        updatedAt: true
+        company: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       }
     })
 
     return NextResponse.json(user)
   } catch (error) {
     console.error('Error updating user:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: "Kunne ikke oppdatere bruker",
-        details: error instanceof Error ? error.message : "Ukjent feil"
-      }), 
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
+    return NextResponse.json(
+      { error: "Kunne ikke oppdatere bruker" },
+      { status: 500 }
     )
   }
 } 

@@ -8,40 +8,43 @@ import { FileCheck, ChevronRight, AlertTriangle, CheckCircle, Download } from "l
 import { toast } from "sonner"
 import { useParams } from "next/navigation"
 
-interface CompletedRound {
-  id: string
-  title: string
-  description: string | null
-  completedAt: string
-  status: string
-  approvedAt?: string | null
-  approvedBy?: string | null
-  findings: Array<{
+interface CompletedRoundsListProps {
+  safetyRounds: Array<{
     id: string
-    severity: string
+    title: string
+    description: string | null
     status: string
-    measures: Array<{
-      completedAt: string | null
+    scheduledDate: Date | null
+    dueDate: Date | null
+    completedAt: Date | null
+    findings: Array<{
+      id: string
+      severity: string
+      status: string
+      measures: Array<{
+        completedAt: Date | null
+      }>
     }>
   }>
 }
 
-interface CompletedRoundsListProps {
-  rounds: CompletedRound[]
+function getSeverityCount(findings: CompletedRoundsListProps['safetyRounds'][0]['findings']) {
+  return {
+    low: findings.filter(f => f.severity === 'LOW').length,
+    medium: findings.filter(f => f.severity === 'MEDIUM').length,
+    high: findings.filter(f => f.severity === 'HIGH').length,
+    critical: findings.filter(f => f.severity === 'CRITICAL').length
+  }
 }
 
-export function CompletedRoundsList({ rounds }: CompletedRoundsListProps) {
+export function CompletedRoundsList({ safetyRounds }: CompletedRoundsListProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const params = useParams()
   const companyId = params.id as string
 
-  function getSeverityCount(findings: CompletedRound['findings']) {
-    return {
-      high: findings.filter(f => f.severity === 'HIGH').length,
-      medium: findings.filter(f => f.severity === 'MEDIUM').length,
-      low: findings.filter(f => f.severity === 'LOW').length,
-    }
-  }
+  const completedRounds = safetyRounds.filter(round => 
+    round.status === 'COMPLETED' || round.status === 'APPROVED'
+  )
 
   const handleDownloadReport = async (roundId: string, title: string) => {
     try {
@@ -75,7 +78,7 @@ export function CompletedRoundsList({ rounds }: CompletedRoundsListProps) {
     }
   }
 
-  if (rounds.length === 0) {
+  if (completedRounds.length === 0) {
     return (
       <div className="text-center py-6 text-muted-foreground">
         Ingen fullførte vernerunder
@@ -85,7 +88,7 @@ export function CompletedRoundsList({ rounds }: CompletedRoundsListProps) {
 
   return (
     <div className="space-y-4">
-      {rounds.map(round => {
+      {completedRounds.map(round => {
         const severityCounts = getSeverityCount(round.findings)
         const allMeasuresCompleted = round.findings.every(f => 
           f.measures.every(m => m.completedAt)
@@ -98,7 +101,7 @@ export function CompletedRoundsList({ rounds }: CompletedRoundsListProps) {
                 <h3 className="font-semibold mb-2">{round.title}</h3>
                 <div className="space-y-2">
                   <div className="text-sm text-muted-foreground">
-                    Fullført: {formatDate(round.completedAt)}
+                    Fullført: {round.completedAt ? formatDate(round.completedAt) : 'Ikke fullført'}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {severityCounts.high > 0 && (
@@ -107,12 +110,12 @@ export function CompletedRoundsList({ rounds }: CompletedRoundsListProps) {
                       </Badge>
                     )}
                     {severityCounts.medium > 0 && (
-                      <Badge variant="warning">
+                      <Badge variant="secondary">
                         {severityCounts.medium} middels risiko
                       </Badge>
                     )}
                     {severityCounts.low > 0 && (
-                      <Badge variant="secondary">
+                      <Badge variant="outline">
                         {severityCounts.low} lav risiko
                       </Badge>
                     )}
@@ -122,12 +125,12 @@ export function CompletedRoundsList({ rounds }: CompletedRoundsListProps) {
                         Alle tiltak utført
                       </Badge>
                     )}
-                    <Badge variant={round.status === 'APPROVED' ? 'success' : 'outline'}>
+                    <Badge variant={round.status === 'APPROVED' ? 'secondary' : 'outline'}>
                       {round.status === 'APPROVED' ? 'Godkjent' : 'Fullført'}
                     </Badge>
-                    {round.approvedAt && (
+                    {round.completedAt && (
                       <div className="text-sm text-muted-foreground">
-                        Godkjent: {formatDate(round.approvedAt)}
+                        Fullført: {formatDate(round.completedAt)}
                       </div>
                     )}
                   </div>

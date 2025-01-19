@@ -1,62 +1,66 @@
 import { NextResponse } from "next/server"
-import { z } from "zod"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
-import { requireAuth } from "@/lib/utils/auth"
 
-const linkChangeSchema = z.object({
-  hazardIds: z.array(z.string()).min(1),
-  changeId: z.string()
-})
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
-    const session = await requireAuth()
-    const body = await req.json()
-    
-    const validatedData = linkChangeSchema.parse(body)
-    const riskAssessmentId = params.id
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    }
 
-    // Opprett koblinger mellom farer og HMS-endring
-    await Promise.all(
-      validatedData.hazardIds.map(hazardId =>
-        prisma.hazardHMSChange.create({
-          data: {
-            hazardId,
-            hmsChangeId: validatedData.changeId
-          }
-        })
-      )
-    )
+    const { id } = await context.params
+    const { changeId } = await request.json()
 
-    // Koble risikovurderingen til HMS-endringen
-    await prisma.riskAssessmentHMSChange.create({
-      data: {
-        riskAssessmentId,
-        hmsChangeId: validatedData.changeId
+    // Sjekk om endringen eksisterer
+    const change = await prisma.hMSChange.findUnique({
+      where: { 
+        id: changeId,
+        companyId: session.user.companyId
       }
     })
 
-    // Logg handlingen
+    if (!change) {
+      return NextResponse.json({ error: "Endring ikke funnet" }, { status: 404 })
+    }
+
+    // Koble endringen til risikovurderingen
+    const linkedChange = await prisma.riskAssessmentHMSChange.create({
+      data: {
+        riskAssessmentId: id,
+        hmsChangeId: changeId,
+      }
+    })
+
+    // Logg koblingen
     await prisma.auditLog.create({
       data: {
         action: "LINK_HMS_CHANGE",
         entityType: "RISK_ASSESSMENT",
-        entityId: riskAssessmentId,
+        entityId: id,
         userId: session.user.id,
         companyId: session.user.companyId,
         details: {
-          hazardIds: validatedData.hazardIds,
-          changeId: validatedData.changeId
+          changeId,
+          changeTitle: change.title
         }
       }
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json(linkedChange)
   } catch (error) {
     console.error("Error linking HMS change:", error)
-    return new NextResponse("Internal error", { status: 500 })
+    return NextResponse.json(
+      { error: "Kunne ikke koble HMS-endring" },
+      { status: 500 }
+    )
   }
 } 

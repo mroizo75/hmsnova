@@ -3,49 +3,13 @@
 import React, { useState, useMemo } from "react"
 import { DeviationCard } from "./deviation-card"
 import { FilterBar, FilterOptions, SortOptions } from "./filter-bar"
-
-interface Measure {
-  id: string
-  description: string
-  type: string
-  status: string
-  priority: string
-  dueDate: Date | null
-  completedAt: Date | null
-}
-
-interface DeviationImage {
-  id: string
-  url: string
-  caption: string | null
-}
-
-interface Deviation {
-  id: string
-  title: string
-  description: string
-  type: string
-  category: string
-  severity: string
-  status: string
-  location: string | null
-  dueDate: Date | null
-  measures: Measure[]
-  images: DeviationImage[]
-  createdAt: Date
-  updatedAt: Date
-  closedAt: Date | null
-  createdBy: string
-  reportedBy: string
-  completedMeasures: number
-  totalMeasures: number
-}
+import type { Deviation } from "@/lib/types/deviation"
 
 interface Props {
   deviations: Deviation[]
 }
 
-export function DeviationList({ deviations: initialDeviations }: Props) {
+export function DeviationList({ deviations }: Props) {
   const [filters, setFilters] = useState<FilterOptions>({
     search: "",
     status: "all",
@@ -60,7 +24,7 @@ export function DeviationList({ deviations: initialDeviations }: Props) {
   })
 
   const filteredDeviations = useMemo(() => {
-    return initialDeviations.filter(deviation => {
+    return deviations.filter(deviation => {
       const matchesSearch = 
         filters.search === "" ||
         deviation.title.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -88,22 +52,23 @@ export function DeviationList({ deviations: initialDeviations }: Props) {
              matchesSeverity && 
              matchesCategory
     })
-  }, [initialDeviations, filters])
+  }, [deviations, filters])
 
   const sortedDeviations = useMemo(() => {
     return [...filteredDeviations].sort((a, b) => {
       const aValue = a[sort.field as keyof typeof a]
       const bValue = b[sort.field as keyof typeof b]
 
-      if (aValue === null) return 1
-      if (bValue === null) return -1
+      if (aValue === undefined || aValue === null) return 1
+      if (bValue === undefined || bValue === null) return -1
 
-      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-      return sort.direction === "asc" ? comparison : -comparison
+      return sort.direction === "asc" 
+        ? (aValue < bValue ? -1 : aValue > bValue ? 1 : 0)
+        : (aValue < bValue ? 1 : aValue > bValue ? -1 : 0)
     })
   }, [filteredDeviations, sort])
 
-  if (initialDeviations.length === 0) {
+  if (deviations.length === 0) {
     return (
       <div className="text-center p-8 text-muted-foreground">
         Ingen avvik funnet

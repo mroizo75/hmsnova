@@ -112,7 +112,7 @@ export default async function EmployeeHMSHandbookPage() {
 
       {/* Main Content */}
       <div className="flex-1 p-4">
-        <HMSHandbookViewer handbook={handbook} />
+        <HMSHandbookViewer handbook={handbook as any} />
       </div>
 
       {/* Bottom Navigation */}

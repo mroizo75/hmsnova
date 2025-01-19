@@ -8,9 +8,13 @@ const storage = new Storage({
   credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS || '{}'),
 })
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)

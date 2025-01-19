@@ -40,7 +40,7 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
         <div>
           <h1 className="text-3xl font-bold">{sja.tittel}</h1>
           <div className="mt-2">
-            <Badge variant={statusColors[sja.status as SJAStatus]}>
+            <Badge variant={statusColors[sja.status as SJAStatus] as any}>
               {statusLabels[sja.status as SJAStatus]}
             </Badge>
           </div>

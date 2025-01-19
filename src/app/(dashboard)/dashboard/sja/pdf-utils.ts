@@ -3,7 +3,7 @@ import { formatDate } from "@/lib/utils/date"
 import { jsPDF } from "jspdf"
 import autoTable from 'jspdf-autotable'
 import { statusLabels } from "@/lib/constants/sja"
-import { getSignedUrl } from "@/lib/storage"
+import { FareSymbol } from "@prisma/client"
 
 export async function generatePDF(sja: SJAWithRelations) {
   const doc = new jsPDF()
@@ -30,7 +30,7 @@ export async function generatePDF(sja: SJAWithRelations) {
     p.produkt.produktnavn,
     p.produkt.produsent || 'Ikke spesifisert',
     p.mengde || 'Ikke spesifisert',
-    p.produkt.fareSymboler?.map(fs => fs.symbol).join(', ') || 'Ingen'
+    p.produkt.fareSymboler?.map((fs: any) => fs.symbol).join(', ') || 'Ingen'
   ])
   
   autoTable(doc, {
@@ -39,31 +39,43 @@ export async function generatePDF(sja: SJAWithRelations) {
     body: produktData
   })
   
-  // Risikoer og tiltak
+  // Beskrivelse
   const currentY = (doc as any).lastAutoTable.finalY + 15
   doc.setFontSize(14)
-  doc.text("Risikoer og tiltak", 14, currentY)
+  doc.text("Beskrivelse", 14, currentY)
+  doc.setFontSize(12)
+  doc.text(sja.beskrivelse, 14, currentY + 7)
   
-  const risikoData = sja.risikoer.map(r => [
-    r.beskrivelse,
-    sja.tiltak
-      .filter(t => t.risikoId === r.id)
-      .map(t => `• ${t.beskrivelse}`)
-      .join('\n')
-  ])
+  // Risikoer og tiltak
+  const risikoY = currentY + 25
+  doc.setFontSize(14)
+  doc.text("Identifiserte risikoer", 14, risikoY)
   
-  autoTable(doc, {
-    startY: currentY + 5,
-    head: [['Risiko', 'Tiltak']],
-    body: risikoData
-  })
+  if (sja.risikoer && Array.isArray(sja.risikoer) && sja.risikoer.length > 0) {
+    const risikoData = sja.risikoer.map((r: any) => [
+      r.beskrivelse,
+      sja.tiltak
+        .filter((t: any) => t.risikoId === r.id)
+        .map((t: any) => `• ${t.beskrivelse}`)
+        .join('\n') || 'Ingen tiltak registrert'
+    ])
+    
+    autoTable(doc, {
+      startY: risikoY + 5,
+      head: [['Risiko', 'Tiltak']],
+      body: risikoData
+    })
+  } else {
+    doc.setFontSize(12)
+    doc.text("Ingen risikoer registrert", 14, risikoY + 7)
+  }
   
   // Vedlegg
-  const vedleggY = (doc as any).lastAutoTable.finalY + 15
+  const vedleggY = (doc as any).lastAutoTable?.finalY + 15 || risikoY + 25
   doc.setFontSize(14)
   doc.text("Vedlegg", 14, vedleggY)
   
-  if (sja.vedlegg.length > 0) {
+  if (sja.vedlegg && Array.isArray(sja.vedlegg) && sja.vedlegg.length > 0) {
     let currentY = vedleggY + 10
 
     for (const vedlegg of sja.vedlegg) {
@@ -125,7 +137,6 @@ export async function generatePDF(sja: SJAWithRelations) {
           currentY += height + 10
 
         } else {
-          // For ikke-bilde vedlegg, vis bare navn og type
           if (currentY > doc.internal.pageSize.height - 30) {
             doc.addPage()
             currentY = 20
@@ -134,7 +145,6 @@ export async function generatePDF(sja: SJAWithRelations) {
           doc.text(`📎 ${vedlegg.navn} (${vedlegg.type || 'Ukjent type'})`, 14, currentY)
           currentY += 7
         }
-
       } catch (error) {
         console.error(`Error processing vedlegg ${vedlegg.navn}:`, error)
         doc.setFontSize(12)
@@ -147,13 +157,13 @@ export async function generatePDF(sja: SJAWithRelations) {
     doc.text("Ingen vedlegg", 14, vedleggY + 10)
   }
   
-  // Footer med metadata (på siste side)
+  // Footer med metadata
   doc.setFontSize(10)
   const pageHeight = doc.internal.pageSize.height
-  doc.text(`Opprettet av: ${sja.opprettetAv.name}`, 14, pageHeight - 20)
-  doc.text(`Dato: ${formatDate(sja.opprettetDato)}`, 14, pageHeight - 15)
-  doc.text(`Bedrift: ${sja.company.name}`, 14, pageHeight - 10)
+  doc.text(`Opprettet av: ${sja.opprettetAv?.name || 'Ukjent'}`, 14, pageHeight - 20)
+  doc.text(`Dato: ${formatDate(sja.opprettetDato as any)}`, 14, pageHeight - 15)
+  doc.text(`Bedrift: ${sja.company?.name || 'Ukjent'}`, 14, pageHeight - 10)
   
   // Last ned PDF
   doc.save(`SJA-${sja.id}.pdf`)
-} 
+}

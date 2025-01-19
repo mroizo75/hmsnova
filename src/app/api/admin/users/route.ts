@@ -113,25 +113,25 @@ export async function POST(request: Request) {
       return NextResponse.json(user, { status: 201 })
     } catch (innerError) {
       console.error('Inner error details:', {
-        message: innerError.message,
-        code: innerError.code,
-        meta: innerError.meta
+        message: (innerError as any).message,
+        code: (innerError as any).code,
+        meta: (innerError as any).meta
       })
       throw innerError
     }
   } catch (error) {
     console.error('Outer error full details:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta,
-      stack: error.stack
+      message: (error as any).message,
+      code: (error as any).code,
+      meta: (error as any).meta,
+      stack: (error as any).stack
     })
     
     return NextResponse.json({ 
       error: "Kunne ikke opprette bruker",
       details: error instanceof Error ? error.message : "Ukjent feil",
-      code: error.code,
-      meta: error.meta
+      code: (error as any).code,
+      meta: (error as any).meta
     }, { status: 500 })
   }
 } 

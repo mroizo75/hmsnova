@@ -153,7 +153,6 @@ export function EditSectionDialog({ section, open, onOpenChange }: EditSectionDi
         <div className="mb-4">
           <HMSChanges 
             sectionId={section.id}
-            mode="view"
           />
         </div>
 

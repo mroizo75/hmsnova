@@ -9,17 +9,12 @@ import * as z from "zod"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Calendar } from "@/components/ui/calendar"
 import { toast } from "sonner"
 import { SJAWithRelations } from "./types"
 import { useDropzone } from "react-dropzone"
 import Image from "next/image"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Check, ChevronsUpDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
+import { Combobox } from "@/components/ui/combobox"
 
 const formSchema = z.object({
   tittel: z.string().min(1, "Tittel er påkrevd"),
@@ -414,57 +409,23 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                 <div className="space-y-4">
                   <FormLabel>Produkter fra stoffkartotek</FormLabel>
                   <div className="flex flex-col gap-4">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="justify-between"
-                          disabled={isLoadingProdukter}
-                        >
-                          {isLoadingProdukter ? "Laster produkter..." : "Velg produkt"}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0">
-                        <Command shouldFilter={false}>
-                          <CommandInput placeholder="Søk etter produkt..." />
-                          <CommandList>
-                            <CommandEmpty>
-                              {isLoadingProdukter ? "Laster..." : "Ingen produkter funnet."}
-                            </CommandEmpty>
-                            {produkter.length > 0 && (
-                              <CommandGroup>
-                                {produkter.map((produkt) => (
-                                  <CommandItem
-                                    key={produkt.id}
-                                    value={produkt.id}
-                                    onSelect={() => {
-                                      if (!valgteProdukter.some(p => p.produktId === produkt.id)) {
-                                        setValgteProdukter(prev => [
-                                          ...prev,
-                                          { produktId: produkt.id, mengde: "" }
-                                        ])
-                                      }
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        valgteProdukter.some(p => p.produktId === produkt.id)
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
-                                    />
-                                    {produkt.produktnavn} - {produkt.produsent}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            )}
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <Combobox
+                      options={produkter.map(p => ({
+                        id: p.id,
+                        label: `${p.produktnavn} - ${p.produsent}`
+                      }))}
+                      onSelect={(value) => {
+                        const produkt = produkter.find(p => p.id === value)
+                        if (produkt && !valgteProdukter.some(p => p.produktId === produkt.id)) {
+                          setValgteProdukter(prev => [...prev, { 
+                            produktId: produkt.id, 
+                            mengde: "" 
+                          }])
+                        }
+                      }}
+                      placeholder="Velg produkt"
+                      isLoading={isLoadingProdukter}
+                    />
 
                     {/* Vis valgte produkter */}
                     <div className="space-y-2">

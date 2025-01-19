@@ -1,9 +1,22 @@
 import { HMSChanges } from "@/components/hms/hms-changes"
 import { Button } from "@/components/ui/button"
-import { Dialog } from "@/components/ui/dialog"
+import { Dialog, DialogTitle, DialogHeader, DialogContent } from "@/components/ui/dialog"
+import type { Hazard } from "@prisma/client"
 import { useState } from "react"
 
-export function HazardDetails({ hazard }: { hazard: Hazard }) {
+type HazardWithRelations = Hazard & {
+  hmsChanges: Array<{
+    hmsChange: {
+      id: string
+      title: string
+      description: string
+      status: string
+      changeType: string
+    }
+  }>
+}
+
+export function HazardDetails({ hazard }: { hazard: HazardWithRelations }) {
   const [showHMSDialog, setShowHMSDialog] = useState(false)
 
   return (
@@ -23,7 +36,7 @@ export function HazardDetails({ hazard }: { hazard: Hazard }) {
 
         {/* Vis eksisterende HMS-endringer koblet til denne faren */}
         <div className="space-y-4">
-          {hazard.hmsChanges?.map(change => (
+          {hazard.hmsChanges?.map((change: any) => (
             <div key={change.id} className="p-4 bg-muted rounded-lg">
               <h4 className="font-medium">{change.title}</h4>
               <p className="text-sm text-muted-foreground mt-1">
@@ -47,10 +60,9 @@ export function HazardDetails({ hazard }: { hazard: Hazard }) {
               </DialogTitle>
             </DialogHeader>
             <HMSChanges 
-              sectionId={hazard.riskAssessment.department || 'general'}
+              sectionId={hazard.riskAssessmentId}
               riskAssessmentId={hazard.riskAssessmentId}
               hazardId={hazard.id}
-              mode="create"
               context={{
                 type: 'HAZARD',
                 description: hazard.description,

@@ -1,78 +1,39 @@
-import nodemailer from 'nodemailer'
+import * as postmark from 'postmark'
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.sendgrid.net',
-  port: 587,
-  secure: false, // true for 465, false for andre porter
-  auth: {
-    user: 'apikey', // SendGrid bruker 'apikey' som brukernavn
-    pass: process.env.SENDGRID_API_KEY,
-  }
-})
+const client = process.env.POSTMARK_API_KEY
+  ? new postmark.ServerClient(process.env.POSTMARK_API_KEY)
+  : null
 
-// Legg til en retry-mekanisme
-async function retryOperation<T>(
-  operation: () => Promise<T>,
-  retries = 3,
-  delay = 1000
-): Promise<T> {
-  try {
-    return await operation()
-  } catch (error) {
-    if (retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay))
-      return retryOperation(operation, retries - 1, delay * 2)
-    }
-    throw error
-  }
-}
-
-interface WelcomeEmailProps {
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  from = 'no-reply@innutio.no'
+}: {
   to: string
-  name: string
-  password: string
-  companyName: string
+  subject: string
+  html: string
+  from?: string
+}) {
+  try {
+    if (!client) {
+      console.error('POSTMARK_API_KEY is not configured')
+      return { success: false, error: 'Email service not configured' }
+    }
+
+    const result = await client.sendEmail({
+      From: from,
+      To: to,
+      Subject: subject,
+      HtmlBody: html,
+      MessageStream: 'outbound'
+    })
+
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('Error sending email:', error)
+    return { success: false, error }
+  }
 }
 
-export async function sendWelcomeEmail({ to, name, password, companyName }: WelcomeEmailProps) {
-  try {
-    // Prøv å sende e-post med retry
-    const info = await retryOperation(() => 
-      transporter.sendMail({
-        from: `"innut.io" <${process.env.SMTP_FROM}>`,
-        to,
-        subject: 'Velkommen til innut.io',
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #15803d;">Velkommen til innut.io</h1>
-            <p>Hei ${name},</p>
-            <p>Du har blitt lagt til som bruker i ${companyName} sitt HMS-system.</p>
-            <p>Her er din innloggingsinformasjon:</p>
-            <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
-              <p style="margin: 0;"><strong>E-post:</strong> ${to}</p>
-              <p style="margin: 8px 0 0;"><strong>Passord:</strong> ${password}</p>
-            </div>
-            <p>Du kan logge inn på <a href="${process.env.NEXTAUTH_URL}/login" style="color: #15803d;">innut.io</a></p>
-            <p>Av sikkerhetsmessige årsaker anbefaler vi at du endrer passordet ditt ved første innlogging.</p>
-            <p>Vennlig hilsen<br>innut.io</p>
-          </div>
-        `,
-      })
-    )
-
-    return {
-      success: true,
-      messageId: info.messageId
-    }
-  } catch (error) {
-    console.error('Email service error:', {
-      error,
-      errorMessage: error.message
-    })
-    
-    return {
-      success: false,
-      error: error.message
-    }
-  }
-} 
+export default sendEmail 

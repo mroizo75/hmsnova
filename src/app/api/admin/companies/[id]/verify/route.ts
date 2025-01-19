@@ -3,31 +3,39 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
     if (!session?.user || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { isVerified } = await req.json()
-    const { id } = params
+    const { id } = await context.params
+    const data = await request.json()
 
     const company = await prisma.company.update({
-      where: { id },
-      data: { 
-        isVerified,
-        verificationDate: isVerified ? new Date() : null
+      where: {
+        id: id
+      },
+      data: {
+        isVerified: data.isVerified,
+        verificationDate: data.isVerified ? new Date() : null
       }
     })
 
     return NextResponse.json(company)
   } catch (error) {
-    console.error('Error updating company:', error)
-    return new NextResponse("Internal error", { status: 500 })
+    console.error('Error verifying company:', error)
+    return NextResponse.json(
+      { error: "Kunne ikke verifisere bedrift" },
+      { status: 500 }
+    )
   }
 } 

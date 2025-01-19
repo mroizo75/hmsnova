@@ -75,7 +75,7 @@ export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
             <p className="text-sm text-muted-foreground">{hazard.consequence}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={getRiskColor(hazard.riskLevel)}>
+            <Badge variant="outline">
               Risikonivå: {hazard.riskLevel}
             </Badge>
             <Badge variant="secondary">
@@ -107,8 +107,7 @@ export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
             <MeasureList 
               assessmentId={assessmentId}
               hazardId={hazard.id}
-              measures={hazard.riskMeasures}
-              type="risk"
+              measures={hazard.measures}
             />
           </div>
         </CollapsibleContent>

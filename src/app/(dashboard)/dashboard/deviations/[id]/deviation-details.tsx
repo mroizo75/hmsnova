@@ -51,8 +51,13 @@ interface Deviation {
   images: DeviationImage[]
 }
 
-export function DeviationDetails({ deviation }: { deviation: Deviation }) {
+interface DeviationDetailsProps {
+  params: { id: string }
+}
+
+export function DeviationDetails({ params }: DeviationDetailsProps) {
   const router = useRouter()
+  const [deviation, setDeviation] = useState<Deviation | null>(null)
   const [measureDialogOpen, setMeasureDialogOpen] = useState(false)
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [imageToDelete, setImageToDelete] = useState<DeviationImage | null>(null)
@@ -62,10 +67,14 @@ export function DeviationDetails({ deviation }: { deviation: Deviation }) {
   const [hasHMSChanges, setHasHMSChanges] = useState(false)
   const [measures, setMeasures] = useState<any[]>([])
 
+  useEffect(() => {
+    fetchDeviation()
+  }, [params.id])
+
   const handleDeleteImage = async (image: DeviationImage) => {
     try {
       setIsDeleting(true)
-      const response = await fetch(`/api/deviations/${deviation.id}/images/${image.id}`, {
+      const response = await fetch(`/api/deviations/${params.id}/images/${image.id}`, {
         method: 'DELETE',
       })
 
@@ -88,12 +97,11 @@ export function DeviationDetails({ deviation }: { deviation: Deviation }) {
   }
 
   const handleClose = async () => {
+    if (!deviation) return
     try {
       setIsClosing(true)
-      
-      // Hvis det er HMS-endringer, sjekk at de er implementert
       if (hasHMSChanges) {
-        const response = await fetch(`/api/deviations/${deviation.id}/hms-changes`)
+        const response = await fetch(`/api/deviations/${params.id}/hms-changes`)
         const changes = await response.json()
         const unimplementedChanges = changes.filter((c: any) => !c.implementedAt)
         
@@ -103,7 +111,7 @@ export function DeviationDetails({ deviation }: { deviation: Deviation }) {
         }
       }
 
-      const response = await fetch(`/api/deviations/${deviation.id}/close`, {
+      const response = await fetch(`/api/deviations/${params.id}/close`, {
         method: 'POST',
       })
 
@@ -135,6 +143,8 @@ export function DeviationDetails({ deviation }: { deviation: Deviation }) {
     }
   }
 
+  if (!deviation) return null
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -147,11 +157,11 @@ export function DeviationDetails({ deviation }: { deviation: Deviation }) {
               </Button>
             </Link>
             <h1 className="text-3xl font-bold tracking-tight">
-              {deviation.title}
+              {deviation?.title}
             </h1>
           </div>
           <p className="text-muted-foreground">
-            {deviation.category} • {typeLabels[deviation.type]}
+            {deviation?.category} • {typeLabels[deviation?.type]}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -175,13 +185,13 @@ export function DeviationDetails({ deviation }: { deviation: Deviation }) {
               <div>
                 <h2 className="text-xl font-semibold mb-2">Beskrivelse</h2>
                 <p className="text-muted-foreground whitespace-pre-wrap">
-                  {deviation.description}
+                  {deviation?.description}
                 </p>
               </div>
-              {deviation.location && (
+              {deviation?.location && (
                 <div>
                   <h3 className="font-semibold mb-1">Sted</h3>
-                  <p className="text-muted-foreground">{deviation.location}</p>
+                  <p className="text-muted-foreground">{deviation?.location}</p>
                 </div>
               )}
             </div>
@@ -275,9 +285,8 @@ export function DeviationDetails({ deviation }: { deviation: Deviation }) {
         <CardContent>
           <HMSChanges 
             deviationId={deviation.id} 
-            measures={measures}
             onHasChanges={(hasChanges) => {
-              // Håndter endringer om nødvendig
+              setHasHMSChanges(hasChanges)
             }}
           />
         </CardContent>

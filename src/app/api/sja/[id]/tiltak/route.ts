@@ -16,7 +16,7 @@ export async function POST(
     const { id } = await params
     const tiltakData = await request.json()
 
-    const sja = await prisma.sja.findFirst({
+    const sja = await prisma.sJA.findFirst({
       where: {
         id,
         companyId: session.user.companyId
@@ -58,7 +58,7 @@ export async function PUT(
     const { id } = await params
     const { tiltak: tiltakListe } = await request.json()
 
-    const sja = await prisma.sja.findFirst({
+    const sja = await prisma.sJA.findFirst({
       where: {
         id,
         companyId: session.user.companyId
@@ -106,7 +106,7 @@ export async function PATCH(
     const { id } = await params
     const { tiltakId, status } = await request.json()
 
-    const sja = await prisma.sja.findFirst({
+    const sja = await prisma.sJA.findFirst({
       where: {
         id,
         companyId: session.user.companyId

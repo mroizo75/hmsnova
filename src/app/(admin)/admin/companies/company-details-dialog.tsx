@@ -230,6 +230,8 @@ export function CompanyDetailsDialog({
   }
 
   const handleUpdatePaymentStatus = async () => {
+    if (!company) return // Early return hvis company er null
+    
     setIsUpdatingPayment(true)
     try {
       const nextStatus = 
@@ -253,7 +255,8 @@ export function CompanyDetailsDialog({
       toast.success("Betalingsstatus oppdatert")
       window.location.reload()
     } catch (error) {
-      toast.error("Kunne ikke oppdatere betalingsstatus")
+      console.error('Error updating payment status:', error)
+      toast.error('Kunne ikke oppdatere betalingsstatus')
     } finally {
       setIsUpdatingPayment(false)
     }
@@ -305,10 +308,10 @@ export function CompanyDetailsDialog({
                           <dt className="text-sm text-muted-foreground">Status</dt>
                           <dd>
                             <div className="flex gap-2 mt-1">
-                              <Badge variant={company.isVerified ? "success" : "secondary"}>
+                              <Badge variant={company.isVerified ? "secondary" : "outline"}>
                                 {company.isVerified ? "Verifisert" : "Ikke verifisert"}
                               </Badge>
-                              <Badge variant={company.isActive ? "default" : "secondary"}>
+                              <Badge variant={company.isActive ? "default" : "outline"}>
                                 {company.isActive ? "Aktiv" : "Inaktiv"}
                               </Badge>
                             </div>
@@ -332,10 +335,10 @@ export function CompanyDetailsDialog({
                           <dt className="text-sm text-muted-foreground">Status</dt>
                           <dd>
                             <Badge className="mt-1" variant={
-                              company.paymentStatus === 'PAID' ? "success" :
-                              company.paymentStatus === 'PENDING' ? "warning" :
+                              company.paymentStatus === 'PAID' ? "secondary" :
+                              company.paymentStatus === 'PENDING' ? "default" :
                               company.paymentStatus === 'OVERDUE' ? "destructive" :
-                              "secondary"
+                              "outline"
                             }>
                               {company.paymentStatus === 'PAID' ? "Betalt" :
                                company.paymentStatus === 'PENDING' ? "Venter" :
@@ -344,10 +347,10 @@ export function CompanyDetailsDialog({
                             </Badge>
                           </dd>
                         </div>
-                        {company.lastPaymentDate && (
+                        {company.paymentStatus === 'PAID' && (
                           <div>
                             <dt className="text-sm text-muted-foreground">Sist betalt</dt>
-                            <dd>{formatDate(company.lastPaymentDate)}</dd>
+                            <dd>{formatDate(company.lastPaymentDate || 'Aldri')}</dd>
                           </div>
                         )}
                       </dl>

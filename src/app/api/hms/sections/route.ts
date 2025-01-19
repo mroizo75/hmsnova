@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("5. Error in GET sections:", error)
     return NextResponse.json(
-      { error: "Kunne ikke hente seksjoner", details: error.message },
+      { error: "Kunne ikke hente seksjoner", details: error instanceof Error ? error.message : "Ukjent feil" },
       { status: 500 }
     )
   }

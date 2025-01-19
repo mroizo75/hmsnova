@@ -3,9 +3,13 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,17 +17,17 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
 
     await prisma.hMSTemplate.delete({
       where: { id }
     })
 
-    return NextResponse.json({ message: "HMS-mal slettet" })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting HMS template:', error)
+    console.error('Error deleting template:', error)
     return NextResponse.json(
-      { error: "Kunne ikke slette HMS-mal" },
+      { error: "Kunne ikke slette malen" },
       { status: 500 }
     )
   }
@@ -31,7 +35,7 @@ export async function DELETE(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -39,7 +43,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
     const body = await request.json()
     const { name, description, industry, isDefault } = body
 

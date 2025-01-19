@@ -28,7 +28,7 @@ interface DeviationCardProps {
     id: string
     title: string
     description: string
-    priority: string
+    priority?: string
     status: string
     createdAt: Date
     createdBy: string
@@ -83,7 +83,7 @@ export function DeviationCard({ deviation }: DeviationCardProps) {
             <span className="font-medium">Opprettet:</span> {formatDate(deviation.createdAt)}
           </div>
           <div>
-            <span className="font-medium">Alvorlighet:</span> {priorityLabels[deviation.priority]}
+            <span className="font-medium">Alvorlighet:</span> {deviation.priority ? priorityLabels[deviation.priority] : "Ingen prioritet"}
           </div>
           <div>
             <span className="font-medium">Opprettet av:</span> {deviation.createdBy}

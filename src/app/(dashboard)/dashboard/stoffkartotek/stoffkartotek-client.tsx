@@ -76,7 +76,14 @@ export function StoffkartotekClient({ products: initialProducts }: Stoffkartotek
       <AddStoffkartotekModal 
         open={dialogOpen} 
         onOpenChange={setDialogOpen}
-        onAdd={handleAddProduct}
+        onAdd={async (formData: FormData) => {
+          const response = await fetch('/api/stoffkartotek', {
+            method: 'POST',
+            body: formData
+          });
+          const newProduct = await response.json();
+          handleAddProduct(newProduct);
+        }}
       />
     </div>
   )

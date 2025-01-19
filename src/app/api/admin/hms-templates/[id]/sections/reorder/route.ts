@@ -3,9 +3,13 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,20 +17,27 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { sections } = body
+    const { id } = await context.params
+    const { sections } = await request.json()
 
-    // Oppdater rekkefølgen for alle seksjoner
+    // Oppdater rekkefølgen på alle seksjoner
     await Promise.all(
-      sections.map(({ id, order }) =>
+      sections.map((section: { id: string; order: number }) =>
         prisma.hMSTemplateSection.update({
-          where: { id },
-          data: { order }
+          where: {
+            id: section.id,
+            templateId: id
+          },
+          data: {
+            order: section.order,
+            lastEditedBy: session.user.id,
+            lastEditedAt: new Date()
+          }
         })
       )
     )
 
-    return NextResponse.json({ message: "Rekkefølge oppdatert" })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error reordering sections:', error)
     return NextResponse.json(

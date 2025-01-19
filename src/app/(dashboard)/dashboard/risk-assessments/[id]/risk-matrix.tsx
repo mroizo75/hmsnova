@@ -80,7 +80,7 @@ export function RiskMatrix({ data }: RiskMatrixProps) {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-red-100" />
-          <span>Høy risiko (>15)</span>
+          <span>Høy risiko ({">"}15)</span>
         </div>
       </div>
     </div>

@@ -75,13 +75,13 @@ export function FilterBar({
       <div className="flex items-center gap-4">
         <DatePicker
           placeholder="Fra dato"
-          date={filterOptions.dateFrom}
-          onDateChange={(date) => onFilterChange({ ...filterOptions, dateFrom: date })}
+          date={filterOptions.dateFrom || undefined}
+          setDate={(date: Date | undefined) => onFilterChange({ ...filterOptions, dateFrom: date || null })}
         />
         <DatePicker
           placeholder="Til dato"
           date={filterOptions.dateTo || undefined}
-          onDateChange={(date) => onFilterChange({ ...filterOptions, dateTo: date })}
+          setDate={(date: Date | undefined) => onFilterChange({ ...filterOptions, dateTo: date || null })}
         />
         <Select
           value={sortOption}

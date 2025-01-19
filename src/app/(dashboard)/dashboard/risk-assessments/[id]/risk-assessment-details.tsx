@@ -5,8 +5,16 @@ import { HMSChanges } from "@/components/hms/hms-changes"
 import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { RiskAssessment } from "@prisma/client"
 
-export function RiskAssessmentDetails({ riskAssessment }: { riskAssessment: RiskAssessment }) {
+type RiskAssessmentWithRelations = RiskAssessment & {
+  relatedHMSSections?: Array<{
+    id: string
+    title: string
+  }>
+}
+
+export function RiskAssessmentDetails({ riskAssessment }: { riskAssessment: RiskAssessmentWithRelations }) {
   const [showHMSDialog, setShowHMSDialog] = useState(false)
   const [canFinalize, setCanFinalize] = useState(false)
 
@@ -18,6 +26,19 @@ export function RiskAssessmentDetails({ riskAssessment }: { riskAssessment: Risk
     }
     checkHMSChanges()
   }, [riskAssessment.id])
+
+  const handleFinalize = async () => {
+    try {
+      const response = await fetch(`/api/risk-assessments/${riskAssessment.id}/finalize`, {
+        method: 'POST'
+      })
+      if (!response.ok) throw new Error('Kunne ikke fullføre risikovurderingen')
+      // Håndter vellykket fullføring (f.eks. redirect eller oppdater UI)
+    } catch (error) {
+      console.error('Error finalizing risk assessment:', error)
+      // Vis feilmelding til bruker
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -78,7 +99,6 @@ export function RiskAssessmentDetails({ riskAssessment }: { riskAssessment: Risk
             <HMSChanges 
               sectionId={riskAssessment.department || 'general'}
               riskAssessmentId={riskAssessment.id}
-              mode="create"
             />
           </div>
         </DialogContent>
@@ -95,7 +115,6 @@ export function RiskAssessmentDetails({ riskAssessment }: { riskAssessment: Risk
           <HMSChanges 
             sectionId={riskAssessment.department || 'general'}
             riskAssessmentId={riskAssessment.id}
-            required={!canFinalize && riskAssessment.status !== 'COMPLETED'}
           />
         </CardContent>
       </Card>

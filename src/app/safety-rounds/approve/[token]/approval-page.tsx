@@ -135,7 +135,7 @@ export function ApprovalPage({ approval }: Props) {
                     <div key={item.question} className="border p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge variant={
-                          item.response === 'YES' ? 'success' :
+                          item.response === 'YES' ? 'default' :
                           item.response === 'NO' ? 'destructive' :
                           'secondary'
                         }>
@@ -172,7 +172,7 @@ export function ApprovalPage({ approval }: Props) {
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant={
                     finding.severity === 'HIGH' ? 'destructive' :
-                    finding.severity === 'MEDIUM' ? 'warning' :
+                    finding.severity === 'MEDIUM' ? 'outline' :
                     'secondary'
                   }>
                     {finding.severity}

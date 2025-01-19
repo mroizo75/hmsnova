@@ -14,20 +14,26 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ChecklistItem } from "../types"
 
-interface ChecklistItem {
-  id?: string
+export interface ChecklistItemInput {
   category: string
   question: string
-  description?: string
+  description: string | null
   isRequired: boolean
   order: number
+  response?: string | null
+  comment?: string | null
+  imageUrl?: string | null
+  completedAt?: string | null
+  completedBy?: string | null
+  safetyRoundId?: string
 }
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (data: Omit<ChecklistItem, 'id'>) => Promise<void>
+  onSubmit: (data: ChecklistItemInput) => Promise<void>
   initialData?: ChecklistItem
   existingCategories: string[]
 }

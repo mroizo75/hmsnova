@@ -16,7 +16,7 @@ export async function POST(
     const { id } = await params
     const risikoData = await request.json()
 
-    const sja = await prisma.sja.findFirst({
+    const sja = await prisma.sJA.findFirst({
       where: {
         id,
         companyId: session.user.companyId
@@ -57,7 +57,7 @@ export async function PUT(
     const { id } = await params
     const { risikoer } = await request.json()
 
-    const sja = await prisma.sja.findFirst({
+    const sja = await prisma.sJA.findFirst({
       where: {
         id,
         companyId: session.user.companyId

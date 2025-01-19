@@ -3,9 +3,13 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,10 +17,11 @@ export async function GET(
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
+    const { id } = await context.params
+
     const document = await prisma.document.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
-        versions: true,
         user: {
           select: {
             name: true,
@@ -42,7 +47,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -50,9 +55,11 @@ export async function PUT(
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
+    const { id } = await context.params
     const body = await request.json()
+    
     const document = await prisma.document.update({
-      where: { id: params.id },
+      where: { id },
       data: body
     })
 
@@ -68,7 +75,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -76,8 +83,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
+    const { id } = await context.params
+
     await prisma.document.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ success: true })

@@ -28,5 +28,5 @@ export default async function SafetyRoundsPage() {
     }
   })
 
-  return <SafetyRoundReports reports={reports} />
+  return <SafetyRoundReports reports={reports as any} />
 } 

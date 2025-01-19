@@ -7,16 +7,20 @@ const approveSchema = z.object({
   comment: z.string().min(10),
 })
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await requireAuth()
     const body = await req.json()
     
     const validatedData = approveSchema.parse(body)
-    const changeId = params.id
+    const { id: changeId } = await context.params
 
     const change = await prisma.hMSChange.update({
       where: {

@@ -1,41 +1,73 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
+import { NextResponse } from "next/server"
+import { z } from "zod"
 import prisma from "@/lib/db"
+import { requireAuth } from "@/lib/utils/auth"
+
+const implementSchema = z.object({
+  comment: z.string().min(10),
+  implementationDetails: z.string().optional()
+})
+
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    const session = await requireAuth()
+    const body = await request.json()
+    
+    const validatedData = implementSchema.parse(body)
+    const { id } = await context.params
+
+    // Sjekk om endringen eksisterer og tilhører riktig bedrift
+    const change = await prisma.hMSChange.findUnique({
+      where: {
+        id,
+        companyId: session.user.companyId
+      }
+    })
+
+    if (!change) {
+      return NextResponse.json({ error: "HMS-endring ikke funnet" }, { status: 404 })
     }
 
-    const change = await prisma.hMSChange.update({
-      where: { id: params.id },
+    // Oppdater implementeringen
+    const updatedChange = await prisma.hMSChange.update({
+      where: { id },
       data: {
-        status: "COMPLETED",
-        implementedAt: new Date(),
+        status: 'COMPLETED',
+        implementedAt: new Date()
       }
     })
 
-    // Opprett en ny versjon av HMS-håndboken
-    await prisma.hMSRelease.create({
+    // Logg implementeringen
+    await prisma.auditLog.create({
       data: {
-        handbookId: change.sectionId, // Kobling til riktig håndbok
-        version: 1, // Increment version
-        changes: `Implementert endring: ${change.title}`,
-        reason: change.description,
-        approvedBy: session.user.id,
-        content: {} // Legg til nødvendig innhold
+        action: "IMPLEMENT_HMS_CHANGE",
+        entityType: "HMS_CHANGE",
+        entityId: id,
+        userId: session.user.id,
+        companyId: session.user.companyId,
+        details: {
+          comment: validatedData.comment,
+          implementationDetails: validatedData.implementationDetails
+        }
       }
     })
 
-    return NextResponse.json(change)
+    return NextResponse.json(updatedChange)
   } catch (error) {
     console.error("Error implementing HMS change:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Validation error", details: error.errors },
+        { status: 400 }
+      )
+    }
     return NextResponse.json(
       { error: "Kunne ikke implementere HMS-endring" },
       { status: 500 }

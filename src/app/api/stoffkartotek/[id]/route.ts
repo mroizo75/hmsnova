@@ -3,9 +3,13 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,7 +17,7 @@ export async function DELETE(
       return new Response("Unauthorized", { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
 
     await prisma.stoffkartotek.delete({
       where: {
@@ -30,7 +34,7 @@ export async function DELETE(
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -38,9 +42,11 @@ export async function GET(
       return new Response("Unauthorized", { status: 401 })
     }
 
+    const { id } = await context.params
+
     const product = await prisma.stoffkartotek.findUnique({
       where: {
-        id: params.id
+        id: id
       },
       include: {
         fareSymboler: true
@@ -60,7 +66,7 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -68,7 +74,7 @@ export async function PUT(
       return new Response("Unauthorized", { status: 401 })
     }
 
-    const { id } = await params
+    const { id } = await context.params
     const data = await req.json()
 
     const product = await prisma.stoffkartotek.update({

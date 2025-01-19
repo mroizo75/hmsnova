@@ -6,12 +6,36 @@ import { Plus, Calendar, ClipboardCheck } from "lucide-react"
 import { CreateSafetyRoundDialog } from "./create-safety-round-dialog"
 import { SafetyRoundsList } from "./safety-rounds-list"
 import { CompletedRoundsList } from "./completed-rounds-list"
+import { Role } from "@prisma/client"
 
 interface SafetyRoundsAdminClientProps {
   companyId: string
+  safetyRounds: Array<{
+    id: string
+    title: string
+    description: string | null
+    status: string
+    scheduledDate: Date | null
+    dueDate: Date | null
+    completedAt: Date | null
+    findings: Array<{
+      id: string
+      severity: string
+      status: string
+      measures: Array<{
+        completedAt: Date | null
+      }>
+    }>
+  }>
+  users: Array<{
+    id: string
+    name: string | null
+    email: string
+    role: Role
+  }>
 }
 
-export function SafetyRoundsAdminClient({ companyId }: SafetyRoundsAdminClientProps) {
+export function SafetyRoundsAdminClient({ companyId, safetyRounds, users }: SafetyRoundsAdminClientProps) {
   const refreshData = () => {
     window.location.reload()
   }
@@ -31,7 +55,7 @@ export function SafetyRoundsAdminClient({ companyId }: SafetyRoundsAdminClientPr
           <SafetyRoundsList companyId={companyId} />
         </TabsContent>
         <TabsContent value="completed">
-          <CompletedRoundsList companyId={companyId} />
+          <CompletedRoundsList safetyRounds={safetyRounds} />
         </TabsContent>
       </Tabs>
     </div>

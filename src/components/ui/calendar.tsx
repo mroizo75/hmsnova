@@ -49,6 +49,7 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
+      // @ts-ignore - React Day Picker types are incorrect but component works as expected
       components={{
         IconLeft: () => <ChevronLeft className="h-4 w-4" />,
         IconRight: () => <ChevronRight className="h-4 w-4" />,

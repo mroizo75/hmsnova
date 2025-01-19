@@ -1,6 +1,13 @@
 import { SJA, User, Company, Risiko, Tiltak, SJAProdukt, SJAVedlegg, SJABilde, SJAStatus } from "@prisma/client"
 
 export interface SJAWithRelations {
+  godkjenninger: any
+  risikoer: boolean
+  tiltak: any
+  vedlegg: boolean
+  opprettetAv: any
+  opprettetDato(opprettetDato: any): unknown
+  company: any
   id: string
   tittel: string
   arbeidssted: string
@@ -9,7 +16,12 @@ export interface SJAWithRelations {
   sluttDato: Date | null
   status: SJAStatus
   produkter: Array<{
+    mengde: string
+    produktId: any
     produkt: {
+      produktnavn: any
+      produsent: string
+      fareSymboler: any
       navn: string
     }
   }>

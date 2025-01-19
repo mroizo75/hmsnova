@@ -15,6 +15,31 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
+interface Insight {
+  id: string
+  category: string
+  count: number
+  trend: 'up' | 'down' | 'stable'
+  description: string
+  severity: 'LOW' | 'MEDIUM' | 'HIGH'
+  recommendation: string
+  impact: string
+  confidence: number
+  affectedCompanies: number
+  deviations: Array<{
+    id: string
+    title: string
+    status: string
+    priority: string
+    category: string
+  }>
+}
+
+interface AnalysisData {
+  insights: Insight[]
+  totalDeviations: number
+}
+
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions)
   if (!session?.user || session.user.role !== 'ADMIN') {
@@ -76,7 +101,11 @@ export default async function AdminDashboardPage() {
   ])
 
   // Hent og analyser avvik direkte
-  let analysisData = { insights: [], totalDeviations: 0 }
+  let analysisData: AnalysisData = {
+    insights: [],
+    totalDeviations: 0
+  }
+
   try {
     const deviations = await prisma.deviation.findMany({
       select: {
@@ -166,7 +195,7 @@ export default async function AdminDashboardPage() {
       totalDeviations: deviations.length
     }
   } catch (error) {
-    console.error('Error analyzing deviations:', error)
+    console.error('Error fetching analysis data:', error)
   }
 
   return (

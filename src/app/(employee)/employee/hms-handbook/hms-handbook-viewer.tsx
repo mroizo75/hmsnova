@@ -69,7 +69,7 @@ export function HMSHandbookViewer({ handbook }: HMSHandbookViewerProps) {
                 
                 {section.subsections.length > 0 && (
                   <Accordion type="single" collapsible className="mt-4">
-                    {section.subsections.map((subsection) => (
+                    {section.subsections.map((subsection: any) => (
                       <AccordionItem key={subsection.id} value={subsection.id}>
                         <AccordionTrigger className="text-base hover:no-underline">
                           {subsection.title}

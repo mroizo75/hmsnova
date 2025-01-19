@@ -5,6 +5,8 @@ import { ReportsClient } from "./reports-client"
 import { notFound } from "next/navigation"
 import { headers } from "next/headers"
 
+export const dynamic = 'force-dynamic'
+
 export default async function ReportsPage() {
   try {
     const session = await getServerSession(authOptions)
@@ -19,6 +21,9 @@ export default async function ReportsPage() {
           _count: true,
           where: {
             companyId: session.user.companyId
+          },
+          orderBy: {
+            status: 'asc'
           }
         }),
         
@@ -28,6 +33,9 @@ export default async function ReportsPage() {
           _count: true,
           where: {
             companyId: session.user.companyId
+          },
+          orderBy: {
+            status: 'asc'
           }
         }),
         
@@ -40,6 +48,9 @@ export default async function ReportsPage() {
             createdAt: {
               gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
             }
+          },
+          orderBy: {
+            createdAt: 'asc'
           }
         })
       ]),

@@ -19,6 +19,7 @@ interface Measure {
   priority: string
   dueDate: Date | null
   completedAt: Date | null
+  assignedTo: string | null
 }
 
 interface Hazard {
@@ -30,6 +31,23 @@ interface Hazard {
   riskLevel: number
   existingMeasures: string | null
   measures: Measure[]
+  riskMeasures: {
+    id: string
+    description: string
+    status: string
+    type: string
+    priority: string
+    hazardId: string
+  }[]
+  hmsChanges: {
+    hmsChange: {
+      id: string
+      title: string
+      description: string
+      status: string
+      implementedAt: Date | null
+    }
+  }[]
 }
 
 interface RiskAssessment {
@@ -135,7 +153,7 @@ export function RiskAssessmentClient({ assessment }: PageProps) {
                 <HazardCard 
                   key={hazard.id}
                   assessmentId={assessment.id}
-                  hazard={hazard}
+                  hazard={hazard as Hazard}
                 />
               ))}
             </div>
@@ -151,7 +169,7 @@ export function RiskAssessmentClient({ assessment }: PageProps) {
                 <span className="font-medium">{assessment.hazards.length}</span>
               </div>
               <div className="flex justify-between">
-                <span>Høy risiko (>15):</span>
+                <span>Høy risiko ({">"}15):</span>
                 <span className="font-medium">
                   {assessment.hazards.filter(h => h.riskLevel > 15).length}
                 </span>

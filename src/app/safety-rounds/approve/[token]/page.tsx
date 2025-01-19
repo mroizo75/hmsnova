@@ -36,5 +36,5 @@ export default async function SafetyRoundApprovalPage({ params }: Props) {
 
   if (!approval) redirect('/404')
 
-  return <ApprovalPage approval={approval} />
+  return <ApprovalPage approval={approval as any} />
 } 

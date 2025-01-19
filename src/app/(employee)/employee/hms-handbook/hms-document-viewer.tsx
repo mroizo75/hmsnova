@@ -10,7 +10,8 @@ import {
   Search,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  RotateCcw,
+  ChevronRight
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"

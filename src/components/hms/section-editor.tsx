@@ -59,9 +59,8 @@ export function SectionEditor({ sectionId, title, content, onSave }: Props) {
 
       <div className="space-y-6">
         <Editor
-          content={editorContent}
+          value={editorContent}
           onChange={setEditorContent}
-          editable={isEditing}
         />
 
         {/* Vis aktive HMS-endringer */}

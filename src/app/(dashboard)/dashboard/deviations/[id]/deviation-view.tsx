@@ -14,7 +14,7 @@ export function DeviationView({ deviation, id }: DeviationViewProps) {
 
   return (
     <div>
-      <DeviationDetails deviation={deviation} />
+      <DeviationDetails params={{ id }} />
       
       <div className="mt-6">
         <h2 className="text-lg font-semibold mb-4">Tiltak</h2>

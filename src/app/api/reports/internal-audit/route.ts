@@ -3,6 +3,40 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 
+interface Section {
+  title: string;
+  updatedAt: Date;
+}
+
+interface HandbookData {
+  version: number;
+  updatedAt: Date;
+  sections: Section[];
+}
+
+interface DeviationCount {
+  severity: string;
+  _count: number;
+}
+
+interface RiskAssessment {
+  status: string;
+  hazards: { riskLevel: string }[];
+}
+
+interface SafetyRound {
+  findings: { measures: { status: string }[] }[];
+}
+
+// Sikker feilhåndteringsfunksjon
+const safeLog = (message: string, error: unknown) => {
+  if (error instanceof Error) {
+    console.error(message, error.message)
+  } else {
+    console.error(message, 'Unknown error')
+  }
+}
+
 export async function GET(req: Request) {
   try {
     console.log('Starting internal audit report generation...')
@@ -31,21 +65,18 @@ export async function GET(req: Request) {
     })
 
     // Initialiser data med standardverdier
-    const data = {
+    const data: {
+      handbook: HandbookData;
+      deviations: DeviationCount[];
+      measures: number;
+      riskAssessments: RiskAssessment[];
+      safetyRounds: SafetyRound[];
+    } = {
       handbook: { version: 1, updatedAt: new Date(), sections: [] },
       deviations: [],
       measures: 0,
       riskAssessments: [],
       safetyRounds: []
-    }
-
-    // Sikker feilhåndteringsfunksjon
-    const safeLog = (message: string, error: unknown) => {
-      if (error instanceof Error) {
-        console.error(message, error.message)
-      } else {
-        console.error(message, 'Unknown error')
-      }
     }
 
     // HMS-håndbok
@@ -64,7 +95,7 @@ export async function GET(req: Request) {
         }
       })
       if (handbook) {
-        data.handbook = handbook
+        data.handbook = handbook as any
         console.log('Handbook found')
       }
     } catch (error) {
@@ -85,7 +116,7 @@ export async function GET(req: Request) {
         _count: true
       })
       if (deviations) {
-        data.deviations = deviations
+        data.deviations = deviations as any
         console.log('Deviations count:', deviations.length)
       }
     } catch (error) {
@@ -106,7 +137,7 @@ export async function GET(req: Request) {
           }
         }
       })
-      data.measures = measures
+      data.measures = measures as any
       console.log('Measures count:', measures)
     } catch (error) {
       safeLog('Error fetching measures:', error)
@@ -133,7 +164,7 @@ export async function GET(req: Request) {
         }
       })
       if (riskAssessments) {
-        data.riskAssessments = riskAssessments
+        data.riskAssessments = riskAssessments as any
         console.log('Risk assessments count:', riskAssessments.length)
       }
     } catch (error) {
@@ -165,7 +196,7 @@ export async function GET(req: Request) {
         }
       })
       if (safetyRounds) {
-        data.safetyRounds = safetyRounds
+        data.safetyRounds = safetyRounds as any
         console.log('Safety rounds count:', safetyRounds.length)
       }
     } catch (error) {
@@ -225,7 +256,7 @@ export async function GET(req: Request) {
     console.log('Successfully formatted data')
     return NextResponse.json(formattedData)
   } catch (error) {
-    safeLog('Final error:', error)
+    safeLog('Final error:', error )
     return NextResponse.json({ 
       error: "Kunne ikke generere rapport",
       details: error instanceof Error ? error.message : 'Unknown error'

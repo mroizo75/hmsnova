@@ -7,9 +7,13 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
+interface RouteParams {
+  params: Promise<{ category: string }>
+}
+
 export async function GET(
   request: Request,
-  { params }: { params: { category: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -17,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
-    const { category } = await params
+    const { category } = await context.params
     const { searchParams } = new URL(request.url)
     const deviationsData = searchParams.get('deviations')
     const companyId = await searchParams.get('companyId')

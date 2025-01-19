@@ -1,204 +1,104 @@
-import prisma from "@/lib/db"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
-import { NextResponse } from "next/server"
-import { normalizeEmail } from "@/lib/utils/auth"
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 
-// PATCH /api/employees/[id]
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
+export async function GET(
+  request: NextRequest,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { message: "Ikke autorisert" },
-        { status: 401 }
-      )
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
-    const { id } = await params
-    const body = await req.json()
-    const db = await prisma
+    const { id } = await context.params
 
-    // Sjekk om brukeren har tilgang til å redigere denne ansatte
-    const currentUser = await db.user.findUnique({
-      where: { id: session.user.id },
-      include: { company: true }
-    })
-
-    const targetUser = await db.user.findUnique({
-      where: { id },
-      include: { company: true }
-    })
-
-    if (!currentUser?.company || !targetUser?.company || currentUser.company.id !== targetUser.company.id) {
-      return NextResponse.json(
-        { message: "Ikke tilgang" },
-        { status: 403 }
-      )
-    }
-
-    // Normaliser e-postadressen
-    const normalizedEmail = normalizeEmail(body.email)
-
-    // Sjekk om e-postadressen allerede er i bruk av en annen bruker
-    const existingUser = await db.user.findFirst({
+    const employee = await prisma.user.findUnique({
       where: {
-        email: normalizedEmail,
-        NOT: {
-          id: id
-        }
+        id,
+        companyId: session.user.companyId
+      },
+      include: {
+        company: true,
       }
     })
 
-    if (existingUser) {
-      return NextResponse.json(
-        { message: "E-postadressen er allerede i bruk" },
-        { status: 400 }
-      )
+    if (!employee) {
+      return NextResponse.json({ error: "Ansatt ikke funnet" }, { status: 404 })
     }
 
-    // Oppdater brukeren
-    const updatedUser = await db.user.update({
-      where: { id },
-      data: {
-        name: body.name,
-        email: normalizedEmail,
-        role: body.role,
-      }
-    })
-
-    return NextResponse.json(
-      { message: "Bruker oppdatert", user: updatedUser },
-      { status: 200 }
-    )
+    return NextResponse.json(employee)
   } catch (error) {
-    console.error("Error updating employee:", error)
-    return NextResponse.json(
-      { message: "Kunne ikke oppdatere bruker" },
-      { status: 500 }
-    )
+    console.error("Feil ved henting av ansatt:", error)
+    return NextResponse.json({
+      error: "Kunne ikke hente ansatt",
+      message: error instanceof Error ? error.message : 'Ukjent feil'
+    }, { status: 500 })
   }
 }
 
-// DELETE /api/employees/[id]
-export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+export async function PATCH(
+  request: NextRequest,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { message: "Ikke autorisert" },
-        { status: 401 }
-      )
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
-    const { id } = await params
-    const db = await prisma
+    const { id } = await context.params
+    const body = await request.json()
 
-    // Sjekk om brukeren har tilgang til å slette denne ansatte
-    const currentUser = await db.user.findUnique({
-      where: { id: session.user.id },
-      include: { company: true }
+    const employee = await prisma.user.update({
+      where: {
+        id,
+        companyId: session.user.companyId
+      },
+      data: body
     })
 
-    const targetUser = await db.user.findUnique({
-      where: { id },
-      include: {
-        company: true,
-        trainings: true,
-        createdSafetyRounds: true,
-        assignedSafetyRounds: true,
-        Stoffkartotek: true,
-        SJAKommentar: true,
-        SJABilde: true,
-        SJARevisjon: true,
-        SJAGodkjenning: true,
-        SJA: true,
-        SJAMal: true,
-        SJAVedlegg: true,
-        documents: true,
-        notifications: true,
-        emailQueue: true
-      }
-    })
-
-    if (!targetUser) {
-      return NextResponse.json(
-        { message: "Bruker ikke funnet" },
-        { status: 404 }
-      )
-    }
-
-    if (!currentUser?.company || currentUser.company.id !== targetUser.company.id) {
-      return NextResponse.json(
-        { message: "Ikke tilgang" },
-        { status: 403 }
-      )
-    }
-
-    // Ikke tillat sletting av egen bruker
-    if (id === session.user.id) {
-      return NextResponse.json(
-        { message: "Du kan ikke slette din egen bruker" },
-        { status: 400 }
-      )
-    }
-
-    // Slett bruker og alle relasjoner i en transaksjon
-    await db.$transaction(async (tx) => {
-      // Fjern mange-til-mange relasjoner først
-      await tx.user.update({
-        where: { id },
-        data: {
-          trainings: { set: [] },
-          createdSafetyRounds: { set: [] },
-          assignedSafetyRounds: { set: [] },
-          Stoffkartotek: { set: [] },
-          SJA: { set: [] },
-          SJAMal: { set: [] },
-          documents: { set: [] }
-        }
-      })
-
-      // Slett en-til-mange relasjoner
-      if (targetUser.notifications.length > 0) {
-        await tx.notification.deleteMany({ where: { userId: id } })
-      }
-      if (targetUser.emailQueue.length > 0) {
-        await tx.emailQueue.deleteMany({ where: { userId: id } })
-      }
-      if (targetUser.SJAKommentar.length > 0) {
-        await tx.sJAKommentar.deleteMany({ where: { userId: id } })
-      }
-      if (targetUser.SJABilde.length > 0) {
-        await tx.sJABilde.deleteMany({ where: { userId: id } })
-      }
-      if (targetUser.SJARevisjon.length > 0) {
-        await tx.sJARevisjon.deleteMany({ where: { userId: id } })
-      }
-      if (targetUser.SJAGodkjenning.length > 0) {
-        await tx.sJAGodkjenning.deleteMany({ where: { userId: id } })
-      }
-      if (targetUser.SJAVedlegg.length > 0) {
-        await tx.sJAVedlegg.deleteMany({ where: { userId: id } })
-      }
-
-      // Til slutt, slett brukeren
-      await tx.user.delete({ where: { id } })
-    })
-
-    return NextResponse.json({ success: true, message: "Bruker slettet" })
+    return NextResponse.json(employee)
   } catch (error) {
-    console.error("Error deleting employee:", error)
+    console.error("Feil ved oppdatering av ansatt:", error)
     return NextResponse.json({
-      success: false,
-      message: "Kunne ikke slette bruker",
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: "Kunne ikke oppdatere ansatt",
+      message: error instanceof Error ? error.message : 'Ukjent feil'
+    }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: RouteParams
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    }
+
+    const { id } = await context.params
+
+    await prisma.user.delete({
+      where: {
+        id,
+        companyId: session.user.companyId
+      }
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Feil ved sletting av ansatt:", error)
+    return NextResponse.json({
+      error: "Kunne ikke slette ansatt",
+      message: error instanceof Error ? error.message : 'Ukjent feil'
     }, { status: 500 })
   }
 } 

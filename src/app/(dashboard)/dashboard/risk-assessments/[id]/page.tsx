@@ -5,20 +5,89 @@ import { notFound } from "next/navigation"
 import { RiskAssessmentClient } from "./risk-assessment-client"
 import { Suspense } from "react"
 import { HMSChangesSection } from "./hms-changes-section"
+import type { Hazard, RiskAssessment } from "@prisma/client"
 
 interface PageProps {
-  params: Promise<{
-    id: string
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+// Type for RiskAssessmentClient
+type RiskAssessmentWithHazards = RiskAssessment & {
+  hazards: Array<Hazard & {
+    measures: Array<{
+      id: string
+      description: string
+      type: string
+      status: string
+      priority: string
+      dueDate: Date | null
+      completedAt: Date | null
+      assignedTo: string | null
+    }>
+    riskMeasures: Array<{
+      id: string
+      description: string
+      status: string
+      type: string
+      priority: string
+      hazardId: string
+    }>
+    hmsChanges: Array<{
+      hmsChange: {
+        id: string
+        title: string
+        description: string
+        status: string
+        implementedAt: Date | null
+      }
+    }>
   }>
-  searchParams: { [key: string]: string | string[] | undefined }
+}
+
+// Type for HMSChangesSection
+type RiskAssessmentWithHMSChanges = RiskAssessment & {
+  hazards?: Array<{
+    id: string
+    description: string
+    riskLevel: number
+    riskMeasures: Array<{
+      id: string
+      description: string
+      status: string
+      type: string
+      priority: string
+      hazardId: string
+      riskAssessmentId: string
+      hmsChanges: Array<{
+        hmsChange: {
+          id: string
+          title: string
+          description: string
+          status: string
+          implementedAt: Date | null
+        }
+      }>
+    }>
+  }>
+  hmsChanges?: Array<{
+    hmsChange: {
+      id: string
+      title: string
+      description: string
+      status: string
+      implementedAt: Date | null
+    }
+  }>
 }
 
 export default async function RiskAssessmentPage(props: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
-  // Await params for å få tilgang til id
+  // Await både params og searchParams
   const { id } = await props.params
+  const searchParamsResolved = await props.searchParams
   const db = await prisma
 
   try {
@@ -70,10 +139,10 @@ export default async function RiskAssessmentPage(props: PageProps) {
     return (
       <div className="space-y-6">
         <Suspense fallback={<div>Laster...</div>}>
-          <RiskAssessmentClient assessment={assessment} />
+          <RiskAssessmentClient assessment={assessment as unknown as RiskAssessmentWithHazards} />
         </Suspense>
         
-        <HMSChangesSection riskAssessment={assessment} />
+        <HMSChangesSection riskAssessment={assessment as unknown as RiskAssessmentWithHMSChanges} />
       </div>
     )
   } catch (error) {

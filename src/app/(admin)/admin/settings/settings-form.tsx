@@ -115,7 +115,7 @@ export function SettingsForm({ user }: Props) {
                     <div className="space-y-2">
                       <ImageUpload
                         value={field.value}
-                        onChange={field.onChange}
+                        onChange={(value: string) => field.onChange(value)}
                         disabled={isLoading}
                       />
                       <p className="text-[0.8rem] text-muted-foreground">

@@ -5,34 +5,15 @@ import { formatDate } from "@/lib/utils/date"
 import { FindingsList } from "./findings-list"
 import { Button } from "@/components/ui/button"
 import { Download } from "lucide-react"
+import { ExtendedSafetyRound } from "../types"
 
-interface Props {
-  safetyRound: {
-    id: string
-    title: string
-    description: string | null
-    status: string
-    scheduledDate: string | null
-    dueDate: string | null
-    completedAt: string | null
-    assignedUser: {
-      name: string
-      email: string
-    } | null
-    checklistItems: Array<{
-      id: string
-      category: string
-      question: string
-      response: string | null
-      comment: string | null
-    }>
-    findings: Array<any>
-  }
-  onDownload?: () => Promise<void>
-  isLoading?: boolean
+interface SafetyRoundReportProps {
+  safetyRound: ExtendedSafetyRound
+  onDownload: () => Promise<void>
+  isLoading: boolean
 }
 
-export function SafetyRoundReport({ safetyRound, onDownload, isLoading }: Props) {
+export function SafetyRoundReport({ safetyRound, onDownload, isLoading }: SafetyRoundReportProps) {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">

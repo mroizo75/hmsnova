@@ -30,19 +30,16 @@ function getPriorityLabel(priority: string): string {
   }
 }
 
-function getPriorityVariant(priority: string): string {
-  switch (priority.toUpperCase()) {
-    case 'HØY':
+function getPriorityVariant(priority: string): "default" | "secondary" | "destructive" | "outline" {
+  switch (priority) {
     case 'HIGH':
-      return 'destructive'
-    case 'MIDDELS':
+      return "destructive"
     case 'MEDIUM':
-      return 'default'
-    case 'LAV':
+      return "secondary"
     case 'LOW':
-      return 'secondary'
+      return "outline"
     default:
-      return 'secondary'
+      return "default"
   }
 }
 

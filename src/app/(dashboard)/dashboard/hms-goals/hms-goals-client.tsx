@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Plus } from "lucide-react"
-import { AddGoalDialog } from "./add-goal-dialog"
+import { AddGoalDialog } from "@/app/(dashboard)/dashboard/hms-goals/add-goal-dialog"
 import { GoalStatus } from "@prisma/client"
 
 interface HMSGoal {
@@ -109,10 +109,11 @@ export function HMSGoalsClient({ initialGoals }: Props) {
         ))}
       </div>
 
-      <AddGoalDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onSubmit={handleAddGoal}
+      <AddGoalDialog 
+        onSuccess={() => {
+          setIsAddDialogOpen(false)
+          // Oppdater goals hvis nødvendig
+        }} 
       />
     </div>
   )

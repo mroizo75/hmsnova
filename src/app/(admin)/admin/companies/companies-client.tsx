@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { useState } from "react"
 import { CompanyDetailsDialog } from "./company-details-dialog"
+import { Row } from "@tanstack/react-table"
 
 interface CompaniesClientProps {
   companies: Company[]
@@ -19,7 +20,7 @@ export function CompaniesClient({ companies }: CompaniesClientProps) {
     ...columns,
     {
       id: "actions",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: Row<Company> }) => {
         const company = row.original
         const hasVernerundeModule = company.modules?.some(
           (m) => m.key === "SAFETY_ROUNDS" && m.isActive

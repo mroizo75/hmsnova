@@ -24,7 +24,7 @@ export const columns: ColumnDef<any>[] = [
     cell: ({ row }) => {
       const status = row.getValue("status") as string
       return (
-        <Badge variant={status === "SIGNED" ? "success" : "default"}>
+        <Badge variant={status === "SIGNED" ? "default" : "outline"}>
           {status === "SIGNED" ? "Signert" : "Venter"}
         </Badge>
       )

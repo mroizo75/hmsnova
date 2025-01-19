@@ -27,10 +27,9 @@ export async function POST(request: NextRequest) {
       bilder
     } = json
 
-    const sja = await prisma.sja.create({
+    const sja = await prisma.sJA.create({
       data: {
         tittel: jobTitle,
-        prosjektNavn: jobLocation,
         arbeidssted: jobLocation,
         beskrivelse: jobDescription,
         startDato: new Date(jobDate),
@@ -62,7 +61,7 @@ export async function POST(request: NextRequest) {
           }))
         },
         // Legg til produkter
-        SJAProdukter: {
+        produkter: {
           create: produkter.map((p: any) => ({
             produktId: p.produktId,
             mengde: p.mengde
@@ -79,7 +78,7 @@ export async function POST(request: NextRequest) {
         risikoer: true,
         tiltak: true,
         bilder: true,
-        SJAProdukter: true
+        produkter: true
       }
     })
 

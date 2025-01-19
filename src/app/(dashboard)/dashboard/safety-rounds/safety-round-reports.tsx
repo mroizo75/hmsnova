@@ -90,7 +90,7 @@ export function SafetyRoundReports({ reports }: SafetyRoundReportsProps) {
                       </Badge>
                     )}
                     {severityCounts.medium > 0 && (
-                      <Badge variant="warning">
+                      <Badge variant="destructive">
                         {severityCounts.medium} middels risiko
                       </Badge>
                     )}

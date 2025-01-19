@@ -41,6 +41,11 @@ export default async function HMSChangesPage() {
   // Transformer data for frontend
   const transformedChanges = changes.map(change => ({
     ...change,
+    dueDate: change.dueDate?.toISOString() || null,
+    createdAt: change.createdAt.toISOString(),
+    updatedAt: change.updatedAt.toISOString(),
+    approvedAt: change.approvedAt?.toISOString() || null,
+    implementedAt: change.implementedAt?.toISOString() || null,
     source: change.deviations[0] 
       ? { 
           type: "DEVIATION" as const,

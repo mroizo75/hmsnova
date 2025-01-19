@@ -116,17 +116,17 @@ export function SJAClient({ initialData }: SJAClientProps) {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
-          <SJATable data={activeSJA} />
+          <SJATable data={activeSJA as unknown as SJAWithRelations[]} />
         </TabsContent>
         <TabsContent value="completed" className="mt-4">
-          <SJATable data={completedSJA} />
+          <SJATable data={completedSJA as unknown as SJAWithRelations[]} />
         </TabsContent>
       </Tabs>
 
       <AddSJAModal 
         open={dialogOpen} 
-        onOpenChange={setDialogOpen}
-        onAdd={handleAddSJA}
+        onOpenChange={setDialogOpen as (open: boolean | undefined) => void}
+        onAdd={handleAddSJA as (sja: SJAWithRelations | undefined) => void}
       />
     </div>
   )

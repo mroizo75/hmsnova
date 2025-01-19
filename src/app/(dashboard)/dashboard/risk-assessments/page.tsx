@@ -7,13 +7,16 @@ import { Suspense } from "react"
 
 interface PageProps {
   params: Promise<{}>
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
 export default async function RiskAssessmentsPage(props: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
+  const resolvedParams = await props.params
+  const resolvedSearchParams = await props.searchParams
+  
   const db = await prisma
 
   const assessments = await db.riskAssessment.findMany({

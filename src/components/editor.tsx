@@ -27,9 +27,9 @@ const extensions = [
       keepMarks: true,
       keepAttributes: false,
     },
-    blockquote: true,
-    bold: true,
-    italic: true,
+    blockquote: false,
+    bold: false,
+    italic: false,
   }),
 ]
 

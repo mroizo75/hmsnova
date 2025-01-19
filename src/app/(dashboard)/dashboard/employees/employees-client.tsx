@@ -1,3 +1,5 @@
+import { toast } from "sonner"
+
 const handleDelete = async (userId: string) => {
   try {
     const response = await fetch(`/api/employees/${userId}`, {
@@ -20,7 +22,6 @@ const handleDelete = async (userId: string) => {
     }
 
     // Oppdater bruker-listen
-    setUsers(users.filter(user => user.id !== userId))
     toast.success('Bruker slettet')
   } catch (error) {
     console.error('Error deleting user:', error)

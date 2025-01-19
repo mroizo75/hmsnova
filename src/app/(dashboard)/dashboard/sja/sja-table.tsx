@@ -4,15 +4,12 @@ import { useState } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { columns } from "./columns"
 import { SJAWithRelations } from "./types"
-import { Button } from "@/components/ui/button"
-import { Plus, Eye } from "lucide-react"
 import { AddSJAModal } from "./add-sja-modal"
 import { EditSJAModal } from "./edit-sja-modal"
 import { BehandleSJAModal } from "./behandle-sja-modal"
 import { SlettSJADialog } from "./slett-sja-dialog"
 import { toast } from "sonner"
 import { generatePDF } from "./pdf-utils"
-import Link from "next/link"
 
 interface SJATableProps {
   data: SJAWithRelations[]

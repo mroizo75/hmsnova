@@ -10,11 +10,19 @@ interface InsightType {
   id: string
   category: string
   description: string
-  severity: "low" | "medium" | "high"
+  severity: 'LOW' | 'MEDIUM' | 'HIGH'
   recommendation: string
   confidence: number
   affectedCompanies: number
-  trend: "increasing" | "decreasing" | "stable"
+  trend: 'up' | 'down' | 'stable'
+  impact: string
+  deviations: Array<{
+    id: string
+    title: string
+    status: string
+    priority: string
+    category: string
+  }>
 }
 
 interface AIInsightsProps {
@@ -74,9 +82,9 @@ export function AIInsights({ insights = [], totalDeviations = 0 }: AIInsightsPro
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <AlertTriangle className={`h-5 w-5 ${
-                    insight.severity === "high" 
+                    insight.severity === "HIGH" 
                       ? "text-destructive" 
-                      : insight.severity === "medium"
+                      : insight.severity === "MEDIUM"
                       ? "text-yellow-500"
                       : "text-muted-foreground"
                   }`} />
@@ -84,9 +92,9 @@ export function AIInsights({ insights = [], totalDeviations = 0 }: AIInsightsPro
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
                   <TrendingUp className={`h-4 w-4 ${
-                    insight.trend === "increasing"
+                    insight.trend === "up"
                       ? "text-destructive"
-                      : insight.trend === "decreasing"
+                      : insight.trend === "down"
                       ? "text-green-500"
                       : "text-muted-foreground"
                   }`} />

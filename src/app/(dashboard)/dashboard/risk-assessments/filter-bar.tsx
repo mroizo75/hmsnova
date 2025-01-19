@@ -15,8 +15,8 @@ import { DatePicker } from "@/components/ui/date-picker"
 export interface FilterOptions {
   search: string
   status: string
-  dateFrom: Date | null
-  dateTo: Date | null
+  dateFrom: Date | undefined
+  dateTo: Date | undefined
 }
 
 export type SortOptions = "newest" | "oldest" | "title" | "status"
@@ -76,12 +76,12 @@ export function FilterBar({
         <DatePicker
           placeholder="Fra dato"
           date={filterOptions.dateFrom}
-          onDateChange={(date) => onFilterChange({ ...filterOptions, dateFrom: date })}
+          setDate={(date: Date | undefined) => onFilterChange({ ...filterOptions, dateFrom: date })}
         />
         <DatePicker
           placeholder="Til dato"
-          date={filterOptions.dateTo || undefined}
-          onDateChange={(date) => onFilterChange({ ...filterOptions, dateTo: date }) }
+          date={filterOptions.dateTo}
+          setDate={(date: Date | undefined) => onFilterChange({ ...filterOptions, dateTo: date })}
         />
         <Select
           value={sortOption}

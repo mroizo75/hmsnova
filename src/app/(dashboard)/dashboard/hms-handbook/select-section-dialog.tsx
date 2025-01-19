@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card } from "@/components/ui/card"
 import { toast } from "sonner"
+import type { Section } from "./hms-handbook-client"
 
 interface Props {
   open: boolean
@@ -13,7 +14,7 @@ interface Props {
 }
 
 export function SelectSectionDialog({ open, onOpenChange, changeId }: Props) {
-  const [sections, setSections] = useState([])
+  const [sections, setSections] = useState<Section[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {

@@ -37,8 +37,8 @@ export function RiskAssessmentsClient({ assessments }: RiskAssessmentsClientProp
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     search: "",
     status: "all",
-    dateFrom: null,
-    dateTo: null,
+    dateFrom: undefined,
+    dateTo: undefined,
   })
   const [sortOption, setSortOption] = useState<SortOptions>("newest")
 

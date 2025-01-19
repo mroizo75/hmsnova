@@ -18,26 +18,33 @@ export async function GET() {
         createdAt: 'desc'
       },
       take: 5,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        }
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        severity: true,
+        createdAt: true,
+        reportedBy: true
       }
     })
 
     // Formater dataene for frontend
-    const formattedDeviations = latestDeviations.map(dev => ({
-      id: dev.id,
-      title: dev.title,
-      status: dev.status,
-      severity: dev.severity,
-      createdAt: dev.createdAt,
-      reportedBy: {
-        name: dev.user.name,
-        email: dev.user.email
+    const formattedDeviations = await Promise.all(latestDeviations.map(async dev => {
+      const user = await prisma.user.findUnique({
+        where: { id: dev.reportedBy },
+        select: { name: true, email: true }
+      })
+      
+      return {
+        id: dev.id,
+        title: dev.title,
+        status: dev.status,
+        severity: dev.severity,
+        createdAt: dev.createdAt,
+        reportedBy: {
+          name: user?.name ?? 'Ukjent',
+          email: user?.email ?? ''
+        }
       }
     }))
 

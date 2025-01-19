@@ -42,7 +42,7 @@ export const columns = ({
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => statusLabels[row.getValue("status")]
+    cell: ({ row }) => statusLabels[row.getValue("status") as SJAStatus]
   },
   {
     accessorKey: "startDato",

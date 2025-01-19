@@ -42,10 +42,14 @@ const MODULE_CONFIG = {
   }
 } as const
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 // GET-rute for å hente moduler
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -54,8 +58,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // For Next.js 13+, må params awaites
-    const { id: companyId } = await params
+    const { id: companyId } = await context.params
 
     const modules = await prisma.module.findMany({
       where: { companyId }
@@ -73,7 +76,7 @@ export async function GET(
 // PATCH-rute for å oppdatere moduler
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -82,7 +85,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id: companyId } = await params
+    const { id: companyId } = await context.params
     const { moduleKey, active } = await request.json()
 
     // Valider input

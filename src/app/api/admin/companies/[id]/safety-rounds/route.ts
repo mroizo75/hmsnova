@@ -148,16 +148,16 @@ export async function POST(
     }
 
     console.error('Detailed error:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      cause: error.cause
+      name: (error as any).name,
+      message: (error as any).message,
+      stack: (error as any).stack,
+      cause: (error as any).cause
     })
     
     return NextResponse.json(
       { 
         error: "Kunne ikke opprette vernerunde",
-        details: error.message 
+        details: (error as any).message 
       },
       { status: 500 }
     )

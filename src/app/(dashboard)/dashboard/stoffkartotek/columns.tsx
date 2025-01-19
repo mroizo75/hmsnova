@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { FareSymbol } from "@prisma/client"
 
 interface FareSymbolMapping {
   id: string
@@ -28,6 +29,11 @@ interface Produkt {
   beskrivelse: string | null
   bruksomrade: string | null
   fareSymboler: FareSymbolMapping[]
+}
+
+interface TableMeta {
+  isDeleting: boolean;
+  onDelete?: (id: string) => void;
 }
 
 export const columns: ColumnDef<Produkt>[] = [
@@ -50,7 +56,7 @@ export const columns: ColumnDef<Produkt>[] = [
           {symbols.map((symbol, index) => (
             <FareSymbolBadge 
               key={`${row.original.id}-${symbol}-${index}`} 
-              symbol={symbol}
+              symbol={symbol as FareSymbol}
             />
           ))}
         </div>
@@ -90,8 +96,9 @@ export const columns: ColumnDef<Produkt>[] = [
   {
     id: "actions",
     cell: ({ row, table }) => {
+      const meta = table.options.meta as TableMeta;
       const product = row.original
-      const isDeleting = table.options.meta?.isDeleting as boolean
+      const isDeleting = meta.isDeleting as boolean
 
       return (
         <div className="flex items-center gap-2">
@@ -125,7 +132,7 @@ export const columns: ColumnDef<Produkt>[] = [
                 <AlertDialogCancel>Avbryt</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => {
-                    const onDelete = table.options.meta?.onDelete as ((id: string) => void) | undefined
+                    const onDelete = meta.onDelete as ((id: string) => void) | undefined
                     if (onDelete) {
                       onDelete(product.id)
                     }

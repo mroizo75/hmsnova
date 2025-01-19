@@ -2,7 +2,7 @@ import prisma from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { NextResponse } from "next/server"
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { format } from 'date-fns'
 import { nb } from 'date-fns/locale'
 
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { type, format, dateRange } = await req.json()
+    const { type, format: exportFormat, dateRange } = await req.json()
     const db = await prisma
 
     // Beregn datointervall
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
                      undefined
 
     // Hent data basert på type
-    let data = []
+    let reportData = []
     if (type === 'deviations' || type === 'all') {
       const deviations = await db.deviation.findMany({
         where: {
@@ -39,9 +39,13 @@ export async function POST(req: Request) {
           measures: true
         }
       })
-      data.push(...deviations.map(d => ({
-        ...d,
-        type: 'Avvik'
+      reportData.push(...deviations.map(d => ({
+        dato: format(d.createdAt, 'dd.MM.yyyy'),
+        type: 'Avvik',
+        status: d.status,
+        beskrivelse: d.description,
+        tiltak: d.measures.length,
+        ansvarlig: d.assignedTo || 'Ikke tildelt'
       })))
     }
 
@@ -55,28 +59,59 @@ export async function POST(req: Request) {
           hazards: true
         }
       })
-      data.push(...risks.map(r => ({
-        ...r,
-        type: 'Risikovurdering'
+      reportData.push(...risks.map(r => ({
+        dato: format(r.createdAt, 'dd.MM.yyyy'),
+        type: 'Risikovurdering',
+        status: r.status,
+        beskrivelse: r.title,
+        farer: r.hazards.length,
+        ansvarlig: r.createdBy || 'Ikke tildelt'
       })))
     }
 
-    // Generer rapport basert på format
-    if (format === 'excel') {
-      const wb = XLSX.utils.book_new()
-      const ws = XLSX.utils.json_to_sheet(data)
-      XLSX.utils.book_append_sheet(wb, ws, 'Rapport')
-      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
-      
+    // Generer Excel-rapport
+    if (exportFormat === 'excel') {
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('HMS Rapport')
+
+      // Definer kolonner
+      worksheet.columns = [
+        { header: 'Dato', key: 'dato', width: 12 },
+        { header: 'Type', key: 'type', width: 15 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Beskrivelse', key: 'beskrivelse', width: 40 },
+        { header: 'Tiltak/Farer', key: 'tiltak', width: 12 },
+        { header: 'Ansvarlig', key: 'ansvarlig', width: 20 }
+      ]
+
+      // Style header
+      worksheet.getRow(1).font = { bold: true }
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2C435F' }
+      }
+      worksheet.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true }
+
+      // Legg til data
+      worksheet.addRows(reportData)
+
+      // Autofilter
+      worksheet.autoFilter = {
+        from: 'A1',
+        to: `F${reportData.length + 1}`
+      }
+
+      // Generer buffer
+      const buffer = await workbook.xlsx.writeBuffer()
+
       return new Response(buffer, {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': `attachment; filename="rapport-${format(new Date(), 'yyyy-MM-dd', { locale: nb })}.xlsx"`
+          'Content-Disposition': `attachment; filename="hms-rapport-${format(new Date(), 'yyyy-MM-dd', { locale: nb })}.xlsx"`
         }
       })
     }
-
-    // TODO: Implementer PDF og CSV format
 
     return NextResponse.json(
       { message: "Ugyldig eksportformat" },

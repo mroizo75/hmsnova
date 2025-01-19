@@ -1,6 +1,6 @@
 import prisma from "@/lib/db"
 import { formatDate } from "@/lib/utils/date"
-import { sendEmail } from "@/lib/email"
+import sendEmail from '@/lib/email'
 
 interface DigestNotification {
   id: string

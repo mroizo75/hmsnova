@@ -2,8 +2,9 @@ import { createNotification } from "@/lib/services/notification-service"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { Role } from "@prisma/client"
 
 const createSJASchema = z.object({
   tittel: z.string().min(1),
@@ -46,8 +47,8 @@ export async function POST(req: Request) {
       where: {
         companyId: session.user.companyId,
         OR: [
-          { role: "HMS_MANAGER" },
-          { role: "VERNEOMBUD" }
+          { role: "HMS_MANAGER" as Role },
+          { role: "VERNEOMBUD" as Role }
         ]
       }
     })

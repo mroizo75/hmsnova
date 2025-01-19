@@ -1,5 +1,7 @@
 "use client"
 
+import { useSectionChanges } from "@/hooks/use-section-changes"
+
 interface Measure {
   id: string
   description: string
@@ -29,15 +31,17 @@ interface HMSChange {
 }
 
 interface Props {
-  changes: HMSChange[]
+  sectionId: string;
 }
 
-export function SectionChangesList({ changes = [] }: Props) {
+export function SectionChangesList({ sectionId }: Props) {
+  const changes = useSectionChanges(sectionId)
+
   if (!changes) return null
 
   return (
     <div className="space-y-4">
-      {changes.map(change => (
+      {changes.map((change: HMSChange) => (
         <div 
           key={change.id}
           className={`p-4 border rounded-lg ${

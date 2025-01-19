@@ -100,7 +100,6 @@ export function ProfileForm({ user }: { user: any }) {
                     <ImageUpload
                       value={field.value}
                       onChange={field.onChange}
-                      apiEndpoint="/api/storage/upload"
                     />
                   </FormControl>
                   <FormMessage />

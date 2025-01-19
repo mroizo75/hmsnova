@@ -1,52 +1,43 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
+import { z } from "zod"
 import { SJAStatus } from "@prisma/client"
 
-// Hent spesifikk SJA
+const updateSjaSchema = z.object({
+  title: z.string().min(3).optional(),
+  description: z.string().min(10).optional(),
+  status: z.enum(["DRAFT", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+  location: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional()
+})
+
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function GET(
-  request: NextRequest,
-  context: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
-    const { id } = context.params
-    const sja = await prisma.sJA.findFirst({
+    const { id } = await context.params
+
+    const sja = await prisma.sJA.findUnique({
       where: {
         id,
         companyId: session.user.companyId
       },
-      include: {
-        opprettetAv: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-        risikoer: true,
-        tiltak: true,
-        produkter: {
-          include: {
-            produkt: true
-          }
-        },
-        vedlegg: true,
-        godkjenninger: {
-          include: {
-            godkjentAv: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
+      select: {
+        opprettetAv: true
+      }
     })
 
     if (!sja) {
@@ -55,6 +46,7 @@ export async function GET(
 
     return NextResponse.json(sja)
   } catch (error) {
+    console.error("Error fetching SJA:", error)
     return NextResponse.json(
       { error: "Kunne ikke hente SJA" },
       { status: 500 }
@@ -62,107 +54,59 @@ export async function GET(
   }
 }
 
-// Oppdater SJA
-export async function PUT(
-  request: NextRequest,
-  context: { params: { id: string } }
+export async function PATCH(
+  request: Request,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
-    const { id } = context.params
-    const json = await request.json()
+    const { id } = await context.params
+    const body = await request.json()
 
-    const sja = await prisma.sJA.findFirst({
+    const validatedData = updateSjaSchema.parse(body)
+
+    const sja = await prisma.sJA.update({
       where: {
         id,
         companyId: session.user.companyId
-      }
-    })
-
-    if (!sja) {
-      return NextResponse.json({ error: "SJA ikke funnet" }, { status: 404 })
-    }
-
-    // Oppdater SJA
-    const oppdatertSja = await prisma.sJA.update({
-      where: { id },
-      data: {
-        tittel: json.tittel,
-        arbeidssted: json.arbeidssted,
-        beskrivelse: json.beskrivelse,
-        startDato: new Date(json.startDato),
-        sluttDato: json.sluttDato ? new Date(json.sluttDato) : null,
-        // Oppdater produkter hvis de er inkludert
-        ...(json.produkter && {
-          produkter: {
-            deleteMany: {},
-            create: json.produkter.map((p: any) => ({
-              produktId: p.produktId,
-              mengde: p.mengde || ""
-            }))
-          }
-        })
       },
-      include: {
+      data: {
+        ...validatedData,
+        status: validatedData.status as SJAStatus,
         opprettetAv: {
-          select: {
-            name: true,
-            email: true,
-          },
+          connect: { id: session.user.id }
         },
-        produkter: {
-          include: {
-            produkt: true
-          }
-        },
-        vedlegg: true,
+        oppdatertDato: new Date()
       }
     })
 
-    return NextResponse.json(oppdatertSja)
+    // Logg oppdateringen
+    await prisma.auditLog.create({
+      data: {
+        action: "UPDATE_SJA",
+        entityType: "SJA",
+        entityId: id,
+        userId: session.user.id,
+        companyId: session.user.companyId,
+        details: validatedData
+      }
+    })
+
+    return NextResponse.json(sja)
   } catch (error) {
+    console.error("Error updating SJA:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Validation error", details: error.errors },
+        { status: 400 }
+      )
+    }
     return NextResponse.json(
       { error: "Kunne ikke oppdatere SJA" },
-      { status: 500 }
-    )
-  }
-}
-
-// Slett SJA
-export async function DELETE(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
-    }
-
-    const { id } = context.params
-    const sja = await prisma.sJA.findFirst({
-      where: {
-        id,
-        companyId: session.user.companyId
-      }
-    })
-
-    if (!sja) {
-      return NextResponse.json({ error: "SJA ikke funnet" }, { status: 404 })
-    }
-
-    await prisma.sJA.delete({
-      where: { id }
-    })
-
-    return NextResponse.json({ message: "SJA slettet" })
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Kunne ikke slette SJA" },
       { status: 500 }
     )
   }

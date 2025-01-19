@@ -61,7 +61,7 @@ export function EmployeeDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold">Hei, {session?.user?.name}</h1>
-            <p className="text-sm text-muted-foreground">{session?.user?.company?.name}</p>
+            <p className="text-sm text-muted-foreground">{session?.user?.companyId}</p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger>

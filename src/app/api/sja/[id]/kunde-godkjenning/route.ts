@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
-import { sendEmail } from "@/lib/email"
+import sendEmail from '@/lib/email'
 
 export async function POST(
   request: NextRequest,
@@ -17,7 +17,7 @@ export async function POST(
     const { id } = await params
     const { kundeNavn, kundeEpost } = await request.json()
 
-    const sja = await prisma.sja.findFirst({
+    const sja = await prisma.sJA.findFirst({
       where: {
         id,
         companyId: session.user.companyId
@@ -40,7 +40,6 @@ export async function POST(
     await sendEmail({
       to: kundeEpost,
       subject: "SJA til godkjenning",
-      text: `Hei ${kundeNavn},\n\nVennligst gjennomgå og godkjenn SJA for prosjektet.\n\nMed vennlig hilsen\n${session.user.name}`,
       html: `<p>Hei ${kundeNavn},</p><p>Vennligst gjennomgå og godkjenn SJA for prosjektet.</p><p>Med vennlig hilsen<br>${session.user.name}</p>`
     })
 

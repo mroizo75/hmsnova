@@ -12,9 +12,18 @@ const createMeasureSchema = z.object({
   estimatedCost: z.number().optional(),
 })
 
+interface RouteParams {
+  params: Promise<{
+    companyId: string
+    roundId: string
+    findingId: string
+    measureId: string
+  }>
+}
+
 export async function POST(
   request: Request,
-  { params }: { params: { companyId: string; roundId: string; findingId: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -22,17 +31,18 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { companyId, roundId, findingId } = await context.params
     const data = await request.json()
     const validatedData = createMeasureSchema.parse(data)
 
     // Sjekk at funnet tilhører riktig vernerunde og bedrift
     const finding = await prisma.safetyRoundFinding.findFirst({
       where: {
-        id: params.findingId,
+        id: findingId,
         safetyRound: {
-          id: params.roundId,
+          id: roundId,
           module: {
-            companyId: params.companyId
+            companyId: companyId
           }
         }
       }
@@ -53,7 +63,7 @@ export async function POST(
         assignedTo: validatedData.assignedTo,
         priority: validatedData.priority || 'MEDIUM',
         estimatedCost: validatedData.estimatedCost,
-        findingId: params.findingId,
+        findingId: findingId,
         createdBy: session.user.id
       }
     })
@@ -71,7 +81,7 @@ export async function POST(
 // Oppdater status på tiltak (f.eks. markere som utført)
 export async function PATCH(
   request: Request,
-  { params }: { params: { companyId: string; roundId: string; findingId: string; measureId: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -79,18 +89,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { companyId, roundId, findingId, measureId } = await context.params
     const data = await request.json()
     const { status, completedAt } = data
 
     const measure = await prisma.safetyRoundMeasure.update({
       where: {
-        id: params.measureId,
+        id: measureId,
         finding: {
-          id: params.findingId,
+          id: findingId,
           safetyRound: {
-            id: params.roundId,
+            id: roundId,
             module: {
-              companyId: params.companyId
+              companyId: companyId
             }
           }
         }

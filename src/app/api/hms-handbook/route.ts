@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     try {
       const handbook = await db.hMSHandbook.create({
         data: {
+          title: "HMS-håndbok",
           companyId: user.company.id,
           version: 1
         }

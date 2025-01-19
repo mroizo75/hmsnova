@@ -4,9 +4,13 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { suggestHMSSections } from "@/lib/utils/hms-suggestions"
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -14,8 +18,10 @@ export async function GET(
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
+    const { id } = await context.params
+
     const riskAssessment = await prisma.riskAssessment.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         relatedHMSSections: true,
         hmsChanges: {

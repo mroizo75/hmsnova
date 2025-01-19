@@ -220,9 +220,8 @@ export function NewDeviationForm() {
                 <FormLabel>Bilder</FormLabel>
                 <FormControl>
                   <ImageUpload
-                    value={field.value}
+                    value={field.value[0]}
                     onChange={field.onChange}
-                    maxFiles={5}
                   />
                 </FormControl>
                 <FormMessage />

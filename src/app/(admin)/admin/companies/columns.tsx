@@ -13,6 +13,7 @@ export interface Company {
   isActive: boolean
   paymentStatus: 'PAID' | 'PENDING' | 'OVERDUE' | 'CANCELLED'
   createdAt: string
+  lastPaymentDate: string | Date | null
   modules: Array<{
     key: string
     isActive: boolean
@@ -38,7 +39,7 @@ export const columns: ColumnDef<Company>[] = [
     cell: ({ row }) => {
       const isVerified = row.getValue("isVerified")
       return (
-        <Badge variant={isVerified ? "success" : "secondary"}>
+        <Badge variant={isVerified ? "secondary" : "outline"}>
           {isVerified ? "Verifisert" : "Ikke verifisert"}
         </Badge>
       )
@@ -51,10 +52,10 @@ export const columns: ColumnDef<Company>[] = [
       const status = row.getValue("paymentStatus")
       return (
         <Badge variant={
-          status === 'PAID' ? "success" :
-          status === 'PENDING' ? "warning" :
+          status === 'PAID' ? "secondary" :
+          status === 'PENDING' ? "default" :
           status === 'OVERDUE' ? "destructive" :
-          "secondary"
+          "outline"
         }>
           {status === 'PAID' ? "Betalt" :
            status === 'PENDING' ? "Venter" :

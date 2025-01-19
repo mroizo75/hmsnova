@@ -5,19 +5,17 @@ import prisma from "@/lib/db"
 import { DetailedAnalysis } from "./detailed-analysis"
 import { CompanySelect } from "./company-select"
 
-export default async function DetailedAnalysisPage({ 
-  params,
-  searchParams 
-}: { 
-  params: { category: string }
-  searchParams: { companyId?: string }
-}) {
+interface PageProps {
+  params: Promise<{ category: string }>
+  searchParams: Promise<{ companyId?: string | undefined }>
+}
+
+export default async function DetailedAnalysisPage({ params, searchParams }: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.user || session.user.role !== 'ADMIN') {
     redirect('/login')
   }
 
-  // Hent params og searchParams asynkront
   const { category } = await params
   const { companyId } = await searchParams
 

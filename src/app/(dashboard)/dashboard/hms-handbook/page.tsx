@@ -2,7 +2,8 @@ import prisma from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { HMSHandbookClient } from "./hms-handbook-client"
-import { HMSHandbook } from "@prisma/client"
+import type { HMSHandbook as PrismaHandbook } from "@prisma/client"
+import type { HMSHandbook } from "./hms-handbook-client"
 import { HMSChangesOverview } from "./hms-changes-overview"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GenerateHandbookDialog } from "./generate-handbook-dialog"
@@ -98,7 +99,9 @@ export default async function HMSHandbookPage() {
 
       <TabsContent value="handbook">
         {handbook ? (
-          <HMSHandbookClient handbook={handbook} />
+          <HMSHandbookClient 
+            handbook={handbook as unknown as HMSHandbook} 
+          />
         ) : (
           <div className="text-center py-12">
             <p className="text-muted-foreground">

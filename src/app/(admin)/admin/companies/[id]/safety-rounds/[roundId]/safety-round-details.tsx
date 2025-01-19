@@ -26,44 +26,8 @@ import { ChecklistItemDialog } from "./checklist-item-dialog"
 import { debounce } from "lodash"
 import { FindingDialog } from "./finding-dialog"
 import { SafetyRoundReport } from "./safety-round-report"
-
-interface SafetyRound {
-  id: string
-  title: string
-  description: string | null
-  status: string
-  scheduledDate: string | null
-  dueDate: string | null
-  completedAt: string | null
-  assignedTo: string | null
-  assignedUser: {
-    name: string
-    email: string
-  } | null
-  checklistItems: Array<{
-    id: string
-    category: string
-    question: string
-    description: string | null
-    response: string | null
-    comment: string | null
-    imageUrl: string | null
-    isRequired: boolean
-    completedAt: string | null
-    completedBy: string | null
-  }>
-  findings: Array<{
-    id: string
-    description: string
-    severity: string
-    status: string
-    measures: Array<any>
-    checklistItem: {
-      category: string
-      question: string
-    }
-  }>
-}
+import { ExtendedSafetyRound, ChecklistItem, SafetyRoundStatus } from "../types"
+import { ChecklistItemInput } from "./checklist-item-dialog"
 
 interface Props {
   params: {
@@ -72,9 +36,9 @@ interface Props {
   }
 }
 
-export function SafetyRoundDetails({ params }: Props) {
-  const [safetyRound, setSafetyRound] = useState<SafetyRound | null>(null)
-  const [loading, setLoading] = useState(true)
+export default function SafetyRoundDetails({ params }: Props) {
+  const [safetyRound, setSafetyRound] = useState<ExtendedSafetyRound | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<ChecklistItem | undefined>()
@@ -168,7 +132,7 @@ export function SafetyRoundDetails({ params }: Props) {
     setDialogOpen(true)
   }
 
-  const handleSubmitChecklistItem = async (data: Omit<ChecklistItem, 'id'>) => {
+  const handleSubmitChecklistItem = async (data: ChecklistItemInput) => {
     try {
       const url = selectedItem 
         ? `/api/admin/companies/${params.id}/safety-rounds/${params.roundId}/checklist/${selectedItem.id}`
@@ -181,6 +145,12 @@ export function SafetyRoundDetails({ params }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...data,
+          description: data.description || null,
+          completedAt: data.completedAt || null,
+          completedBy: data.completedBy || null,
+          response: data.response || null,
+          comment: data.comment || null,
+          imageUrl: data.imageUrl || null,
           order: selectedItem 
             ? data.order 
             : safetyRound?.checklistItems.length ?? 0
@@ -410,6 +380,19 @@ export function SafetyRoundDetails({ params }: Props) {
     }
   }
 
+  const getStatusBadgeVariant = (status: SafetyRoundStatus): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'DRAFT':
+        return "secondary"
+      case 'IN_PROGRESS':
+        return "default"
+      case 'COMPLETED':
+        return "outline"
+      default:
+        return "default"
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
@@ -464,12 +447,7 @@ export function SafetyRoundDetails({ params }: Props) {
                 Last ned rapport
               </Button>
             )}
-            <Badge variant={
-              safetyRound.status === 'DRAFT' ? "secondary" :
-              safetyRound.status === 'IN_PROGRESS' ? "warning" :
-              safetyRound.status === 'COMPLETED' ? "success" :
-              "outline"
-            }>
+            <Badge variant={getStatusBadgeVariant(safetyRound.status as SafetyRoundStatus)}>
               {safetyRound.status === 'DRAFT' ? "Utkast" :
                safetyRound.status === 'IN_PROGRESS' ? "Pågår" :
                safetyRound.status === 'COMPLETED' ? "Fullført" :

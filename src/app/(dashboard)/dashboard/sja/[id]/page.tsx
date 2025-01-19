@@ -6,17 +6,17 @@ import { SJADetails } from "./sja-details"
 import { Suspense } from "react"
 
 interface PageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function SJADetailsPage({ params }: PageProps) {
+export default async function SJADetailsPage(props: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
   const db = await prisma
-  const { id } = await params
+  const { id } = await props.params
+  const searchParamsResolved = await props.searchParams
 
   const sja = await db.sJA.findFirst({
     where: {

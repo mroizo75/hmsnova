@@ -193,7 +193,7 @@ export const SJAPDFDocument = ({ sja }: SJAPDFProps) => (
               <Text style={styles.tableCell}>Status</Text>
               <Text style={styles.tableCell}>Dato</Text>
             </View>
-            {sja.godkjenninger.map((godkjenning, index) => (
+            {sja.godkjenninger.map((godkjenning: any, index: any) => (
               <View key={index} style={styles.tableRow}>
                 <Text style={styles.tableCell}>{godkjenning.godkjentAv.name}</Text>
                 <Text style={styles.tableCell}>{godkjenning.status}</Text>

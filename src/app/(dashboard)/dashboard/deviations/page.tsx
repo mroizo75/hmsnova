@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { DeviationList } from "./deviation-list"
+import { Deviation } from "@/lib/types/deviation"
 
 export default async function DeviationsPage() {
   const session = await getServerSession(authOptions)
@@ -31,11 +32,13 @@ export default async function DeviationsPage() {
   // Transform data to include user names and measure counts
   const transformedDeviations = deviations.map(deviation => ({
     ...deviation,
+    priority: deviation.severity || 'MEDIUM',
     createdBy: deviation.company.users.find(u => u.id === deviation.reportedBy)?.name || 'Ukjent bruker',
     completedMeasures: deviation.measures.filter(m => m.status === 'CLOSED').length,
     totalMeasures: deviation.measures.length,
-    company: undefined // Remove company data before sending to client
-  }))
+    images: [],
+    company: undefined
+  })) satisfies Deviation[]
 
   return <DeviationList deviations={transformedDeviations} />
 }

@@ -1,43 +1,87 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
-import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
+import prisma from "@/lib/db"
+import { requireAuth } from "@/lib/utils/auth"
+import { generatePDF } from "@/lib/pdf"
+
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return new Response("Unauthorized", { status: 401 })
-    }
+    const session = await requireAuth()
+    const { id } = await context.params
 
-    const { id } = await params
-
-    // Generer et unikt rapportnummer (f.eks. VR-2024-001)
-    const year = new Date().getFullYear()
-    const count = await prisma.safetyRoundReport.count({
+    // Hent vernerunden med alle relaterte data
+    const safetyRound = await prisma.safetyRound.findUnique({
       where: {
-        reportNumber: {
-          startsWith: `VR-${year}-`
+        id,
+        companyId: session.user.companyId
+      },
+      include: {
+        findings: true,
+        creator: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        assignedUser: {
+          select: {
+            name: true,
+            email: true
+          }
         }
       }
     })
-    const reportNumber = `VR-${year}-${(count + 1).toString().padStart(3, '0')}`
 
+    if (!safetyRound) {
+      return NextResponse.json({ error: "Vernerunde ikke funnet" }, { status: 404 })
+    }
+
+    // Generer PDF
+    const pdfBuffer = await generatePDF(safetyRound)
+
+    // Lagre rapporten
     const report = await prisma.safetyRoundReport.create({
       data: {
         safetyRoundId: id,
-        reportNumber,
         generatedBy: session.user.id,
-        status: "PENDING"
+        status: 'PENDING',
+        reportNumber: '123456',
+        metadata: {
+          pdfUrl: pdfBuffer
+        }
       }
     })
 
-    return NextResponse.json(report)
+    // Logg genereringen
+    await prisma.auditLog.create({
+      data: {
+        action: "GENERATE_SAFETY_ROUND_REPORT",
+        entityType: "SAFETY_ROUND",
+        entityId: id,
+        userId: session.user.id,
+        companyId: session.user.companyId,
+        details: {
+          reportId: report.id,
+          findingsCount: safetyRound.findings.length
+        }
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      reportId: report.id
+    })
   } catch (error) {
     console.error("Error generating safety round report:", error)
-    return new Response("Could not generate report", { status: 500 })
+    return NextResponse.json(
+      { error: "Kunne ikke generere rapport" },
+      { status: 500 }
+    )
   }
 } 

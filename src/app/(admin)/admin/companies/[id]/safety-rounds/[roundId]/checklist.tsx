@@ -16,22 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { ImageUpload } from "@/components/ui/image-upload" // Du må lage denne komponenten
+import { ImageUpload } from "@/components/ui/image-upload"
 import { useState } from "react"
 import { toast } from "sonner"
-
-interface ChecklistItem {
-  id: string
-  category: string
-  question: string
-  description?: string
-  response?: string
-  comment?: string
-  imageUrl?: string
-  isRequired: boolean
-  completedAt?: string
-  completedBy?: string
-}
+import { useParams } from 'next/navigation'
+import { ChecklistItem } from "../types"
 
 interface ChecklistProps {
   roundId: string
@@ -41,6 +30,8 @@ interface ChecklistProps {
 }
 
 export function Checklist({ roundId, items, onUpdate, isEditable }: ChecklistProps) {
+  const params = useParams()
+  const companyId = params.id
   const [loading, setLoading] = useState(false)
 
   const handleResponseChange = async (itemId: string, value: string) => {
@@ -80,7 +71,7 @@ export function Checklist({ roundId, items, onUpdate, isEditable }: ChecklistPro
           <CardContent className="space-y-4">
             <Select
               disabled={!isEditable || loading}
-              value={item.response}
+              value={item.response || undefined}
               onValueChange={(value) => handleResponseChange(item.id, value)}
             >
               <SelectTrigger>

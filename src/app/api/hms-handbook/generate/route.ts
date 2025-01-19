@@ -53,13 +53,23 @@ export async function POST(req: Request) {
         sections: {
           create: template.sections.map((section, index) => ({
             title: section.title,
-            content: section.content,
+            content: section.content as any,
             order: index,
+            handbook: {
+              connect: {
+                companyId: session.user.companyId
+              }
+            },
             subsections: {
               create: section.subsections.map((sub, subIndex) => ({
                 title: sub.title,
-                content: sub.content,
-                order: subIndex
+                content: sub.content as any,
+                order: subIndex,
+                handbook: {
+                  connect: {
+                    companyId: session.user.companyId
+                  }
+                }
               }))
             }
           }))
@@ -71,13 +81,23 @@ export async function POST(req: Request) {
           deleteMany: {},
           create: template.sections.map((section, index) => ({
             title: section.title,
-            content: section.content,
+            content: section.content as any,
             order: index,
+            handbook: {
+              connect: {
+                companyId: session.user.companyId
+              }
+            },
             subsections: {
               create: section.subsections.map((sub, subIndex) => ({
                 title: sub.title,
-                content: sub.content,
-                order: subIndex
+                content: sub.content as any,
+                order: subIndex,
+                handbook: {
+                  connect: {
+                    companyId: session.user.companyId
+                  }
+                }
               }))
             }
           }))

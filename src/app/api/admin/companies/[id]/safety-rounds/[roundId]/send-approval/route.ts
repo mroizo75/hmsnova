@@ -78,7 +78,7 @@ export async function POST(
     })
 
     // Send e-post til bedriftsadministrator
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '') // Fjerner trailing slash hvis det finnes
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL as string).replace(/\/$/, '') // Fjerner trailing slash hvis det finnes
     const approvalUrl = `${baseUrl}/safety-rounds/approve/${approvalToken}`
     
     await transporter.sendMail({

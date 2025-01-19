@@ -30,12 +30,19 @@ interface Measure {
 }
 
 interface Props {
+  hazardId?: string
+  context?: {
+    type: string
+    description: string
+    riskLevel: number
+  }
   deviationId?: string
   riskAssessmentId?: string
+  sectionId?: string
   onHasChanges?: (hasChanges: boolean) => void
 }
 
-export function HMSChanges({ deviationId, riskAssessmentId, onHasChanges }: Props) {
+export function HMSChanges({ deviationId, riskAssessmentId, sectionId, onHasChanges }: Props) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [measures, setMeasures] = useState<Measure[]>([])
   const [selectedMeasures, setSelectedMeasures] = useState<string[]>([])

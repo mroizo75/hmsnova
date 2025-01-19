@@ -4,10 +4,10 @@ import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
-    const { email, password, name, role } = await req.json()
+    const { email, password, name, role, companyId } = await req.json()
 
     // Sjekk om bruker allerede eksisterer
-    const existingUser = await prisma.systemUser.findUnique({
+    const existingUser = await prisma.user.findUnique({
       where: { email }
     })
 
@@ -22,12 +22,13 @@ export async function POST(req: Request) {
     const hashedPassword = await hash(password, 12)
 
     // Opprett ny systemadmin
-    const user = await prisma.systemUser.create({
+    const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        role
+        role,
+        companyId: companyId
       }
     })
 

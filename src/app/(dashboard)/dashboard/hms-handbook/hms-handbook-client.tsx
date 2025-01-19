@@ -12,16 +12,51 @@ import { toast } from "sonner"
 import { ReleaseDialog } from "./release-dialog"
 import { VersionHistoryDialog } from "./version-history-dialog"
 import { Input } from "@/components/ui/input"
+import type { JsonValue } from "@prisma/client/runtime/library"
 
-interface Section {
+interface HMSChange {
   id: string
   title: string
-  content: string
-  order: number
-  subsections: Section[]
+  description: string
+  status: string
+  implementedAt: Date | null
+  deviations: Array<{
+    deviation: {
+      id: string
+      title: string
+      description: string
+    }
+  }>
+  riskAssessments: Array<{
+    riskAssessment: {
+      id: string
+      title: string
+      description: string
+    }
+  }>
+  hazards: Array<{
+    hazard: {
+      id: string
+      description: string
+      riskLevel: number
+    }
+  }>
 }
 
-interface HMSHandbook {
+export interface Section {
+  id: string
+  title: string
+  content: JsonValue | string
+  order: number
+  handbookId: string
+  createdAt: Date
+  updatedAt: Date
+  parentId: string | null
+  subsections: Section[]
+  changes: HMSChange[]
+}
+
+export interface HMSHandbook {
   id: string
   version: number
   sections: Section[]
@@ -49,7 +84,7 @@ export function HMSHandbookClient({ handbook }: PageProps) {
     return sections.reduce((matches: Section[], section) => {
       if (
         section.title.toLowerCase().includes(query) ||
-        section.content.toLowerCase().includes(query)
+        (typeof section.content === 'string' && section.content.toLowerCase().includes(query))
       ) {
         matches.push(section)
       }
@@ -245,7 +280,7 @@ export function HMSHandbookClient({ handbook }: PageProps) {
               >
                 <h3 className="font-medium">{section.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {section.content.substring(0, 200)}...
+                  {typeof section.content === 'string' ? section.content.substring(0, 200) : ''}...
                 </p>
               </div>
             ))}

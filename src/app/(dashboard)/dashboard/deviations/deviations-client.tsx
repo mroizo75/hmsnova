@@ -8,39 +8,7 @@ import { CreateDeviationDialog } from "./create-deviation-dialog"
 import { DeviationList } from "./deviation-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertTriangle, CheckCircle2, Clock } from "lucide-react"
-
-interface Measure {
-  id: string
-  description: string
-  type: string
-  status: string
-  priority: string
-  dueDate: Date | null
-  completedAt: Date | null
-}
-
-interface DeviationImage {
-  id: string
-  url: string
-  caption: string | null
-}
-
-interface Deviation {
-  id: string
-  title: string
-  description: string
-  type: string
-  category: string
-  severity: string
-  status: string
-  location: string | null
-  dueDate: Date | null
-  measures: Measure[]
-  images: DeviationImage[]
-  createdAt: Date
-  updatedAt: Date
-  closedAt: Date | null
-}
+import type { Deviation } from "@/lib/types/deviation"
 
 interface PageProps {
   deviations: Deviation[]
@@ -123,10 +91,10 @@ export function DeviationsClient({ deviations }: PageProps) {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="open" className="mt-4">
-          <DeviationList deviations={openDeviations} />
+          <DeviationList deviations={openDeviations as Deviation[]} />
         </TabsContent>
         <TabsContent value="closed" className="mt-4">
-          <DeviationList deviations={closedDeviations} />
+          <DeviationList deviations={closedDeviations as Deviation[]} />
         </TabsContent>
       </Tabs>
     </div>

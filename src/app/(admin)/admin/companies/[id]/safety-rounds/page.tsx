@@ -1,19 +1,25 @@
-import { Suspense } from "react"
+import { SafetyRoundsAdminClient } from "./safety-rounds-admin-client"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { redirect } from "next/navigation"
-import { SafetyRoundsAdminClient } from "./safety-rounds-admin-client"
 
 interface PageProps {
   params: Promise<{ id: string }>
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-async function SafetyRoundsContent({ companyId }: { companyId: string }) {
+export default async function AdminSafetyRoundsPage({ params, searchParams }: PageProps) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
+    redirect('/login')
+  }
+
+  const { id } = await params
+
   const company = await prisma.company.findFirst({
     where: {
-      id: companyId,
+      id: id,
       modules: {
         some: {
           key: 'SAFETY_ROUNDS'
@@ -38,7 +44,7 @@ async function SafetyRoundsContent({ companyId }: { companyId: string }) {
   const safetyRounds = await prisma.safetyRound.findMany({
     where: {
       module: {
-        companyId,
+        companyId: id,
         key: 'SAFETY_ROUNDS'
       }
     },
@@ -55,25 +61,12 @@ async function SafetyRoundsContent({ companyId }: { companyId: string }) {
   })
 
   return (
-    <SafetyRoundsAdminClient 
-      company={company} 
-      safetyRounds={safetyRounds}
-      users={company.users}
-    />
-  )
-}
-
-export default async function AdminSafetyRoundsPage(props: PageProps) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
-    redirect('/login')
-  }
-
-  const { id } = await props.params
-
-  return (
     <div className="container mx-auto py-6">
-      <SafetyRoundsAdminClient companyId={id} />
+      <SafetyRoundsAdminClient 
+        companyId={company.id}
+        safetyRounds={safetyRounds}
+        users={company.users}
+      />
     </div>
   )
 } 

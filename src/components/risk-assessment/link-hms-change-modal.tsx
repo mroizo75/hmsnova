@@ -40,7 +40,11 @@ interface LinkHMSChangeModalProps {
   isOpen: boolean
   onClose: () => void
   riskAssessmentId: string
-  hazards: Hazard[]
+  hazards: Array<{
+    id: string
+    description: string
+    riskLevel: number
+  }>
   changes: Array<{
     id: string
     title: string
@@ -139,7 +143,7 @@ export function LinkHMSChangeModal({
                               </FormControl>
                               <div className="space-y-1 leading-none">
                                 <FormLabel className="font-normal">
-                                  {hazard.title}
+                                  {hazard.description}
                                 </FormLabel>
                                 <p className="text-sm text-muted-foreground">
                                   Risikonivå: {hazard.riskLevel}

@@ -14,7 +14,12 @@ import { User, Settings, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { NotificationsNav } from "@/components/notifications-nav"
 
-export function Header() {
+interface HeaderProps {
+  user: any;
+  className?: string;
+}
+
+export function Header({ user, className }: HeaderProps) {
   const { data: session } = useSession()
   const router = useRouter()
 

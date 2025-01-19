@@ -53,7 +53,8 @@ async function getCompanyStats(userId: string) {
           status: true,
           createdAt: true,
           assignedTo: true,
-          severity: true
+          severity: true,
+          measures: true
         }
       },
       riskAssessments: {
@@ -79,7 +80,12 @@ async function getDeviationStats(companyId: string) {
   const deviations = await prisma.deviation.groupBy({
     by: ['status'],
     where: { companyId },
-    _count: true
+    _count: true,
+    orderBy: {
+      _count: {
+        status: 'desc'
+      }
+    }
   })
 
   // Initialiser med 0 for alle statuser

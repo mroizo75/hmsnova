@@ -1,76 +1,41 @@
-import prisma from "@/lib/db"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
 import { NextResponse } from "next/server"
+import prisma from "@/lib/db"
+import { requireAuth } from "@/lib/utils/auth"
+
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { message: "Ikke autorisert" },
-        { status: 401 }
-      )
-    }
+    const session = await requireAuth()
+    const { id } = await context.params
 
-    const handbookId = params.id
-    if (!handbookId) {
-      return NextResponse.json(
-        { message: "Ugyldig handbook ID" },
-        { status: 400 }
-      )
-    }
-
-    const db = await prisma
-
-    // Først sjekk om brukeren har tilgang til håndboken
-    const handbook = await db.hMSHandbook.findFirst({
+    // Hent alle utgivelser for håndboken
+    const releases = await prisma.hMSRelease.findMany({
       where: {
-        id: handbookId,
-        company: {
-          users: {
-            some: {
-              id: session.user.id
-            }
-          }
+        handbookId: id,
+        handbook: {
+          companyId: session.user.companyId
         }
-      }
-    })
-
-    if (!handbook) {
-      return NextResponse.json(
-        { message: "Ikke autorisert eller håndbok ikke funnet" },
-        { status: 403 }
-      )
-    }
-    
-    // Hent releases hvis brukeren har tilgang
-    const releases = await db.hMSRelease.findMany({
-      where: {
-        handbookId: handbookId,
       },
       orderBy: {
-        version: 'desc'
-      },
-      select: {
-        id: true,
-        version: true,
-        changes: true,
-        reason: true,
-        approvedBy: true,
-        approvedAt: true,
-        createdAt: true
+        createdAt: 'desc'
       }
     })
+
+    if (!releases) {
+      return NextResponse.json({ error: "Ingen utgivelser funnet" }, { status: 404 })
+    }
 
     return NextResponse.json(releases)
   } catch (error) {
-    console.error("Error fetching releases:", error)
+    console.error("Error fetching HMS handbook releases:", error)
     return NextResponse.json(
-      { message: "Kunne ikke hente versjonshistorikk" },
+      { error: "Kunne ikke hente utgivelser" },
       { status: 500 }
     )
   }

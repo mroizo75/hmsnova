@@ -9,9 +9,13 @@ const updateDeviationSchema = z.object({
   comment: z.string().optional()
 })
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -25,11 +29,10 @@ export async function PATCH(
     const data = await request.json()
     const { status, comment } = data
 
-    // Hent id fra params asynkront
-    const { id } = await params
+    const { id } = await context.params
 
     const deviation = await prisma.deviation.update({
-      where: { id },  // Bruker den asynkrone id-en her
+      where: { id },
       data: {
         status,
         ...(comment && { closeComment: comment }),
@@ -58,39 +61,51 @@ export async function PATCH(
 }
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: RouteParams
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const db = await prisma
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-    const deviation = await db.deviation.findUnique({
-      where: {
-        id: params.id,
+    const { id } = await context.params
+
+    const deviation = await prisma.deviation.findUnique({
+      where: { id },
+      include: {
+        measures: {
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        images: {
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
+        hmsChanges: {
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
         company: {
-          users: {
-            some: {
-              id: session?.user.id
-            }
+          select: {
+            id: true,
+            name: true
           }
         }
-      },
-      include: {
-        measures: true,
-        images: true
       }
     })
 
     if (!deviation) {
-      return NextResponse.json(
-        { error: "Avvik ikke funnet" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Avvik ikke funnet" }, { status: 404 })
     }
 
-    return NextResponse.json({ data: deviation })
+    return NextResponse.json(deviation)
   } catch (error) {
+    console.error('Error fetching deviation:', error)
     return NextResponse.json(
       { error: "Kunne ikke hente avvik" },
       { status: 500 }

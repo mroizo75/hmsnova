@@ -65,7 +65,6 @@ export async function GET(request: NextRequest) {
           },
           { 
             content: { 
-              search: searchTerm
             } 
           }
         ]

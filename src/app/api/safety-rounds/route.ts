@@ -35,6 +35,7 @@ export async function POST(request: Request) {
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         status: "DRAFT",
         moduleId: module.id,
+        companyId: session.user.companyId,
         createdBy: session.user.id
       },
       include: {

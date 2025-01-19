@@ -29,9 +29,9 @@ export function SafetyRoundsList({ safetyRounds }: SafetyRoundsListProps) {
   function getStatusBadge(status: string) {
     switch (status) {
       case 'COMPLETED':
-        return <Badge variant="success">Fullført</Badge>
+        return <Badge variant="default">Fullført</Badge>
       case 'IN_PROGRESS':
-        return <Badge variant="warning">Pågår</Badge>
+        return <Badge variant="destructive">Pågår</Badge>
       case 'DRAFT':
         return <Badge variant="secondary">Utkast</Badge>
       default:

@@ -34,7 +34,7 @@ interface Section {
   subsections: Section[]
 }
 
-interface Template {
+export interface Template {
   id: string
   name: string
   description: string | null

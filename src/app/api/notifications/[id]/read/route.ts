@@ -1,32 +1,59 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
 import { NextResponse } from "next/server"
 import prisma from "@/lib/db"
+import { requireAuth } from "@/lib/utils/auth"
+
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteParams
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    const session = await requireAuth()
+    const { id } = await context.params
+
+    // Sjekk om varselet eksisterer og tilhører brukeren
+    const notification = await prisma.notification.findUnique({
+      where: {
+        id,
+        userId: session.user.id
+      }
+    })
+
+    if (!notification) {
+      return NextResponse.json({ error: "Varsel ikke funnet" }, { status: 404 })
     }
 
-    const notification = await prisma.notification.update({
-      where: {
-        id: params.id,
-        userId: session.user.id
-      },
+    // Marker varselet som lest
+    const updatedNotification = await prisma.notification.update({
+      where: { id },
       data: {
         read: true
       }
     })
 
-    return NextResponse.json(notification)
+    // Logg handlingen
+    await prisma.auditLog.create({
+      data: {
+        action: "READ_NOTIFICATION",
+        entityType: "NOTIFICATION",
+        entityId: id,
+        userId: session.user.id,
+        companyId: session.user.companyId,
+        details: {
+          type: notification.type,
+          read: updatedNotification.read
+        }
+      }
+    })
+
+    return NextResponse.json(updatedNotification)
   } catch (error) {
+    console.error("Error marking notification as read:", error)
     return NextResponse.json(
-      { error: "Kunne ikke oppdatere varsel" },
+      { error: "Kunne ikke markere varsel som lest" },
       { status: 500 }
     )
   }
