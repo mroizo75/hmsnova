@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const headersList = await headers()
     const protocol = await headersList.get('x-forwarded-proto') || 'http'
-    const host = await headersList.get('host') || 'localhost:3000'
+    const host = await headersList.get('host') || 'localhost:3001'
     const origin = `${protocol}://${host}`
 
     if (!io) {
@@ -31,7 +31,7 @@ export async function GET() {
         })
       })
 
-      const port = parseInt(process.env.SOCKET_PORT || '3001', 10)
+      const port = parseInt(process.env.SOCKET_PORT || '3008', 10)
       httpServer.listen(port, () => {
         console.log(`Socket.IO server running on port ${port}`)
       })

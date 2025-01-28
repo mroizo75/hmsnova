@@ -1,75 +1,72 @@
 import { NextResponse } from "next/server"
-import { z } from "zod"
 import prisma from "@/lib/db"
 import { requireAuth } from "@/lib/utils/auth"
+import { z } from "zod"
 
 const releaseSchema = z.object({
-  comment: z.string().min(10).optional(),
-  version: z.number().optional()
+  changes: z.string(),
+  reason: z.string(),
 })
-
-interface RouteParams {
-  params: Promise<{ id: string }>
-}
 
 export async function POST(
   request: Request,
-  context: RouteParams
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await requireAuth()
-    const body = await request.json()
-    
-    const validatedData = releaseSchema.parse(body)
-    const { id } = await context.params
+    const handbookId = params.id
+    const data = await request.json()
+    const { changes, reason } = releaseSchema.parse(data)
 
-    // Finn gjeldende versjon
-    const currentHandbook = await prisma.hMSHandbook.findUnique({
+    // 1. Hent nåværende håndbok med alle seksjoner
+    const handbook = await prisma.hMSHandbook.findFirst({
       where: {
-        id,
-        companyId: session.user.companyId
-      }
-    })
-
-    if (!currentHandbook) {
-      return NextResponse.json({ error: "HMS-håndbok ikke funnet" }, { status: 404 })
-    }
-
-    // Opprett ny versjon
-    const newVersion = currentHandbook.version + 1
-
-    const releasedHandbook = await prisma.hMSHandbook.update({
-      where: { id },
-      data: {
-        published: true,
-        version: newVersion,
-      }
-    })
-
-    // Logg utgivelsen
-    await prisma.auditLog.create({
-      data: {
-        action: "RELEASE_HMS_HANDBOOK",
-        entityType: "HMS_HANDBOOK",
-        entityId: id,
-        userId: session.user.id,
+        id: handbookId,
         companyId: session.user.companyId,
-        details: {
-          version: newVersion,
-          comment: validatedData.comment
+      },
+      include: {
+        sections: {
+          include: {
+            changes: true
+          }
         }
       }
     })
 
-    return NextResponse.json(releasedHandbook)
-  } catch (error) {
-    console.error("Error releasing HMS handbook:", error)
-    if (error instanceof z.ZodError) {
+    if (!handbook) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
-        { status: 400 }
+        { error: "Håndbok ikke funnet" },
+        { status: 404 }
       )
     }
-    return new NextResponse("Internal error", { status: 500 })
+
+    // 2. Opprett ny release med snapshot av håndboken
+    const release = await prisma.hMSRelease.create({
+      data: {
+        version: handbook.version + 1,
+        handbookId: handbookId,
+        changes: changes,
+        reason: reason,
+        approvedBy: session.user.id,
+        content: handbook, // Snapshot av hele håndboken
+      }
+    })
+
+    // 3. Oppdater håndbokens versjonsnummer
+    await prisma.hMSHandbook.update({
+      where: { id: handbookId },
+      data: { 
+        version: handbook.version + 1,
+        published: true
+      }
+    })
+
+    return NextResponse.json(release)
+  } catch (error) {
+    console.error("Error creating release:", error)
+    return NextResponse.json(
+      { error: "Kunne ikke opprette ny versjon" },
+      { status: 500 }
+    )
   }
 } 

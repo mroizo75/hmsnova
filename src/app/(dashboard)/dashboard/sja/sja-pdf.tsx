@@ -136,7 +136,7 @@ export const SJAPDFDocument = ({ sja }: SJAPDFProps) => (
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Startdato:</Text>
-          <Text style={styles.value}>{formatDate(sja.startDato)}</Text>
+          <Text style={styles.value}>{formatDate(sja.startDato || new Date())}</Text>
         </View>
         {sja.sluttDato && (
           <View style={styles.row}>
@@ -175,7 +175,7 @@ export const SJAPDFDocument = ({ sja }: SJAPDFProps) => (
             </View>
             {sja.produkter.map((produkt, index) => (
               <View key={index} style={styles.tableRow}>
-                <Text style={styles.tableCell}>{produkt.produkt.navn}</Text>
+                <Text style={styles.tableCell}>{produkt.produkt.produktnavn}</Text>
                 <Text style={styles.tableCell}>{produkt.mengde || '-'}</Text>
               </View>
             ))}

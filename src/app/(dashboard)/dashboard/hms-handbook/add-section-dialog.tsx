@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Editor } from "@/components/editor"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -129,7 +128,10 @@ export function AddSectionDialog({ handbookId, parentId, trigger }: AddSectionDi
                     <FormItem>
                       <FormLabel>Innhold</FormLabel>
                       <FormControl>
-                        <Editor {...field} />
+                        <Editor 
+                          value={field.value} 
+                          onChange={field.onChange}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

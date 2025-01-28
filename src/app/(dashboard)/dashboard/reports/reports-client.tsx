@@ -9,13 +9,23 @@ import { CustomReport } from "./custom-report"
 import { InternalAuditReport } from "./internal-audit-report"
 import { ExportDialog } from "./export-dialog"
 import { useState } from "react"
+import { InternalAuditData } from "./internal-audit-report"
 
-interface ReportsClientProps {
-  stats: any[] // TODO: Definere typer
-  auditData: any // Internrevisjonsdata
+export interface StatsItem {
+  companyId: string
+  status: string
+  _count: {
+    _all: number
+  }
 }
 
-export function ReportsClient({ stats, auditData }: ReportsClientProps) {
+interface Props {
+  stats: [StatsItem[], StatsItem[], any[]]  // [deviations, riskAssessments, monthlyStats]
+  auditData: InternalAuditData | null  // Endre til å tillate null
+}
+
+export function ReportsClient({ stats, auditData }: Props) {
+  const [deviationStats, riskAssessmentStats, monthlyStats] = stats
   const [activeTab, setActiveTab] = useState("overview")
 
   return (
@@ -39,15 +49,15 @@ export function ReportsClient({ stats, auditData }: ReportsClientProps) {
         </TabsContent>
 
         <TabsContent value="deviations">
-          <DeviationReport stats={stats[0]} />
+          <DeviationReport stats={deviationStats as StatsItem[]} />
         </TabsContent>
 
         <TabsContent value="risks">
-          <RiskReport stats={stats[1]} />
+          <RiskReport stats={riskAssessmentStats as StatsItem[]} />
         </TabsContent>
 
         <TabsContent value="custom">
-          <CustomReport companyId={stats[0].companyId} />
+          <CustomReport companyId={deviationStats[0].companyId} />
         </TabsContent>
 
         <TabsContent value="audit">

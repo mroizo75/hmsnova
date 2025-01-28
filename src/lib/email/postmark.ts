@@ -1,6 +1,6 @@
 import { ServerClient } from "postmark"
 
-const client = new ServerClient(process.env.POSTMARK_API_TOKEN || "")
+const postmarkClient = new ServerClient(process.env.POSTMARK_API_TOKEN || "")
 
 interface EmailOptions {
   to: string
@@ -21,7 +21,7 @@ export async function sendEmail({
   }
 
   try {
-    const response = await client.sendEmail({
+    const response = await postmarkClient.sendEmail({
       From: from,
       To: to,
       Subject: subject,
@@ -34,4 +34,24 @@ export async function sendEmail({
     console.error('Error sending email:', error)
     throw error
   }
+}
+
+export async function sendPasswordResetEmail(to: string, newPassword: string) {
+  // Tilpass avsender og tekst
+  await postmarkClient.sendEmail({
+    From: "no-reply@hmsnova.com",
+    To: to,
+    Subject: "Nytt passord",
+    TextBody: `Hei!
+
+Vi har opprettet et nytt midlertidig passord til deg:
+${newPassword}
+
+Logg inn og oppdater passordet ditt snarest for bedre sikkerhet.
+
+Hilsen,
+HMSNova-teamet
+`,
+    MessageStream: "outbound"
+  })
 } 

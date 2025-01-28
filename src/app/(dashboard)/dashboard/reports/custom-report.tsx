@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Dispatch, SetStateAction } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +22,11 @@ import {
 } from "@/components/ui/table"
 import { Download, Search } from "lucide-react"
 import { toast } from "sonner"
+import { DatePickerWithRange } from "@/components/ui/date-range-picker"
+import { pdf } from "@react-pdf/renderer"
+import { CustomReportDocument } from "@/components/reports/custom-report-document"
+import { addDays } from "date-fns"
+import { DateRange } from "react-day-picker"
 
 interface CustomReportProps {
   companyId: string
@@ -53,25 +58,32 @@ const columns = {
   // ... flere kolonnedefinisjoner
 }
 
+interface DatePickerWithRangeProps {
+  date: DateRange
+  setDate: Dispatch<SetStateAction<DateRange>>
+}
+
 export function CustomReport({ companyId }: CustomReportProps) {
   const [selectedType, setSelectedType] = useState<string>('deviations')
   const [selectedColumns, setSelectedColumns] = useState<string[]>([])
-  const [dateFrom, setDateFrom] = useState<Date>()
-  const [dateTo, setDateTo] = useState<Date>()
+  const [date, setDate] = useState<DateRange>({
+    from: new Date(),
+    to: addDays(new Date(), 7)
+  })
   const [results, setResults] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const handleSearch = async () => {
     try {
-      setIsLoading(true)
+      setIsGenerating(true)
       const response = await fetch('/api/reports/custom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: selectedType,
           columns: selectedColumns,
-          dateFrom,
-          dateTo,
+          startDate: date.from,
+          endDate: date.to,
           companyId
         })
       })
@@ -84,7 +96,7 @@ export function CustomReport({ companyId }: CustomReportProps) {
     } catch (error) {
       toast.error('Kunne ikke generere rapport')
     } finally {
-      setIsLoading(false)
+      setIsGenerating(false)
     }
   }
 
@@ -117,6 +129,51 @@ export function CustomReport({ companyId }: CustomReportProps) {
     }
   }
 
+  const handleGenerate = async () => {
+    if (!date.from || !date.to) return
+
+    try {
+      setIsGenerating(true)
+
+      // Hent data for valgt periode
+      const response = await fetch('/api/reports/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: date.from,
+          endDate: date.to
+        })
+      })
+
+      if (!response.ok) throw new Error('Kunne ikke hente data')
+      const data = await response.json()
+
+      // Generer PDF
+      const blob = await pdf(
+        <CustomReportDocument data={{
+          ...data,
+          startDate: date.from,
+          endDate: date.to
+        }} />
+      ).toBlob()
+
+      // Last ned PDF
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `hms-rapport-${date.from.toISOString().split('T')[0]}-${date.to.toISOString().split('T')[0]}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+    } catch (error) {
+      console.error('Error generating report:', error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -144,8 +201,7 @@ export function CustomReport({ companyId }: CustomReportProps) {
             <div>
               <label className="text-sm font-medium">Datoperiode</label>
               <div className="flex gap-2">
-                <DatePicker date={dateFrom} setDate={setDateFrom} />
-                <DatePicker date={dateTo} setDate={setDateTo} />
+                <DatePickerWithRange date={date} setDate={setDate} />
               </div>
             </div>
           </div>
@@ -173,9 +229,9 @@ export function CustomReport({ companyId }: CustomReportProps) {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button onClick={handleSearch} disabled={isLoading}>
+            <Button onClick={handleSearch} disabled={isGenerating || !date.from || !date.to}>
               <Search className="w-4 h-4 mr-2" />
-              {isLoading ? 'Genererer...' : 'Generer rapport'}
+              {isGenerating ? 'Genererer...' : 'Generer rapport'}
             </Button>
             {results.length > 0 && (
               <Button variant="outline" onClick={handleExport}>

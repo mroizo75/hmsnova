@@ -9,6 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SJATable } from "./sja-table"
 import { FilterBar, FilterOptions, SortOptions } from "./filter-bar"
 import { SJAWithRelations } from "./types"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "react-hot-toast"
+import { SlettSJADialog } from "./slett-sja-dialog"
 
 interface SJA {
   id: string
@@ -26,7 +29,7 @@ interface SJA {
 }
 
 interface SJAClientProps {
-  initialData: SJA[]
+  initialData: SJAWithRelations[]
 }
 
 export function SJAClient({ initialData }: SJAClientProps) {
@@ -38,22 +41,77 @@ export function SJAClient({ initialData }: SJAClientProps) {
     dateTo: null,
   })
   const [sortOption, setSortOption] = useState<SortOptions>("newest")
+  const queryClient = useQueryClient()
+  const [slettDialog, setSlettDialog] = useState<{
+    open: boolean
+    sja: SJAWithRelations | null
+  }>({
+    open: false,
+    sja: null
+  })
 
-  const activeSJA = initialData.filter(sja => 
-    ['UTKAST', 'SENDT_TIL_GODKJENNING'].includes(sja.status)
+  // Bruk data fra React Query
+  const { data: sjaList = [] } = useQuery({
+    queryKey: ['sja-list'],
+    queryFn: async () => {
+      const response = await fetch('/api/sja')
+      if (!response.ok) throw new Error('Kunne ikke hente SJA-er')
+      const data = await response.json()
+      return Array.isArray(data) ? data : []
+    },
+    initialData: Array.isArray(initialData) ? initialData : []
+  })
+
+  // Bruk sjaList i stedet for initialData
+  const activeSJA = sjaList.filter((sja: SJA) => 
+    ['UTKAST', 'SENDT_TIL_GODKJENNING'].includes(sja.status || '')
   )
-  const completedSJA = initialData.filter(sja => 
-    ['GODKJENT', 'AVVIST', 'UTGATT'].includes(sja.status)
+  const completedSJA = sjaList.filter((sja: SJA) => 
+    ['GODKJENT', 'AVVIST', 'UTGATT'].includes(sja.status || '')
   )
 
-  // Statistikk
-  const totalSJA = initialData.length
-  const openSJA = initialData.filter(sja => sja.status === 'UTKAST').length
-  const inProgressSJA = initialData.filter(sja => sja.status === 'SENDT_TIL_GODKJENNING').length
-  const completedSJACount = initialData.filter(sja => sja.status === 'GODKJENT').length
+  // Statistikk basert på sjaList
+  const totalSJA = sjaList.length
+  const openSJA = sjaList.filter((sja: SJA) => sja.status === 'UTKAST').length
+  const inProgressSJA = sjaList.filter((sja: SJA) => sja.status === 'SENDT_TIL_GODKJENNING').length
+  const completedSJACount = sjaList.filter((sja: SJA) => sja.status === 'GODKJENT').length
 
   function handleAddSJA(sja: SJAWithRelations): void {
-    throw new Error("Function not implemented.")
+    console.log('=== handleAddSJA START ===')
+    console.log('Incoming SJA:', sja)
+    
+    try {
+      // Sikre at vi har riktig data-struktur
+      const sjaData = sja.data || sja
+      console.log('Processed sjaData:', sjaData)
+      
+      // Oppdater cache direkte
+      queryClient.setQueryData(['sja-list'], (old: SJAWithRelations[] = []) => {
+        console.log('Old cache data:', old)
+        const currentData = Array.isArray(old) ? old : []
+        const newData = [sjaData, ...currentData]
+        console.log('New cache data:', newData)
+        return newData
+      })
+    } catch (error) {
+      console.error('=== ERROR IN handleAddSJA ===')
+      console.error('Full error:', error)
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack available')
+      console.error('Current cache state:', queryClient.getQueryData(['sja-list']))
+      toast.error('Kunne ikke opprette SJA')
+    }
+    console.log('=== handleAddSJA END ===')
+  }
+
+  const handleBehandle = (oppdatertSja: SJAWithRelations) => {
+    setSlettDialog({
+      open: true,
+      sja: oppdatertSja
+    })
+  }
+
+  const handleSlettComplete = (sjaId: string) => {
+    setSlettDialog({ open: false, sja: null })
   }
 
   return (
@@ -116,10 +174,16 @@ export function SJAClient({ initialData }: SJAClientProps) {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
-          <SJATable data={activeSJA as unknown as SJAWithRelations[]} />
+          <SJATable 
+            data={activeSJA as unknown as SJAWithRelations[]} 
+            onBehandle={handleBehandle}
+          />
         </TabsContent>
         <TabsContent value="completed" className="mt-4">
-          <SJATable data={completedSJA as unknown as SJAWithRelations[]} />
+          <SJATable 
+            data={completedSJA as unknown as SJAWithRelations[]} 
+            onBehandle={handleBehandle}
+          />
         </TabsContent>
       </Tabs>
 
@@ -128,6 +192,15 @@ export function SJAClient({ initialData }: SJAClientProps) {
         onOpenChange={setDialogOpen as (open: boolean | undefined) => void}
         onAdd={handleAddSJA as (sja: SJAWithRelations | undefined) => void}
       />
+
+      {slettDialog.sja && (
+        <SlettSJADialog
+          sja={slettDialog.sja}
+          open={slettDialog.open}
+          onOpenChange={(open) => setSlettDialog(prev => ({ ...prev, open }))}
+          onSlett={handleSlettComplete}
+        />
+      )}
     </div>
   )
 } 

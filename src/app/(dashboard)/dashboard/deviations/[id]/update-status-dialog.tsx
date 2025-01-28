@@ -33,9 +33,11 @@ import { useRouter } from "next/navigation"
 import { ClipboardEdit } from "lucide-react"
 import React from "react"
 import { statusLabels } from "@/lib/constants/deviations"
+import { useQueryClient } from "@tanstack/react-query"
+import { Status } from "@prisma/client"
 
 const formSchema = z.object({
-  status: z.enum(["AAPEN", "PAAGAAR", "FULLFOERT", "LUKKET"]),
+  status: z.nativeEnum(Status),
   comment: z.string().optional(),
 })
 
@@ -52,24 +54,22 @@ interface Props {
   deviation: Deviation
   open: boolean
   onOpenChange: (open: boolean) => void
+  onUpdate: () => Promise<void>
 }
 
-export function UpdateStatusDialog({ deviation, open, onOpenChange }: Props) {
+export function UpdateStatusDialog({ deviation, open, onOpenChange, onUpdate }: Props) {
   const router = useRouter()
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      status: deviation.status as "AAPEN" | "PAAGAAR" | "FULLFOERT" | "LUKKET",
+      status: deviation.status as Status,
       comment: "",
     },
   })
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      console.log('Form values:', values)
-      console.log('Current deviation status:', deviation.status)
-      console.log('Status labels:', statusLabels)
-
       // Sjekk om alle tiltak er fullført før lukking
       if (values.status === "LUKKET") {
         const uncompletedMeasures = deviation.measures.filter(
@@ -82,22 +82,18 @@ export function UpdateStatusDialog({ deviation, open, onOpenChange }: Props) {
         }
       }
 
-      const requestBody = {
-        status: values.status,
-        comment: values.comment
-      }
-      console.log('Sending request body:', requestBody)
-
       const response = await fetch(`/api/deviations/${deviation.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          status: values.status,
+          comment: values.comment
+        }),
       })
 
       const responseData = await response.json()
-      console.log('Response:', responseData)
 
       if (!response.ok) {
         throw new Error(responseData.details || "Kunne ikke oppdatere status")
@@ -105,7 +101,13 @@ export function UpdateStatusDialog({ deviation, open, onOpenChange }: Props) {
 
       toast.success("Status oppdatert")
       onOpenChange(false)
+      await onUpdate()
+      
       router.refresh()
+      setTimeout(() => {
+        router.refresh()
+      }, 100)
+
     } catch (error) {
       console.error('Error updating status:', error)
       toast.error(error instanceof Error ? error.message : "Kunne ikke oppdatere status")

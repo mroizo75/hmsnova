@@ -1,24 +1,23 @@
 import prisma from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
-import { HMSHandbookClient } from "./hms-handbook-client"
-import type { HMSHandbook as PrismaHandbook } from "@prisma/client"
-import type { HMSHandbook } from "./hms-handbook-client"
+import { HMSHandbook, HMSHandbookClient } from "./hms-handbook-client"
 import { HMSChangesOverview } from "./hms-changes-overview"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GenerateHandbookDialog } from "./generate-handbook-dialog"
+import { notFound } from "next/navigation"
 
 export default async function HMSHandbookPage() {
   const session = await getServerSession(authOptions)
-  const db = await prisma
-  
+  if (!session) return notFound()
+
   const [handbook, templates] = await Promise.all([
-    db.hMSHandbook.findFirst({
+    prisma.hMSHandbook.findFirst({
       where: {
         company: {
           users: {
             some: {
-              id: session?.user?.id
+              id: session.user.id
             }
           }
         }
@@ -35,6 +34,9 @@ export default async function HMSHandbookPage() {
               }
             },
             changes: {
+              orderBy: {
+                createdAt: 'desc'
+              },
               include: {
                 deviations: {
                   include: {
@@ -57,17 +59,6 @@ export default async function HMSHandbookPage() {
                       }
                     }
                   }
-                },
-                hazards: {
-                  include: {
-                    hazard: {
-                      select: {
-                        id: true,
-                        description: true,
-                        riskLevel: true
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -75,8 +66,7 @@ export default async function HMSHandbookPage() {
         }
       }
     }),
-    // Hent tilgjengelige maler
-    db.hMSTemplate.findMany({
+    prisma.hMSTemplate.findMany({
       where: {
         OR: [
           { isDefault: true },
@@ -99,9 +89,7 @@ export default async function HMSHandbookPage() {
 
       <TabsContent value="handbook">
         {handbook ? (
-          <HMSHandbookClient 
-            handbook={handbook as unknown as HMSHandbook} 
-          />
+          <HMSHandbookClient handbook={handbook as unknown as HMSHandbook} />
         ) : (
           <div className="text-center py-12">
             <p className="text-muted-foreground">

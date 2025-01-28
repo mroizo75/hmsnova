@@ -7,27 +7,47 @@ import {
   Cell, 
   ResponsiveContainer,
   Tooltip,
-  Legend
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid
 } from 'recharts'
 import { statusLabels, statusColors } from "@/lib/constants/deviations"
+import { StatsItem } from "./reports-client"
 
-interface DeviationReportProps {
-  stats: {
-    status: string
-    _count: number
-  }[]
+interface DeviationStat {
+  status: string
+  _count: {
+    _all: number
+  }
 }
 
-export function DeviationReport({ stats }: DeviationReportProps) {
+interface Props {
+  stats: StatsItem[]
+}
+
+export function DeviationReport({ stats }: Props) {
   const data = stats.map(item => ({
-    name: statusLabels[item.status] || item.status,
-    value: item._count,
-    color: statusColors[item.status]?.split(' ')[0].replace('bg-', '#') || '#gray-500'
+    name: item.status === 'DRAFT' ? 'Under arbeid' :
+          item.status === 'COMPLETED' ? 'Fullført' :
+          item.status === 'APPROVED' ? 'Godkjent' :
+          item.status === 'NEEDS_REVIEW' ? 'Trenger gjennomgang' :
+          item.status === 'OPEN' ? 'Åpen' :
+          item.status,
+    antall: item._count._all,
+    color: item.status === 'DRAFT' ? '#f59e0b' :      // Gul
+           item.status === 'COMPLETED' ? '#10b981' :   // Grønn
+           item.status === 'APPROVED' ? '#3b82f6' :    // Blå
+           item.status === 'NEEDS_REVIEW' ? '#ef4444' : // Rød
+           item.status === 'OPEN' ? '#6366f1' :        // Indigo
+           '#9ca3af'                                   // Grå (default)
   }))
 
-  const totalDeviations = data.reduce((sum, item) => sum + item.value, 0)
-  const openDeviations = data.find(item => item.name === statusLabels.OPEN)?.value || 0
-  const completedDeviations = data.find(item => item.name === statusLabels.COMPLETED)?.value || 0
+  const totalDeviations = data.reduce((sum, item) => sum + item.antall, 0)
+  const openDeviations = data.find(item => item.name === 'Åpen')?.antall || 0
+  const completedDeviations = data.find(item => item.name === 'Fullført')?.antall || 0
 
   return (
     <div className="space-y-6">
@@ -47,50 +67,27 @@ export function DeviationReport({ stats }: DeviationReportProps) {
       </div>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Fordeling av avvik etter status</h3>
+        <h2 className="text-lg font-semibold mb-6">Avvik etter status</h2>
         <ResponsiveContainer width="100%" height={400}>
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              outerRadius={150}
-              label={({
-                cx,
-                cy,
-                midAngle,
-                innerRadius,
-                outerRadius,
-                value,
-                index
-              }) => {
-                const RADIAN = Math.PI / 180
-                const radius = 25 + innerRadius + (outerRadius - innerRadius)
-                const x = cx + radius * Math.cos(-midAngle * RADIAN)
-                const y = cy + radius * Math.sin(-midAngle * RADIAN)
-
-                return (
-                  <text
-                    x={x}
-                    y={y}
-                    fill="#888"
-                    textAnchor={x > cx ? 'start' : 'end'}
-                    dominantBaseline="central"
-                  >
-                    {`${data[index].name} (${value})`}
-                  </text>
-                )
-              }}
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip 
+              contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+            />
+            <Legend />
+            <Bar 
+              dataKey="antall" 
+              name="Antall avvik"
+              fill="#10b981"
+              radius={[4, 4, 0, 0]}
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </Card>
 
@@ -107,9 +104,9 @@ export function DeviationReport({ stats }: DeviationReportProps) {
                 <span>{item.name}</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="font-medium">{item.value}</span>
+                <span className="font-medium">{item.antall}</span>
                 <span className="text-muted-foreground">
-                  {Math.round((item.value / totalDeviations) * 100)}%
+                  {Math.round((item.antall / totalDeviations) * 100)}%
                 </span>
               </div>
             </div>

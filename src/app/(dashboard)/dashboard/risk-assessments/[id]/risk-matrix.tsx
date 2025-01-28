@@ -15,11 +15,11 @@ const probabilityLabels = [
 ]
 
 const severityLabels = [
-  "Ubetydelig",
-  "Lav",
-  "Moderat",
+  "Svært alvorlig",
   "Alvorlig",
-  "Svært alvorlig"
+  "Moderat",
+  "Lav",
+  "Ubetydelig"
 ]
 
 export function RiskMatrix({ data }: RiskMatrixProps) {

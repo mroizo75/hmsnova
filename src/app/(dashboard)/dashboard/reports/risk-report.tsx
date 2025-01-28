@@ -12,21 +12,17 @@ import {
   ResponsiveContainer 
 } from 'recharts'
 
-interface RiskReportProps {
-  stats: {
-    status: string
-    _count: number
-  }[]
+interface RiskStat {
+  status: string
+  _count: {
+    _all: number
+  }
 }
 
-export function RiskReport({ stats }: RiskReportProps) {
+export function RiskReport({ stats }: { stats: RiskStat[] }) {
   const data = stats.map(item => ({
-    name: item.status === 'DRAFT' ? 'Under arbeid' :
-          item.status === 'COMPLETED' ? 'Fullført' :
-          item.status === 'APPROVED' ? 'Godkjent' :
-          item.status === 'NEEDS_REVIEW' ? 'Trenger gjennomgang' :
-          item.status,
-    antall: item._count,
+    name: item.status,
+    value: item._count._all,
     color: item.status === 'DRAFT' ? '#f59e0b' :
            item.status === 'COMPLETED' ? '#10b981' :
            item.status === 'APPROVED' ? '#3b82f6' :
@@ -34,9 +30,9 @@ export function RiskReport({ stats }: RiskReportProps) {
            '#6b7280'
   }))
 
-  const totalAssessments = data.reduce((sum, item) => sum + item.antall, 0)
-  const completedAssessments = data.find(item => item.name === 'Fullført')?.antall || 0
-  const inProgressAssessments = data.find(item => item.name === 'Under arbeid')?.antall || 0
+  const totalAssessments = data.reduce((sum, item) => sum + item.value, 0)
+  const completedAssessments = data.find(item => item.name === 'COMPLETED')?.value || 0
+  const inProgressAssessments = data.find(item => item.name === 'DRAFT')?.value || 0
 
   return (
     <div className="space-y-6">
@@ -65,7 +61,7 @@ export function RiskReport({ stats }: RiskReportProps) {
             <Tooltip />
             <Legend />
             <Bar 
-              dataKey="antall" 
+              dataKey="value" 
               fill="#16a34a"
               label={{ position: 'top' }}
             />
@@ -86,9 +82,9 @@ export function RiskReport({ stats }: RiskReportProps) {
                 <span>{item.name}</span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="font-medium">{item.antall}</span>
+                <span className="font-medium">{item.value}</span>
                 <span className="text-muted-foreground">
-                  {Math.round((item.antall / totalAssessments) * 100)}%
+                  {Math.round((item.value / totalAssessments) * 100)}%
                 </span>
               </div>
             </div>

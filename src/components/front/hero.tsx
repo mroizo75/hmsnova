@@ -3,7 +3,9 @@ import { LogIn } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
- 
+import { BookingModal } from "@/components/booking-modal"
+import { ContactModal } from '../contact-modal'
+
 const Navbar = () => {
 const [navIsOpened, setNavIsOpened] = useState(false)
 const closeNavbar = () => {
@@ -12,6 +14,21 @@ setNavIsOpened(false)
 const toggleNavbar = () => {
 setNavIsOpened(navIsOpened => !navIsOpened)
 }
+
+const scrollToSection = (sectionId: string) => {
+  const element = document.getElementById(sectionId)
+  if (element) {
+    const offset = 80
+    const elementPosition = element.getBoundingClientRect().top
+    const offsetPosition = elementPosition + window.pageYOffset - offset
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    })
+  }
+}
+
 return (
 <>
   <div aria-hidden={true} onClick={() => {
@@ -77,24 +94,38 @@ return (
       `}>
         <ul className="flex flex-col lg:flex-row gap-6 lg:items-center text-gray-700 dark:text-gray-300 lg:w-full lg:justify-center">
           <li>
-            <Link href="#" className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]">Hjem</Link>
+            <Link href="/" className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]">
+              Hjem
+            </Link>
           </li>
           <li>
-            <Link href="#" className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]">Om</Link>
+            <button 
+              onClick={() => scrollToSection('about')}
+              className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]"
+            >
+              Om
+            </button>
           </li>
           <li>
-            <Link href="#" className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]">Tjenester</Link>
+            <button 
+              onClick={() => scrollToSection('services')}
+              className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]"
+            >
+              Tjenester
+            </button>
           </li>
           <li>
-            <Link href="#" className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]">Kontakt</Link>
-          </li>
-          <li>
-            <Link href="#" className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]">Tilbud</Link>
+            <button 
+              onClick={() => scrollToSection('pricing')}
+              className="relative py-2.5 duration-300 ease-linear hover:text-[#3F546E] after:absolute after:w-full after:left-0 after:bottom-0 after:h-px after:rounded-md after:origin-left after:ease-linear after:duration-300 after:scale-x-0 hover:after:scale-100 after:bg-[#3F546E]"
+            >
+              Priser
+            </button>
           </li>
         </ul>
         <div className="flex sm:items-center lg:min-w-max mt-10 lg:mt-0 gap-2">
 
-          <Link href="#" className="px-6 items-center h-12 rounded-3xl text-white border border-gray-100 dark:border-gray-800 dark:text-white bg-[#3F546E] hover:bg-[#2C435F] duration-300 ease-linear flex justify-center w-full sm:w-auto">
+          <Link href="/register" className="px-6 items-center h-12 rounded-3xl text-white border border-gray-100 dark:border-gray-800 dark:text-white bg-[#3F546E] hover:bg-[#2C435F] duration-300 ease-linear flex justify-center w-full sm:w-auto">
             Registrer
           </Link>
           <Link href="/login" className="px-6 items-center h-12 rounded-3xl text-white border border-gray-100 dark:border-gray-800 dark:text-white bg-[#3F546E] hover:bg-[#2C435F] duration-300 ease-linear flex justify-center w-full sm:w-auto gap-2">
@@ -124,6 +155,21 @@ return (
 }
  
 export default function HeroSection() {
+const scrollToSection = (sectionId: string) => {
+  const element = document.getElementById(sectionId)
+  if (element) {
+    const offset = 80 // Juster denne verdien basert på navbar høyde
+    const bodyRect = document.body.getBoundingClientRect().top
+    const elementRect = element.getBoundingClientRect().top
+    const elementPosition = elementRect - bodyRect
+    const offsetPosition = elementPosition - offset
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    })
+  }
+}
 return (
 <>
   <Navbar />
@@ -140,12 +186,16 @@ return (
         Kom i gang i dag – Gjør HMS enklere!Kontakt oss for en gratis demo og opplev forskjellen.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 w-full">
-          <Link href="#" className="px-6 items-center h-12 rounded-3xl bg-[#3F546E] text-white hover:bg-gray-100 hover:text-[#3F546E] duration-300 ease-linear flex justify-center w-full sm:w-auto">
-            Start i dag
-          </Link>
-          <Link href="#" className="px-6 items-center h-12 rounded-3xl text-[#17304F] border border-gray-100 hover:bg-[#3F546E] hover:text-white dark:border-gray-800 dark:text-white bg-gray-100 dark:bg-gray-900 duration-300 ease-linear flex justify-center w-full sm:w-auto">
-            Book et møte
-          </Link>
+          <ContactModal defaultMessage="Jeg ønsker å komme i gang med HMS Nova">
+            <Link href="#" className="px-6 items-center h-12 rounded-3xl bg-[#3F546E] text-white hover:bg-gray-100 hover:text-[#3F546E] duration-300 ease-linear flex justify-center w-full sm:w-auto">
+              Start i dag
+            </Link>
+          </ContactModal>
+          <BookingModal>
+            <Link href="#" className="px-6 items-center h-12 rounded-3xl text-[#17304F] border border-gray-100 hover:bg-[#3F546E] hover:text-white dark:border-gray-800 dark:text-white bg-gray-100 dark:bg-gray-900 duration-300 ease-linear flex justify-center w-full sm:w-auto">
+              Book et møte
+            </Link>
+          </BookingModal>
         </div>
 
       </div>

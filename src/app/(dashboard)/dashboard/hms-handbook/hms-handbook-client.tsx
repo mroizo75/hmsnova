@@ -53,7 +53,35 @@ export interface Section {
   updatedAt: Date
   parentId: string | null
   subsections: Section[]
-  changes: HMSChange[]
+  changes: Array<{
+    id: string
+    title: string
+    description: string
+    status: string
+    implementedAt: Date | null
+    createdAt: Date
+    deviations: Array<{
+      deviation: {
+        id: string
+        title: string
+        description: string
+      }
+    }>
+    riskAssessments: Array<{
+      riskAssessment: {
+        id: string
+        title: string
+        description: string
+      }
+    }>
+    hazards: Array<{
+      hazard: {
+        id: string
+        description: string
+        riskLevel: number
+      }
+    }>
+  }>
 }
 
 export interface HMSHandbook {

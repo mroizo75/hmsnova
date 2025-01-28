@@ -1,14 +1,15 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Providers } from '@/components/providers'
+import { Providers } from "@/components/providers"
 import { cn } from "@/lib/utils"
+import { CookieConsent } from "@/components/cookie-consent"
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'innut.io',
-  description: 'HMS-system for norske bedrifter',
+  title: 'HMS Nova - Fremtidens HMS-system',
+  description: 'HMS-system for små og mellomstore bedrifter',
 }
 
 export default function RootLayout({
@@ -25,6 +26,7 @@ export default function RootLayout({
         <Providers>
           {children}
         </Providers>
+        <CookieConsent />
       </body>
     </html>
   )

@@ -76,7 +76,7 @@ export async function POST(req: Request) {
             <p>Din brukerkonto hos ${currentUser.company.name} er nå opprettet med følgende detaljer:</p>
             <p><strong>E-post:</strong> ${normalizedEmail}<br>
             <strong>Passord:</strong> ${password}</p>
-            <p>Du kan logge inn her: <a href="${process.env.NEXTAUTH_URL}/auth/login">Logg inn</a></p>
+            <p>Du kan logge inn her: <a href="${process.env.NEXTAUTH_URL}/login">Logg inn</a></p>
             <p>Vi anbefaler at du endrer passordet ditt ved første innlogging.</p>
             <br>
             <p>Vennlig hilsen<br>${currentUser.company.name}</p>

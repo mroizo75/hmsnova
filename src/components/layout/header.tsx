@@ -12,7 +12,9 @@ import {
 import { signOut, useSession } from "next-auth/react"
 import { User, Settings, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { NotificationsNav } from "@/components/notifications-nav"
+import { NotificationBell } from "@/components/notifications/notification-bell"
+import { NotificationSettingsDialog } from "@/components/notifications/notification-settings-dialog"
+import { useState } from "react"
 
 interface HeaderProps {
   user: any;
@@ -22,6 +24,7 @@ interface HeaderProps {
 export function Header({ user, className }: HeaderProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   if (!session?.user) {
     return null
@@ -31,7 +34,11 @@ export function Header({ user, className }: HeaderProps) {
     <header className="border-b bg-background dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex h-16 items-center px-4 gap-4">
         <div className="flex-1" />
-        <NotificationsNav />
+        <NotificationBell onSettingsClick={() => setSettingsOpen(true)} />
+        <NotificationSettingsDialog 
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative dark:text-neutral-100">

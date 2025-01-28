@@ -19,9 +19,7 @@ interface Measure {
   type: string
   status: string
   priority: string
-  dueDate: Date | null
-  completedAt: Date | null
-  assignedTo: string | null
+  hazardId: string
 }
 
 interface MeasureListProps {
@@ -96,16 +94,9 @@ export function MeasureList({ assessmentId, hazardId, measures }: MeasureListPro
                 <Badge variant="secondary">
                   {measureTypeLabels[measure.type]}
                 </Badge>
-                <Badge 
-                  className={priorityColors[measure.priority]}
-                >
+                <Badge className={priorityColors[measure.priority]}>
                   {measure.priority}
                 </Badge>
-                {measure.dueDate && (
-                  <span className="text-muted-foreground">
-                    Frist: {formatDate(measure.dueDate)}
-                  </span>
-                )}
               </div>
             </div>
             <Select

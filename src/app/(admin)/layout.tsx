@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { redirect } from "next/navigation"
 import { AdminNav } from "@/components/admin/admin-nav"
+import Image from "next/image"
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -24,8 +25,8 @@ export default async function AdminLayout({
     <div className="flex min-h-screen">
       <div className="w-64 border-r p-6">
         <div className="mb-6">
-          <h1 className="text-xl font-bold">Innutio Admin</h1>
-          <p className="text-sm text-muted-foreground">
+          <Image src="/HMSNova-logo.svg" alt="HMS Nova" width={200} height={200} />
+          <p className="text-sm text-muted-foreground text-center">
             Systemadministrasjon
           </p>
         </div>

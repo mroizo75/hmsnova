@@ -4,8 +4,10 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { FileDown } from "lucide-react"
 import { useState } from "react"
+import { pdf } from "@react-pdf/renderer"
+import { AnnualReportDocument } from "@/components/reports/annual-report"
 
-interface InternalAuditData {
+export interface InternalAuditData {
   handbook: {
     version: number
     lastUpdated: string
@@ -58,25 +60,19 @@ export function InternalAuditReport({ data }: Props) {
   const handleExport = async () => {
     try {
       setIsExporting(true)
-      const response = await fetch('/api/reports/internal-audit/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      })
-
-      if (!response.ok) throw new Error('Export failed')
-
+      const blob = await pdf(
+        <AnnualReportDocument data={data} />
+      ).toBlob()
+      
       // Last ned PDF
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `hms-arsrapport-${new Date().getFullYear()}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `hms-arsrapport-${new Date().getFullYear()}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Error exporting report:', error)
     } finally {
@@ -93,7 +89,7 @@ export function InternalAuditReport({ data }: Props) {
           disabled={isExporting}
         >
           <FileDown className="w-4 h-4 mr-2" />
-          Eksporter PDF
+          {isExporting ? 'Eksporterer...' : 'Eksporter PDF'}
         </Button>
       </div>
 

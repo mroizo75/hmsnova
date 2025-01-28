@@ -1,15 +1,17 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
-import { DeviationList } from "./deviation-list"
+import { DeviationsClient } from "./deviations-client"
 import { Deviation } from "@/lib/types/deviation"
+import { notFound } from "next/navigation"
 
 export default async function DeviationsPage() {
   const session = await getServerSession(authOptions)
-  
+  if (!session?.user?.id) return notFound()
+
   const deviations = await prisma.deviation.findMany({
     where: {
-      companyId: session?.user.companyId
+      companyId: session.user.companyId
     },
     include: {
       measures: true,
@@ -40,7 +42,11 @@ export default async function DeviationsPage() {
     company: undefined
   })) satisfies Deviation[]
 
-  return <DeviationList deviations={transformedDeviations} />
+  return (
+    <div className="container py-6">
+      <DeviationsClient deviations={transformedDeviations} />
+    </div>
+  )
 }
 
 export const metadata = {

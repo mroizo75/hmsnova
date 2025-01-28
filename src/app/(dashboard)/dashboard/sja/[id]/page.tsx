@@ -14,70 +14,65 @@ export default async function SJADetailsPage(props: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
-  const db = await prisma
   const { id } = await props.params
-  const searchParamsResolved = await props.searchParams
+  if (!id) return notFound()
 
-  const sja = await db.sJA.findFirst({
-    where: {
-      id,
-      company: {
-        users: {
-          some: {
-            id: session.user.id
+  try {
+    const sja = await prisma.sJA.findUnique({
+      where: { 
+        id,
+        companyId: session.user.companyId
+      },
+      include: {
+        risikoer: true,
+        tiltak: true,
+        produkter: {
+          include: {
+            produkt: true
           }
-        }
-      }
-    },
-    include: {
-      risikoer: true,
-      tiltak: true,
-      produkter: {
-        include: {
-          produkt: {
-            select: {
-              id: true,
-              produktnavn: true,
-              produsent: true,
-              databladUrl: true,
-              fareSymboler: true
+        },
+        opprettetAv: {
+          select: {
+            name: true,
+            email: true,
+            role: true
+          }
+        },
+        godkjenninger: {
+          include: {
+            godkjentAv: {
+              select: {
+                name: true,
+                email: true
+              }
             }
           }
-        }
-      },
-      opprettetAv: {
-        select: {
-          name: true,
-          email: true,
-          role: true
-        }
-      },
-      godkjenninger: {
-        include: {
-          godkjentAv: {
-            select: {
-              name: true,
-              email: true
-            }
-          }
-        }
-      },
-      kundeGodkjenning: true,
-      vedlegg: true,
-      company: {
-        select: {
-          name: true,
-          orgNumber: true
-        }
+        },
+        vedlegg: true,
+        company: true
       }
+    })
+
+    console.log('Fetched SJA:', JSON.stringify(sja, null, 2))
+
+    if (!sja) return notFound()
+
+    const safeData = {
+      ...sja,
+      risikoer: sja.risikoer ?? [],
+      tiltak: sja.tiltak ?? [],
+      produkter: sja.produkter ?? [],
+      vedlegg: sja.vedlegg ?? [],
+      godkjenninger: sja.godkjenninger ?? []
     }
-  })
 
-  if (!sja) return notFound()
-
-  return (
-    <Suspense fallback={<div>Laster...</div>}>
-      <SJADetails sja={sja} userRole={session.user.role} />
-    </Suspense>
-  )
+    return (
+      <Suspense fallback={<div>Laster...</div>}>
+        <SJADetails sja={safeData} userRole={session.user.role} />
+      </Suspense>
+    )
+  } catch (error) {
+    console.error('Error fetching SJA:', error)
+    return notFound()
+  }
 } 

@@ -15,6 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { SJAStatus } from "@prisma/client"
 import Link from "next/link"
 import { statusLabels } from "@/lib/constants/sja"
+import { toast } from "react-hot-toast"
+import { SJAPDFDocument } from "./sja-pdf"
+import { pdf } from "@react-pdf/renderer"
 
 interface ColumnsProps {
   onEdit: (sja: SJAWithRelations) => void
@@ -56,7 +59,7 @@ export const columns = ({
       const produkter = row.original.produkter
       return (
         <div className="max-w-[200px] truncate">
-          {produkter.map(p => p.produkt.navn).join(", ")}
+          {produkter.map(p => p.produkt.produktnavn).join(", ")}
         </div>
       )
     }
@@ -81,14 +84,16 @@ export const columns = ({
           >
             <FileEdit className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onBehandle(sja)}
-            title="Behandle"
-          >
-            <FileText className="h-4 w-4" />
-          </Button>
+          {!['GODKJENT', 'AVVIST', 'UTGATT'].includes(sja.status || '') && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onBehandle(sja)}
+              title="Behandle"
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="icon"
@@ -100,7 +105,23 @@ export const columns = ({
           <Button
             variant="outline"
             size="icon"
-            onClick={() => onGeneratePDF(sja)}
+            onClick={async () => {
+              try {
+                // Hent full SJA data med alle relasjoner
+                const response = await fetch(`/api/sja/${sja.id}`)
+                if (!response.ok) throw new Error('Kunne ikke hente SJA data')
+                const fullSjaData = await response.json()
+                
+                
+                // Generer PDF med komplett data
+                const blob = await pdf(<SJAPDFDocument sja={fullSjaData} />).toBlob()
+                const url = URL.createObjectURL(blob)
+                window.open(url)
+              } catch (error) {
+                console.error('Feil ved generering av PDF:', error)
+                toast.error('Kunne ikke generere PDF')
+              }
+            }}
             disabled={isGeneratingPDF}
             title="Generer PDF"
           >

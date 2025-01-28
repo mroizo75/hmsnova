@@ -1,13 +1,13 @@
 import { sendEmail } from "../postmark"
 
-interface WelcomeEmailProps {
+interface SystemUserWelcomeEmailProps {
   to: string
   name: string
   password: string
   role: "ADMIN" | "SUPPORT"
 }
 
-export async function sendWelcomeEmail({ to, name, password, role }: WelcomeEmailProps) {
+export async function sendWelcomeEmail({ to, name, password, role }: SystemUserWelcomeEmailProps) {
   const subject = "Velkommen som systembruker"
   
   const html = `

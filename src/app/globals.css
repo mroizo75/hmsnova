@@ -256,3 +256,87 @@ rdp-month_caption {
     border-collapse: collapse;
     text-align: center;
   }
+
+/* Kalender styling */
+.rdp-head_cell {
+  width: 36px !important;  /* Matcher bredden på datocellene */
+  text-align: center !important;
+}
+
+.rdp-cell {
+  width: 36px !important;
+  text-align: center !important;
+}
+
+.rdp-table {
+  margin: 0 auto;
+  border-spacing: 0 4px;
+}
+
+.rdp-head_row {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  margin-bottom: 8px !important;
+}
+
+.rdp-row {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+}
+
+/* Tiptap editor styles */
+.tiptap {
+  min-height: 200px;
+}
+
+.tiptap h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.tiptap h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.tiptap h3 {
+  font-size: 1.17em;
+  font-weight: bold;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.tiptap ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 1em 0;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 1em 0;
+}
+
+.tiptap blockquote {
+  border-left: 3px solid #ddd;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #666;
+}
+
+.tiptap p {
+  margin: 0.5em 0;
+}
+
+.tiptap li {
+  margin: 0.3em 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}

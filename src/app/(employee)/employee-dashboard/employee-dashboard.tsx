@@ -19,10 +19,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { signOut } from "next-auth/react"
+import { useEffect, useState } from "react"
+
+interface Company {
+  name: string
+  orgNumber: string
+}
 
 export function EmployeeDashboard() {
   const { data: session } = useSession()
-  
+  const [company, setCompany] = useState<Company | null>(null)
+
   const modules = [
     {
       title: "HMS Håndbok",
@@ -54,6 +61,23 @@ export function EmployeeDashboard() {
     }
   ]
 
+  useEffect(() => {
+    const fetchCompany = async () => {
+      if (session?.user?.companyId) {
+        try {
+          const response = await fetch(`/api/companies/${session.user.companyId}`)
+          if (!response.ok) throw new Error('Kunne ikke hente bedriftsinformasjon')
+          const data = await response.json()
+          setCompany(data)
+        } catch (error) {
+          console.error('Error fetching company:', error)
+        }
+      }
+    }
+
+    fetchCompany()
+  }, [session?.user?.companyId])
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
@@ -61,7 +85,9 @@ export function EmployeeDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold">Hei, {session?.user?.name}</h1>
-            <p className="text-sm text-muted-foreground">{session?.user?.companyId}</p>
+            <p className="text-sm text-muted-foreground">
+              {company ? company.name : 'Laster bedriftsinformasjon...'}
+            </p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger>

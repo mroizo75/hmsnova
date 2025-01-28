@@ -35,17 +35,19 @@ const features = [
 
 export default function Features() {
   return (
-    <div className="grid md:grid-cols-3 gap-8 mb-16">
-      {features.map((feature, index) => (
-        <div 
-          key={index} 
-          className="p-8 rounded-2xl border border-gray-200 hover:border-[#2C435F] transition-all duration-200 hover:shadow-lg hover:-translate-y-1 bg-white/80 backdrop-blur-sm group"
-        >
-          <feature.icon className="w-12 h-12 text-[#2C435F] mb-6 group-hover:scale-110 transition-transform duration-200" />
-          <h3 className="text-2xl font-semibold mb-4 text-[#17304F]">{feature.title}</h3>
-          <p className="text-gray-600 leading-relaxed">{feature.description}</p>
-        </div>
-      ))}
-    </div>
+    <section id="services" className="py-24">
+      <div className="grid md:grid-cols-3 gap-8 mb-16">
+        {features.map((feature, index) => (
+          <div 
+            key={index} 
+            className="p-8 rounded-2xl border border-gray-200 hover:border-[#2C435F] transition-all duration-200 hover:shadow-lg hover:-translate-y-1 bg-white/80 backdrop-blur-sm group"
+          >
+            <feature.icon className="w-12 h-12 text-[#2C435F] mb-6 group-hover:scale-110 transition-transform duration-200" />
+            <h3 className="text-2xl font-semibold mb-4 text-[#17304F]">{feature.title}</h3>
+            <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }

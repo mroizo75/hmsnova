@@ -14,7 +14,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -28,225 +27,303 @@ import {
 import { ImageUpload } from "@/components/ui/image-upload"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
+import { typeLabels, categoryOptions } from "@/lib/constants/deviations"
 
 const deviationFormSchema = z.object({
-  title: z.string().min(1, "Tittel er påkrevd"),
-  description: z.string().min(1, "Beskrivelse er påkrevd"),
-  type: z.enum(["HMS", "KVALITET", "MILJO", "ANNET"]),
-  category: z.string().min(1, "Kategori er påkrevd"),
+  title: z.string().min(5, "Tittel må være minst 5 tegn"),
+  description: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
+  type: z.enum(["NEAR_MISS", "INCIDENT", "ACCIDENT", "IMPROVEMENT", "OBSERVATION"]),
+  category: z.string().min(1, "Velg kategori"),
   severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
-  location: z.string().min(1, "Lokasjon er påkrevd"),
-  images: z.array(z.string()).default([])
+  location: z.string().optional(),
+  dueDate: z.string().optional().nullable(),
+  images: z.any().optional()
 })
 
 export function NewDeviationForm() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedImages, setSelectedImages] = useState<File[]>([])
 
   const form = useForm<z.infer<typeof deviationFormSchema>>({
     resolver: zodResolver(deviationFormSchema),
     defaultValues: {
       title: "",
       description: "",
-      type: "HMS",
+      type: "NEAR_MISS",
       category: "",
       severity: "LOW",
       location: "",
-      images: []
+      dueDate: null,
+      images: undefined
     }
   })
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    setSelectedImages(prev => [...prev, ...files])
+  }
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index))
+  }
+
   async function onSubmit(values: z.infer<typeof deviationFormSchema>) {
-    console.log("Starting submission with values:", values)
     setIsSubmitting(true)
     
     try {
-      console.log("Sending request to /api/deviations")
-      const response = await fetch('/api/deviations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
+      const formData = new FormData()
+
+      Object.entries(values).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && key !== 'images') {
+          formData.append(key, value)
+        }
       })
 
-      console.log("Response status:", response.status)
+      selectedImages.forEach(image => {
+        formData.append('images', image)
+      })
+
+      const response = await fetch('/api/deviations', {
+        method: 'POST',
+        body: formData
+      })
+
       const data = await response.json()
-      console.log("Response data:", data)
 
       if (!response.ok) {
         throw new Error(data.error || 'Kunne ikke opprette avvik')
       }
 
-      toast.success('Avvik er meldt inn', {
-        description: 'Du blir nå sendt tilbake til dashbordet'
-      })
-      
-      setTimeout(() => {
-        router.push('/employee-dashboard')
-      }, 2000)
+      toast.success('Avvik er meldt inn')
+      router.push('/employee-dashboard')
 
     } catch (error) {
-      console.error('Deviation creation error:', error)
-      toast.error(error instanceof Error ? error.message : 'Noe gikk galt ved innmelding av avvik')
+      console.error('Error:', error)
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke opprette avvik')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  console.log("Form state:", form.formState.errors)
-
   return (
-    <Card className="max-w-3xl mx-auto">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tittel</FormLabel>
-                <FormControl>
-                  <Input placeholder="Kort beskrivende tittel" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Beskrivelse</FormLabel>
-                <FormControl>
-                  <Textarea 
-                    placeholder="Beskriv avviket"
-                    className="min-h-[100px]"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Type avvik</FormLabel>
-                <Select 
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
+    <div className="container max-w-2xl mx-auto p-4">
+      <Card className="p-4 md:p-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tittel</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Velg type avvik" />
-                    </SelectTrigger>
+                    <Input placeholder="Kort beskrivende tittel..." {...field} />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="HMS">HMS</SelectItem>
-                    <SelectItem value="KVALITET">Kvalitet</SelectItem>
-                    <SelectItem value="MILJO">Miljø</SelectItem>
-                    <SelectItem value="ANNET">Annet</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="category"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Kategori</FormLabel>
-                <FormControl>
-                  <Input placeholder="F.eks. Sikkerhet, Utstyr, etc." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="severity"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Alvorlighetsgrad</FormLabel>
-                <Select 
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Velg alvorlighetsgrad" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="LOW">Lav</SelectItem>
-                    <SelectItem value="MEDIUM">Middels</SelectItem>
-                    <SelectItem value="HIGH">Høy</SelectItem>
-                    <SelectItem value="CRITICAL">Kritisk</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="location"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Lokasjon</FormLabel>
-                <FormControl>
-                  <Input placeholder="Hvor skjedde avviket?" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="images"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Bilder</FormLabel>
-                <FormControl>
-                  <ImageUpload
-                    value={field.value[0]}
-                    onChange={field.onChange}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="flex justify-end space-x-4 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-              disabled={isSubmitting}
-            >
-              Avbryt
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <FormMessage />
+                </FormItem>
               )}
-              Meld avvik
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </Card>
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Velg type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {Object.entries(typeLabels).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kategori</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Velg kategori" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categoryOptions.map((category) => (
+                          <SelectItem key={category.value} value={category.value}>
+                            {category.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="severity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Alvorlighetsgrad</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Velg alvorlighetsgrad" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="LOW">Lav</SelectItem>
+                        <SelectItem value="MEDIUM">Middels</SelectItem>
+                        <SelectItem value="HIGH">Høy</SelectItem>
+                        <SelectItem value="CRITICAL">Kritisk</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sted</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Hvor skjedde det..." />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beskrivelse</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      {...field} 
+                      placeholder="Beskriv avviket eller hendelsen..."
+                      className="min-h-[120px]"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Frist</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="date"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="images"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bilder</FormLabel>
+                    <FormControl>
+                      <div className="space-y-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="w-full"
+                          multiple
+                        />
+                        {selectedImages.length > 0 && (
+                          <div className="grid grid-cols-2 gap-4">
+                            {selectedImages.map((image, index) => (
+                              <div key={index} className="relative">
+                                <img
+                                  src={URL.createObjectURL(image)}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-32 object-cover rounded-md"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  className="absolute top-2 right-2"
+                                  onClick={() => removeImage(index)}
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                Avbryt
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Meld avvik
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </Card>
+    </div>
   )
 } 

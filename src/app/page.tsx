@@ -8,6 +8,8 @@ import Image from "next/image"
 import Features from "@/components/front/feature"
 import Footer from "@/components/front/footer"
 import Hero from "@/components/front/hero"
+import PricingSection from "@/components/front/pricing"
+import { ContactModal } from "@/components/contact-modal"
 
 export default function Home() {
   return (
@@ -51,6 +53,8 @@ export default function Home() {
         </div>
       </section>
 
+      <PricingSection />
+
       {/* CTA Section */}
       <section className="bg-white py-24">
         <div className="max-w-4xl mx-auto px-4 text-center">
@@ -68,16 +72,15 @@ export default function Home() {
                 Prøv gratis i 30 dager
               </Link>
             </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="border-[#2C435F] text-[#2C435F] hover:bg-[#2C435F] hover:text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 text-lg px-8 py-6 h-auto" 
-              asChild
-            >
-              <Link href="/contact">
+            <ContactModal defaultMessage="Jeg ønsker mer informasjon om HMS Nova">
+              <Button 
+                size="lg"
+                variant="outline"
+                className="border-[#2C435F] text-[#2C435F] hover:bg-[#2C435F] hover:text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 text-lg px-8 py-6 h-auto" 
+              >
                 Kontakt oss
-              </Link>
-            </Button>
+              </Button>
+            </ContactModal>
           </div>
         </div>
       </section>

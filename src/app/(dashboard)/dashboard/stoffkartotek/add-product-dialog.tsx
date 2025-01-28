@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 
 interface AddStoffkartotekModalProps {
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange: (open: boolean) => void 
   onAdd: (formData: FormData) => Promise<any>
 }
 
@@ -50,6 +50,7 @@ export function AddStoffkartotekModal({
     try {
       const formData = new FormData(e.currentTarget)
       
+      let databladUrl = ''
       if (selectedFile) {
         const uploadFormData = new FormData()
         uploadFormData.append('file', selectedFile)
@@ -57,45 +58,52 @@ export function AddStoffkartotekModal({
         const uploadResponse = await fetch('/api/stoffkartotek/upload', {
           method: 'POST',
           body: uploadFormData,
-          credentials: 'include',
         })
 
         if (!uploadResponse.ok) {
-          const errorData = await uploadResponse.json()
-          throw new Error(errorData.message || 'Kunne ikke laste opp datablad')
+          const errorText = await uploadResponse.text()
+          console.error('Upload error:', errorText)
+          throw new Error('Kunne ikke laste opp datablad')
         }
 
-        const { url } = await uploadResponse.json()
-        formData.set('databladUrl', url)
+        const uploadData = await uploadResponse.json()
+        databladUrl = uploadData.url
       }
       
       const requestData = {
         produktnavn: formData.get('produktnavn'),
         produsent: formData.get('produsent'),
-        databladUrl: formData.get('databladUrl') || '',
+        databladUrl,
         beskrivelse: formData.get('beskrivelse'),
         bruksomrade: formData.get('bruksomrade'),
         fareSymboler: selectedSymbols
       }
 
-      console.log('Sender data:', requestData)
+      console.log('Sending request:', requestData)
 
       const response = await fetch('/api/stoffkartotek', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(requestData)
       })
 
+      const responseText = await response.text()
+      console.log('Server response:', responseText)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Server feil:', errorData)
-        throw new Error(errorData.message || 'Kunne ikke lagre produkt')
+        throw new Error(responseText || 'Kunne ikke lagre produkt')
       }
 
-      const produkt = await response.json()
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        console.error('Failed to parse response:', e)
+        throw new Error('Ugyldig respons fra server')
+      }
+
       onOpenChange(false)
       setSelectedSymbols([])
       setSelectedFile(null)

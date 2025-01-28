@@ -49,19 +49,15 @@ export const columns: ColumnDef<Produkt>[] = [
     accessorKey: "fareSymboler",
     header: "Faresymboler",
     cell: ({ row }) => {
-      const symbols = row.getValue("fareSymboler") as string[]
-      
+      const fareSymboler = row.original.fareSymboler
       return (
-        <div className="flex flex-wrap gap-1">
-          {symbols.map((symbol, index) => (
-            <FareSymbolBadge 
-              key={`${row.original.id}-${symbol}-${index}`} 
-              symbol={symbol as FareSymbol}
-            />
+        <div className="flex gap-1">
+          {fareSymboler?.map((symbol: FareSymbolMapping) => (
+            <FareSymbolBadge key={symbol.id} symbol={symbol.symbol as FareSymbol} />
           ))}
         </div>
       )
-    },
+    }
   },
   {
     accessorKey: "databladUrl",
@@ -73,12 +69,11 @@ export const columns: ColumnDef<Produkt>[] = [
 
       // Konverter lokal URL til Google Cloud Storage URL
       const transformUrl = (url: string) => {
-        // Hent ut filnavnet og company ID fra den lokale URL-en
-        const matches = url.match(/datablader\/(.*?)\/(.*?)$/)
-        if (!matches) return url
-
-        const [_, companyId, filename] = matches
-        return `https://storage.cloud.google.com/innutio-hms/datablader/${companyId}/${filename}`
+        if (!url) return url
+        if (url.startsWith('http')) return url
+        
+        // Bruk samme proxy-rute som i employee-visningen
+        return `/api/stoffkartotek/datablad?path=${encodeURIComponent(url)}`
       }
 
       const cloudUrl = transformUrl(localUrl)

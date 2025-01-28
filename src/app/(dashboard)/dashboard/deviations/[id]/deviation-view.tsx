@@ -2,28 +2,27 @@
 
 import { DeviationDetails } from "./deviation-details"
 import { MeasureList } from "@/components/deviations/measure-list"
-import { useRouter } from "next/navigation"
 
 interface DeviationViewProps {
-  deviation: any // Type dette bedre basert på din Prisma-modell
+  deviation: any
   id: string
+  onUpdate: () => Promise<void>
 }
 
-export function DeviationView({ deviation, id }: DeviationViewProps) {
-  const router = useRouter()
-
+export function DeviationView({ deviation, id, onUpdate }: DeviationViewProps) {
   return (
     <div>
-      <DeviationDetails params={{ id }} />
+      <DeviationDetails 
+        deviation={deviation}
+        onUpdate={onUpdate}
+      />
       
       <div className="mt-6">
         <h2 className="text-lg font-semibold mb-4">Tiltak</h2>
         <MeasureList 
           measures={deviation.measures} 
           deviationId={id}
-          onMeasureUpdated={() => {
-            router.refresh()
-          }}
+          onMeasureUpdated={onUpdate}
         />
       </div>
     </div>

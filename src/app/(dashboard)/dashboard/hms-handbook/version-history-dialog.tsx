@@ -22,6 +22,14 @@ interface Release {
   approvedBy: string
   approvedAt: string
   createdAt: string
+  hmsChanges: Array<{
+    id: string
+    title: string
+    description: string
+    status: string
+    implementedAt: Date | null
+    createdAt: Date
+  }>
 }
 
 interface VersionHistoryDialogProps {
@@ -40,7 +48,7 @@ export function VersionHistoryDialog({ handbookId, currentVersion }: VersionHist
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`/api/hms-handbook/${handbookId}/releases`)
+      const response = await fetch(`/api/hms-handbook/${handbookId}/releases?include=changes`)
       const data = await response.json()
       
       if (!response.ok) {
@@ -113,6 +121,23 @@ export function VersionHistoryDialog({ handbookId, currentVersion }: VersionHist
                           <p className="mt-1 text-sm text-muted-foreground">
                             {release.changes}
                           </p>
+                          {release.hmsChanges?.length > 0 && (
+                            <div className="mt-2">
+                              <h4 className="text-sm font-medium">HMS-endringer:</h4>
+                              <ul className="mt-1 space-y-2">
+                                {release.hmsChanges.map(change => (
+                                  <li key={change.id} className="text-sm text-muted-foreground">
+                                    • {change.title}
+                                    {change.implementedAt && (
+                                      <span className="ml-2">
+                                        (Implementert: {formatDate(change.implementedAt)})
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <h4 className="text-sm font-medium">Årsak</h4>

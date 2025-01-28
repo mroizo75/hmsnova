@@ -18,6 +18,9 @@ export interface Company {
     key: string
     isActive: boolean
   }>
+  subscriptionPlan: string
+  employeeCount: number
+  storageLimit: number
 }
 
 export const columns: ColumnDef<Company>[] = [
@@ -69,5 +72,31 @@ export const columns: ColumnDef<Company>[] = [
     accessorKey: "createdAt",
     header: "Opprettet",
     cell: ({ row }) => formatDate(row.getValue("createdAt"))
-  }
+  },
+  {
+    accessorKey: "subscriptionPlan",
+    header: "Pakke",
+    cell: ({ row }) => {
+      const plan = row.getValue("subscriptionPlan") as string
+      return (
+        <div className="flex items-center">
+          <Badge variant={
+            plan === "PREMIUM" ? "default" : 
+            plan === "STANDARD" ? "secondary" : 
+            "outline"
+          }>
+            {plan}
+          </Badge>
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: "employeeCount",
+    header: "Ansatte",
+  },
+  {
+    accessorKey: "storageLimit",
+    header: "Lagring (GB)",
+  },
 ] 

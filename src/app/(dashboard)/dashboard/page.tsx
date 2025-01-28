@@ -18,9 +18,9 @@ import { DashboardUpdates } from "@/components/dashboard/dashboard-updates"
 
 // Definer status enum
 const DeviationStatus = {
-  OPEN: 'OPEN',
-  IN_PROGRESS: 'IN_PROGRESS',
-  CLOSED: 'CLOSED'
+  OPEN: 'AAPEN',
+  IN_PROGRESS: 'PAAGAAR',
+  CLOSED: 'LUKKET'
 } as const
 
 async function getCompanyStats(userId: string) {
@@ -46,7 +46,7 @@ async function getCompanyStats(userId: string) {
           ]
         },
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take: 3,
         select: {
           id: true,
           title: true,
@@ -59,11 +59,12 @@ async function getCompanyStats(userId: string) {
       },
       riskAssessments: {
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take: 3,
         select: {
           id: true,
           title: true,
-          createdAt: true
+          createdAt: true,
+          status: true
         }
       }
     }
@@ -90,18 +91,95 @@ async function getDeviationStats(companyId: string) {
 
   // Initialiser med 0 for alle statuser
   const defaultCounts = {
-    [DeviationStatus.OPEN]: 0,
-    [DeviationStatus.IN_PROGRESS]: 0,
-    [DeviationStatus.CLOSED]: 0
+    AAPEN: 0,
+    PAAGAAR: 0,
+    LUKKET: 0
   }
 
   // Legg til faktiske tall
   const statusCounts = deviations.reduce((acc, curr) => {
-    acc[curr.status as keyof typeof DeviationStatus] = curr._count
+    acc[curr.status as keyof typeof acc] = curr._count
     return acc
   }, defaultCounts)
 
-  return statusCounts
+  // Returner med riktige nøkler for visning
+  return {
+    OPEN: statusCounts.AAPEN,
+    IN_PROGRESS: statusCounts.PAAGAAR,
+    CLOSED: statusCounts.LUKKET
+  }
+}
+
+async function getHMSStats(companyId: string) {
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+  // Hent lukket avvik siste 30 dager
+  const closedDeviations = await prisma.deviation.count({
+    where: {
+      companyId,
+      status: 'LUKKET',
+      updatedAt: {
+        gte: thirtyDaysAgo
+      }
+    }
+  })
+
+  // Beregn gjennomsnittlig behandlingstid for lukkede avvik
+  const completedDeviations = await prisma.deviation.findMany({
+    where: {
+      companyId,
+      status: 'LUKKET',
+    },
+    select: {
+      createdAt: true,
+      updatedAt: true
+    }
+  })
+
+  const avgProcessingTime = completedDeviations.length > 0
+    ? completedDeviations.reduce((acc, dev) => {
+        const days = Math.floor((dev.updatedAt.getTime() - dev.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+        return acc + days
+      }, 0) / completedDeviations.length
+    : 0
+
+  // Hent aktive tiltak
+  const activeMeasures = await prisma.measure.count({
+    where: {
+      hazard: {
+        riskAssessment: {
+          companyId
+        }
+      },
+      status: 'OPEN'
+    }
+  })
+
+  // Beregn prosent av oppdaterte dokumenter
+  const allDocs = await prisma.document.count({
+    where: { companyId }
+  })
+
+  const updatedDocs = await prisma.document.count({
+    where: {
+      companyId,
+      updatedAt: {
+        gte: thirtyDaysAgo
+      }
+    }
+  })
+
+  const docsUpdatedPercent = allDocs > 0
+    ? Math.round((updatedDocs / allDocs) * 100)
+    : 0
+
+  return {
+    closedDeviations,
+    avgProcessingTime: avgProcessingTime.toFixed(1),
+    activeMeasures,
+    docsUpdatedPercent
+  }
 }
 
 export default async function DashboardPage() {
@@ -110,11 +188,7 @@ export default async function DashboardPage() {
 
   const stats = await getCompanyStats(session.user.id)
   const deviationStats = await getDeviationStats(stats.id)
-
-  // Beregn gjennomsnittlig behandlingstid (dummy data for nå)
-  const avgProcessingTime = "3.2"
-  const activeMeasures = stats.deviations.reduce((acc, dev) => acc + (dev.measures?.length || 0), 0)
-  const docsUpdated = "95"
+  const hmsStats = await getHMSStats(stats.id)
 
   return (
     <div className="space-y-8">
@@ -295,21 +369,19 @@ export default async function DashboardPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm">Avvik lukket siste 30 dager</span>
-                <span className="font-medium">
-                  {deviationStats.CLOSED}
-                </span>
+                <span className="font-medium">{hmsStats.closedDeviations}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Gjennomsnittlig behandlingstid</span>
-                <span className="font-medium">{avgProcessingTime} dager</span>
+                <span className="font-medium">{hmsStats.avgProcessingTime} dager</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Aktive tiltak</span>
-                <span className="font-medium">{activeMeasures}</span>
+                <span className="font-medium">{hmsStats.activeMeasures}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">HMS-dokumenter oppdatert</span>
-                <span className="font-medium">{docsUpdated}%</span>
+                <span className="font-medium">{hmsStats.docsUpdatedPercent}%</span>
               </div>
             </div>
           </CardContent>

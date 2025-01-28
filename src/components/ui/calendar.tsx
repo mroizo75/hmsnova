@@ -1,79 +1,99 @@
 "use client"
 
-import * as React from "react"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { differenceInCalendarDays } from "date-fns"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker } from "react-day-picker"
+import * as React from "react"
+import {
+  DayPicker,
+  labelNext,
+  labelPrevious,
+  useDayPicker,
+  type DayPickerProps,
+} from "react-day-picker"
 import { nb } from "date-fns/locale"
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
-
-export type CalendarProps = React.ComponentProps<typeof DayPicker>
+export type CalendarProps = DayPickerProps & {
+  yearRange?: number
+  showYearSwitcher?: boolean
+  monthsClassName?: string
+  weekdaysClassName?: string
+  dayClassName?: string
+}
 
 function Calendar({
   className,
-  classNames,
   showOutsideDays = true,
+  showYearSwitcher = true,
+  yearRange = 12,
+  numberOfMonths,
   ...props
 }: CalendarProps) {
+  const [navView, setNavView] = React.useState<"days" | "years">("days")
+  const [displayYears, setDisplayYears] = React.useState<{
+    from: number
+    to: number
+  }>(
+    React.useMemo(() => {
+      const currentYear = new Date().getFullYear()
+      return {
+        from: currentYear - Math.floor(yearRange / 2 - 1),
+        to: currentYear + Math.ceil(yearRange / 2),
+      }
+    }, [yearRange])
+  )
+
+  const columnsDisplayed = navView === "years" ? 1 : numberOfMonths
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("w-full p-3", className)}
+      className={cn("p-3", className)}
+      style={{
+        width: 248.8 * (columnsDisplayed ?? 1) + "px",
+      }}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "mt-4 items-center",
+        month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium mx-auto text-center",
-        nav: "flex absolute top-2 left-0 right-0 justify-between items-center w-full",
+        caption_label: "text-sm font-medium",
+        nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
           "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
-        table: "w-full border-collapse mt-4",
-        head_row: "text-center text-muted-foreground",
-        head_cell: cn(
-          "text-muted-foreground text-[0.8rem] font-medium pb-2"
-        ),
-        row: "text-center",
-        cell: "p-0",
+        table: "w-full border-collapse space-y-1",
+        head_row: "grid grid-cols-7",
+        head_cell: "text-muted-foreground text-center font-normal text-[0.8rem]",
+        row: "grid grid-cols-7 mt-2",
+        cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal text-sm inline-flex items-center justify-center"
+          "h-8 w-8 p-0 font-normal aria-selected:opacity-100"
         ),
-        day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
         day_today: "bg-accent text-accent-foreground",
         day_outside: "text-muted-foreground opacity-50",
         day_disabled: "text-muted-foreground opacity-50",
         day_hidden: "invisible",
-        ...classNames,
+        ...props.classNames,
       }}
-      // @ts-ignore - React Day Picker types are incorrect but component works as expected
       components={{
         IconLeft: () => <ChevronLeft className="h-4 w-4" />,
         IconRight: () => <ChevronRight className="h-4 w-4" />,
       }}
+      locale={nb}
       formatters={{
-        formatCaption: (date, options) => {
-          return (
-            <div className="text-sm font-medium">
-              {date.toLocaleString(options?.locale || 'nb', { 
-                month: 'long',
-                year: 'numeric'
-              }).replace(/^\w/, c => c.toUpperCase())}
-            </div>
-          )
-        },
         formatWeekdayName: (date) => {
-          return date.toLocaleString('nb', { weekday: 'short' }).slice(0, 2)
+          return date.toLocaleString('nb-NO', { weekday: 'short' }).slice(0, 2)
         }
       }}
-      locale={nb}
       {...props}
     />
   )
 }
+
 Calendar.displayName = "Calendar"
 
 export { Calendar }

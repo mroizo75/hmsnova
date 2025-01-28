@@ -33,6 +33,7 @@ import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 
 const formSchema = z.object({
   description: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
@@ -50,6 +51,7 @@ interface Props {
 
 export function AddMeasureDialog({ deviationId, open, onOpenChange }: Props) {
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,6 +81,12 @@ export function AddMeasureDialog({ deviationId, open, onOpenChange }: Props) {
       toast.success("Tiltak lagt til")
       form.reset()
       onOpenChange(false)
+      
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['deviation', deviationId] }),
+        queryClient.invalidateQueries({ queryKey: ['deviations'] })
+      ])
+      
       router.refresh()
     } catch (error) {
       toast.error("Kunne ikke legge til tiltak")

@@ -44,7 +44,6 @@ interface HazardCardProps {
     severity: number
     riskLevel: number
     existingMeasures: string | null
-    measures: Measure[]
     riskMeasures: RiskAssessmentMeasure[]
   }
 }
@@ -107,7 +106,7 @@ export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
             <MeasureList 
               assessmentId={assessmentId}
               hazardId={hazard.id}
-              measures={hazard.measures}
+              measures={hazard.riskMeasures}
             />
           </div>
         </CollapsibleContent>

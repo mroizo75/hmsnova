@@ -10,41 +10,42 @@ import { BehandleSJAModal } from "./behandle-sja-modal"
 import { SlettSJADialog } from "./slett-sja-dialog"
 import { toast } from "sonner"
 import { generatePDF } from "./pdf-utils"
+import { useQueryClient } from "@tanstack/react-query"
+import { Button } from "@/components/ui/button"
+import { Trash2 } from "lucide-react"
 
 interface SJATableProps {
   data: SJAWithRelations[]
+  onBehandle: (sja: SJAWithRelations) => void
 }
 
-export function SJATable({ data }: SJATableProps) {
+export function SJATable({ data, onBehandle }: SJATableProps) {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [behandleModalOpen, setBehandleModalOpen] = useState(false)
   const [slettDialogOpen, setSlettDialogOpen] = useState(false)
   const [selectedSJA, setSelectedSJA] = useState<SJAWithRelations | null>(null)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const queryClient = useQueryClient()
 
   const handleAdd = (nySja: SJAWithRelations) => {
-    setData(prev => [nySja, ...prev])
+    if (onBehandle) {
+      onBehandle(nySja)
+    }
     toast.success("SJA opprettet")
   }
 
   const handleEdit = (oppdatertSja: SJAWithRelations) => {
-    setData(prev => prev.map((sja: { id: string }) => 
-      sja.id === oppdatertSja.id ? oppdatertSja : sja
-    ))
+    if (onBehandle) {
+      onBehandle(oppdatertSja)
+    }
     toast.success("SJA oppdatert")
   }
 
-  const handleBehandle = (oppdatertSja: SJAWithRelations) => {
-    setData(prev => prev.map((sja: { id: string }) => 
-      sja.id === oppdatertSja.id ? oppdatertSja : sja
-    ))
-    toast.success("SJA behandlet")
-  }
-
-  const handleSlett = (sjaId: string) => {
-    setData(prev => prev.filter((sja: { id: string }) => sja.id !== sjaId))
-    toast.success("SJA slettet")
+  const handleBehandle = async (oppdatertSja: SJAWithRelations) => {
+    if (onBehandle) {
+      await onBehandle(oppdatertSja)
+    }
   }
 
   const handleGeneratePDF = async (sja: SJAWithRelations) => {
@@ -113,14 +114,13 @@ export function SJATable({ data }: SJATableProps) {
             sja={selectedSJA}
             open={slettDialogOpen}
             onOpenChange={setSlettDialogOpen}
-            onSlett={handleSlett}
+            onSlett={(id) => {
+              setSlettDialogOpen(false)
+              setSelectedSJA(null)
+            }}
           />
         </>
       )}
     </div>
   )
-} 
-
-function setData(arg0: (prev: any) => any[]) {
-  throw new Error("Function not implemented.")
 }

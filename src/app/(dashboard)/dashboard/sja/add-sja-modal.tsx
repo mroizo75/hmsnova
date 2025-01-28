@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
@@ -15,22 +15,27 @@ import { useDropzone } from "react-dropzone"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Combobox } from "@/components/ui/combobox"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { NotificationType } from "@prisma/client"
+import { Checkbox } from "@/components/ui/checkbox"
+import { MalVelger } from "./mal-velger"
 
 const formSchema = z.object({
-  tittel: z.string().min(1, "Tittel er påkrevd"),
-  arbeidssted: z.string().min(1, "Arbeidssted er påkrevd"),
-  beskrivelse: z.string().min(1, "Beskrivelse er påkrevd"),
-  startDato: z.string().min(1, "Startdato er påkrevd"),
-  sluttDato: z.string().optional(),
-  deltakere: z.string().min(1, "Deltakere er påkrevd"),
-  identifiedRisks: z.string().min(1, "Identifiserte risikoer er påkrevd"),
-  riskMitigation: z.string().min(1, "Tiltak er påkrevd"),
-  responsiblePerson: z.string().min(1, "Ansvarlig person er påkrevd"),
+  tittel: z.string().min(3, "Tittel må være minst 3 tegn"),
+  arbeidssted: z.string().min(3, "Arbeidssted må være minst 3 tegn"),
+  beskrivelse: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
+  startDato: z.string(),
+  sluttDato: z.string(),
+  deltakere: z.string(),
+  identifiedRisks: z.string(),
+  riskMitigation: z.string(),
+  responsiblePerson: z.string(),
   comments: z.string().optional(),
   produkter: z.array(z.object({
-    produktId: z.string(),
-    mengde: z.string().optional()
-  })).default([])
+    id: z.string(),
+    antall: z.string()
+  })).optional(),
+  lagreSomMal: z.boolean().default(false)
 })
 
 interface AddSJAModalProps {
@@ -46,13 +51,13 @@ interface Produkt {
 }
 
 export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
+  const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bilder, setBilder] = useState<File[]>([])
-  const [visMalModal, setVisMalModal] = useState(false)
-  const [malNavn, setMalNavn] = useState("")
   const [produkter, setProdukter] = useState<Produkt[]>([])
   const [isLoadingProdukter, setIsLoadingProdukter] = useState(false)
   const [valgteProdukter, setValgteProdukter] = useState<Array<{ produktId: string, mengde: string }>>([])
+  const [maler, setMaler] = useState<any[]>([])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,14 +65,78 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
       tittel: "",
       arbeidssted: "",
       beskrivelse: "",
-      startDato: "",
-      sluttDato: "",
+      startDato: new Date().toISOString().split('T')[0],
+      sluttDato: new Date().toISOString().split('T')[0],
       deltakere: "",
       identifiedRisks: "",
       riskMitigation: "",
       responsiblePerson: "",
       comments: "",
-      produkter: []
+      produkter: [],
+      lagreSomMal: false
+    }
+  })
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: async (values: z.infer<typeof formSchema>) => {
+      console.log('=== START SJA MUTATION ===')
+      console.log('Raw form values:', values)
+      console.log('valgteProdukter:', valgteProdukter)
+
+      const formData = {
+        ...values,
+        startDato: new Date(values.startDato).toISOString(),
+        sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
+        produkter: valgteProdukter
+      }
+      console.log('Processed form data:', formData)
+
+      const response = await fetch('/api/sja', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+      console.log('Server response raw:', data)
+      console.log('Server response data:', data.data)
+      console.log('Server response success:', data.success)
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Kunne ikke opprette SJA')
+      }
+
+      return data
+    },
+    onSuccess: (data) => {
+      console.log('=== MUTATION SUCCESS ===')
+      console.log('Full success data:', data)
+      
+      if (!data || !data.data) {
+        console.error('Ugyldig respons data:', data)
+        toast.error('Uventet respons fra server')
+        return
+      }
+
+      // Lukk modal og reset form
+      onOpenChange(false)
+      form.reset()
+      setBilder([])
+      setValgteProdukter([])
+
+      // Vis suksessmelding
+      toast.success('SJA opprettet')
+
+      // Kjør onAdd callback med den nye dataen
+      if (onAdd) {
+        onAdd(data.data)
+      }
+    },
+    onError: (error) => {
+      console.error('=== MUTATION ERROR ===')
+      console.error('Full error:', error)
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack available')
+      toast.error('Kunne ikke opprette SJA')
     }
   })
 
@@ -108,95 +177,9 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
     }
   })
 
-  const lagreSomMal = async () => {
-    if (!malNavn) {
-      toast.error("Vennligst gi malen et navn")
-      return
-    }
-
-    try {
-      const response = await fetch('/api/sja/mal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          navn: malNavn,
-          ...form.getValues()
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Kunne ikke lagre mal')
-      }
-
-      toast.success('Mal lagret!')
-      setVisMalModal(false)
-      setMalNavn("")
-    } catch (error) {
-      console.error('Feil ved lagring av mal:', error)
-      toast.error('Kunne ikke lagre mal')
-    }
-  }
-
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setIsSubmitting(true)
-    try {
-      const formData = {
-        ...values,
-        startDato: new Date(values.startDato).toISOString(),
-        sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
-        produkter: valgteProdukter
-      }
-
-      console.log('Sending data:', formData)
-
-      const response = await fetch('/api/sja', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Server response:', errorData)
-        throw new Error(errorData.error || 'Kunne ikke opprette SJA')
-      }
-
-      const sja = await response.json()
-
-      if (bilder.length > 0) {
-        const bildeLaster = bilder.map(async (file) => {
-          const formData = new FormData()
-          formData.append('file', file)
-          
-          const bildeResponse = await fetch(`/api/sja/${sja.id}/vedlegg`, {
-            method: 'POST',
-            body: formData
-          })
-
-          if (!bildeResponse.ok) {
-            throw new Error('Kunne ikke laste opp bilde')
-          }
-
-          return await bildeResponse.json()
-        })
-
-        const opplastededBilder = await Promise.all(bildeLaster)
-        sja.vedlegg = opplastededBilder
-      }
-
-      onAdd(sja)
-      onOpenChange(false)
-      form.reset()
-      setBilder([])
-      toast.success('SJA opprettet')
-    } catch (error) {
-      console.error('Feil ved opprettelse av SJA:', error)
-      toast.error('Kunne ikke opprette SJA')
-    } finally {
-      setIsSubmitting(false)
-    }
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    console.log('Form submitted, calling mutate...')
+    mutate(values)
   }
 
   useEffect(() => {
@@ -206,6 +189,23 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
       setValgteProdukter([])
     }
   }, [open, form])
+
+  const handleVelgMal = (mal: any) => {
+    form.reset({
+      tittel: mal.tittel,
+      beskrivelse: mal.beskrivelse,
+      arbeidssted: mal.arbeidssted,
+      deltakere: mal.deltakere,
+      responsiblePerson: mal.ansvarlig,
+      identifiedRisks: mal.arbeidsoppgaver,
+      riskMitigation: mal.tiltak.map((t: any) => t.beskrivelse).join('\n'),
+      startDato: new Date().toISOString().split('T')[0],
+      sluttDato: new Date().toISOString().split('T')[0],
+      comments: "",
+      produkter: [],
+      lagreSomMal: false
+    })
+  }
 
   return (
     <>
@@ -257,7 +257,11 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                       <FormItem>
                         <FormLabel>Startdato</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <Input 
+                            type="date" 
+                            {...field} 
+                            value={field.value || ''}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -270,7 +274,11 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                       <FormItem>
                         <FormLabel>Slutt dato</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                            <Input 
+                              type="date" 
+                              {...field} 
+                              value={field.value || ''}
+                            />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -463,18 +471,36 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Mal-checkbox */}
+                <FormField
+                  control={form.control}
+                  name="lagreSomMal"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Lagre som mal
+                        </FormLabel>
+                        <FormDescription>
+                          Dette vil lagre SJA-en som en mal for senere bruk
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
               </form>
             </Form>
           </div>
 
           <div className="flex justify-between pt-6 mt-6 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setVisMalModal(true)}
-            >
-              Lagre som mal
-            </Button>
+            <MalVelger onVelgMal={handleVelgMal} />
             <div className="space-x-2">
               <Button
                 type="button"
@@ -486,40 +512,12 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
               <Button 
                 type="submit" 
                 form="sja-form" 
-                disabled={isSubmitting}
-                onClick={() => form.handleSubmit(onSubmit)()}
+                disabled={isPending}
               >
-                {isSubmitting ? "Lagrer..." : "Lagre"}
+                {isPending ? "Lagrer..." : "Lagre"}
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Mal-dialog */}
-      <Dialog open={visMalModal} onOpenChange={setVisMalModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Lagre som mal</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <FormLabel>Navn på mal</FormLabel>
-              <Input
-                value={malNavn}
-                onChange={(e) => setMalNavn(e.target.value)}
-                placeholder="Skriv inn navn på malen"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVisMalModal(false)}>
-              Avbryt
-            </Button>
-            <Button onClick={lagreSomMal}>
-              Lagre mal
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

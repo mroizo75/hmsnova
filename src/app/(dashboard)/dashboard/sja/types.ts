@@ -1,32 +1,58 @@
-import { SJA, User, Company, Risiko, Tiltak, SJAProdukt, SJAVedlegg, SJABilde, SJAStatus } from "@prisma/client"
+import { SJA, User, Company, Risiko, Tiltak, SJAProdukt, SJAVedlegg, SJABilde } from "@prisma/client"
+import { ReactNode } from "react"
 
-export interface SJAWithRelations {
-  godkjenninger: any
-  risikoer: boolean
-  tiltak: any
-  vedlegg: boolean
-  opprettetAv: any
-  opprettetDato(opprettetDato: any): unknown
-  company: any
+export interface RisikoWithRelations extends Risiko {
   id: string
-  tittel: string
-  arbeidssted: string
+  aktivitet: string
+  fare: string
+  konsekvens: string
+  sannsynlighet: number
+  alvorlighet: number
+  risikoVerdi: number
+  sjaId: string
+}
+
+export interface TiltakWithRelations extends Tiltak {
+  id: string
   beskrivelse: string
-  startDato: Date
-  sluttDato: Date | null
-  status: SJAStatus
+  ansvarlig: string
+  frist: Date | null
+  status: string
+  sjaId: string
+}
+
+export interface SJAWithRelations extends Partial<SJA> {
+  success: any
+  data: any
+  risikoer: RisikoWithRelations[]
+  tiltak: TiltakWithRelations[]
   produkter: Array<{
     mengde: string
-    produktId: any
     produkt: {
-      produktnavn: any
+      produktnavn: string
       produsent: string
-      fareSymboler: any
-      navn: string
+      fareSymboler: string[]
     }
   }>
-  
-  // ... andre relasjoner
+  godkjenninger: Array<{
+    id: string
+    godkjentAv: {
+      name: string | null
+      email: string
+    }
+  }>
+  opprettetAv: {
+    name: string | null
+    email: string
+  }
+  company: {
+    name: string
+    orgNumber: string
+  }
+  vedlegg?: Array<{
+    id: string
+    navn: string
+  }>
 }
 
 export interface RisikoFormData {
@@ -54,4 +80,12 @@ export interface RisikoMatriseCell {
   niva: RisikoNiva
   antall: number
   risikoer: Risiko[]
-} 
+}
+
+export type SJAStatus = 
+  | 'UTKAST' 
+  | 'SENDT_TIL_GODKJENNING' 
+  | 'GODKJENT' 
+  | 'AVVIST' 
+  | 'UTGATT'
+  | 'SLETTET' 

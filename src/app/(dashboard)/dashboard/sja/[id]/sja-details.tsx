@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { formatDate } from "@/lib/utils/date"
 import { Upload, ExternalLink, ArrowLeft } from "lucide-react"
 import { useState } from "react"
@@ -11,6 +11,7 @@ import { statusLabels, statusColors } from "@/lib/constants/sja"
 import { SJAStatus } from "@prisma/client"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Table, TableHeader, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
 
 interface SJADetailsProps {
   sja: any
@@ -18,9 +19,18 @@ interface SJADetailsProps {
 }
 
 export function SJADetails({ sja, userRole }: SJADetailsProps) {
+  console.log('SJA data:', JSON.stringify(sja, null, 2))
+  
   const [addVedleggOpen, setAddVedleggOpen] = useState(false)
   const isAdmin = userRole === "COMPANY_ADMIN"
   const router = useRouter()
+
+  // Sikre at arrays alltid eksisterer
+  const risikoer = sja.risikoer ?? []
+  const tiltak = sja.tiltak ?? []
+  const produkter = sja.produkter ?? []
+  const vedlegg = sja.vedlegg ?? []
+  const godkjenninger = sja.godkjenninger ?? []
 
   return (
     <div className="space-y-6">
@@ -89,7 +99,7 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Produkter fra stoffkartotek</h2>
           <ul className="space-y-4">
-            {sja.produkter.map((p: any) => (
+            {produkter.map((p: any) => (
               <li key={p.id} className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">{p.produkt.produktnavn}</p>
@@ -131,11 +141,11 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Risikoer og tiltak</h2>
           <div className="space-y-4">
-            {sja.risikoer.map((risiko: any) => (
+            {risikoer.map((risiko: any) => (
               <div key={risiko.id} className="border-b pb-4 last:border-0">
                 <h3 className="font-medium">{risiko.beskrivelse}</h3>
                 <ul className="mt-2 space-y-2">
-                  {risiko.tiltak.map((tiltak: any) => (
+                  {tiltak.map((tiltak: any) => (
                     <li key={tiltak.id} className="text-sm">
                       • {tiltak.beskrivelse}
                     </li>
@@ -148,9 +158,9 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
 
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Vedlegg</h2>
-          {sja.vedlegg.length > 0 ? (
+          {vedlegg.length > 0 ? (
             <ul className="space-y-2">
-              {sja.vedlegg.map((v: any) => (
+              {vedlegg.map((v: any) => (
                 <li key={v.id}>
                   <Link 
                     href={v.url} 
@@ -169,6 +179,70 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
           )}
         </Card>
       </div>
+
+      {/* Risikoer seksjon */}
+      {risikoer.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Identifiserte risikoer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Aktivitet</TableHead>
+                  <TableHead>Fare</TableHead>
+                  <TableHead>Sannsynlighet</TableHead>
+                  <TableHead>Alvorlighet</TableHead>
+                  <TableHead>Risikoverdi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {risikoer.map((risiko: any) => (
+                  <TableRow key={risiko.id}>
+                    <TableCell>{risiko.aktivitet}</TableCell>
+                    <TableCell>{risiko.fare}</TableCell>
+                    <TableCell>{risiko.sannsynlighet}</TableCell>
+                    <TableCell>{risiko.alvorlighet}</TableCell>
+                    <TableCell>{risiko.risikoVerdi}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tiltak seksjon */}
+      {tiltak.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tiltak for å redusere risiko</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Beskrivelse</TableHead>
+                  <TableHead>Ansvarlig</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Frist</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tiltak.map((tiltak: any) => (
+                  <TableRow key={tiltak.id}>
+                    <TableCell>{tiltak.beskrivelse}</TableCell>
+                    <TableCell>{tiltak.ansvarlig}</TableCell>
+                    <TableCell>{tiltak.status}</TableCell>
+                    <TableCell>{tiltak.frist ? formatDate(tiltak.frist) : '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <AddVedleggModal
         open={addVedleggOpen}

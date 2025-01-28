@@ -17,6 +17,7 @@ declare module "next-auth" {
       id: string
       companyId: string
       role: string
+      isSystemAdmin: boolean
     }
   }
 }

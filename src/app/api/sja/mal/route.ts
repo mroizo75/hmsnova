@@ -4,13 +4,17 @@ import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
 
 export async function POST(request: NextRequest) {
+  console.log('=== API: MOTTAR MAL-REQUEST ===')
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
+      console.log('API: Ingen autorisert bruker')
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
     const json = await request.json()
+    console.log('API: Mottatt mal-data:', json)
+
     const { 
       navn,
       beskrivelse,
@@ -61,9 +65,10 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log('API: Mal opprettet:', mal)
     return NextResponse.json(mal)
   } catch (error) {
-    console.error("Feil ved opprettelse av SJA-mal:", error)
+    console.error("API: Feil ved opprettelse av SJA-mal:", error)
     return NextResponse.json(
       { error: "Kunne ikke opprette mal" },
       { status: 500 }

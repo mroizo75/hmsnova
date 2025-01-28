@@ -3,22 +3,21 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
-import { DeviationView } from "./deviation-view"
+import { DeviationClient } from "./deviation-client"
 
 interface PageProps {
-  params: Promise<{
+  params: {
     id: string
-  }>
+  }
 }
 
 export default async function DeviationPage({ params }: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
-  const { id } = await params
-  const db = await prisma
+  const { id } = params
 
-  const deviation = await db.deviation.findFirst({
+  const deviation = await prisma.deviation.findFirst({
     where: {
       id,
       company: {
@@ -31,7 +30,11 @@ export default async function DeviationPage({ params }: PageProps) {
     },
     include: {
       measures: true,
-      images: true,
+      images: {
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }
     }
   })
 
@@ -41,7 +44,7 @@ export default async function DeviationPage({ params }: PageProps) {
 
   return (
     <Suspense fallback={<div>Laster...</div>}>
-      <DeviationView deviation={deviation} id={id} />
+      <DeviationClient initialData={deviation} id={id} />
     </Suspense>
   )
 } 

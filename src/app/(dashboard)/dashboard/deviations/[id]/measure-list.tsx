@@ -45,11 +45,11 @@ const priorityColors: Record<string, string> = {
   CRITICAL: "bg-red-100 text-red-800"
 }
 
-const statusColors: Record<string, string> = {
-  OPEN: "bg-blue-100 text-blue-800",
-  IN_PROGRESS: "bg-yellow-100 text-yellow-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  CLOSED: "bg-gray-100 text-gray-800"
+const statusLabels: Record<string, string> = {
+  OPEN: "Åpen",
+  IN_PROGRESS: "Under arbeid",
+  COMPLETED: "Fullført",
+  CLOSED: "Lukket"
 }
 
 export function MeasureList({ deviationId, measures }: Props) {
@@ -121,13 +121,13 @@ export function MeasureList({ deviationId, measures }: Props) {
               onValueChange={(value) => updateStatus(measure.id, value)}
             >
               <SelectTrigger className="w-[140px]">
-                <SelectValue />
+                <SelectValue placeholder={statusLabels[measure.status]} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="OPEN">Åpen</SelectItem>
-                <SelectItem value="IN_PROGRESS">Under arbeid</SelectItem>
-                <SelectItem value="COMPLETED">Fullført</SelectItem>
-                <SelectItem value="CLOSED">Lukket</SelectItem>
+                <SelectItem value="OPEN">{statusLabels.OPEN}</SelectItem>
+                <SelectItem value="IN_PROGRESS">{statusLabels.IN_PROGRESS}</SelectItem>
+                <SelectItem value="COMPLETED">{statusLabels.COMPLETED}</SelectItem>
+                <SelectItem value="CLOSED">{statusLabels.CLOSED}</SelectItem>
               </SelectContent>
             </Select>
           </div>

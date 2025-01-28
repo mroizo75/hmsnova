@@ -1,41 +1,70 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/db"
+import { prisma } from "@/lib/db"
 import { requireAuth } from "@/lib/utils/auth"
-
-interface RouteParams {
-  params: Promise<{ id: string }>
-}
 
 export async function GET(
   request: Request,
-  context: RouteParams
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await requireAuth()
-    const { id } = await context.params
+    const handbookId = params.id
 
-    // Hent alle utgivelser for håndboken
     const releases = await prisma.hMSRelease.findMany({
       where: {
-        handbookId: id,
+        handbookId: handbookId,
         handbook: {
           companyId: session.user.companyId
         }
       },
+      include: {
+        handbook: {
+          include: {
+            sections: {
+              include: {
+                changes: true
+              }
+            }
+          }
+        }
+      },
       orderBy: {
-        createdAt: 'desc'
+        version: 'desc'
       }
     })
 
-    if (!releases) {
-      return NextResponse.json({ error: "Ingen utgivelser funnet" }, { status: 404 })
-    }
+    // Hent brukerinfo for hver release
+    const releasesWithUserInfo = await Promise.all(
+      releases.map(async (release) => {
+        const approver = await prisma.user.findUnique({
+          where: { id: release.approvedBy },
+          select: { name: true }
+        })
 
-    return NextResponse.json(releases)
+        return {
+          ...release,
+          approvedBy: approver?.name || 'Ukjent bruker'
+        }
+      })
+    )
+
+    // Map endringer for hver release
+    const mappedReleases = releasesWithUserInfo.map(release => ({
+      id: release.id,
+      version: release.version,
+      changes: release.changes,
+      reason: release.reason,
+      approvedBy: release.approvedBy,
+      approvedAt: release.approvedAt,
+      createdAt: release.createdAt,
+      hmsChanges: release.handbook.sections.flatMap(section => section.changes)
+    }))
+
+    return NextResponse.json(mappedReleases)
   } catch (error) {
-    console.error("Error fetching HMS handbook releases:", error)
+    console.error("Error fetching releases:", error)
     return NextResponse.json(
-      { error: "Kunne ikke hente utgivelser" },
+      { error: "Kunne ikke hente versjonshistorikk" },
       { status: 500 }
     )
   }

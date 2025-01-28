@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils/date"
 import { AddMeasureDialog } from "./add-measure-dialog"
 import { ImageUpload } from "./image-upload"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { MeasureList } from "./measure-list"
@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { HMSChanges } from "@/components/hms/hms-changes"
+import { CloseDeviationDialog } from "./close-deviation-dialog"
 
 interface DeviationImage {
   id: string
@@ -52,12 +53,12 @@ interface Deviation {
 }
 
 interface DeviationDetailsProps {
-  params: { id: string }
+  deviation: Deviation
+  onUpdate: () => Promise<void>
 }
 
-export function DeviationDetails({ params }: DeviationDetailsProps) {
+export function DeviationDetails({ deviation, onUpdate }: DeviationDetailsProps) {
   const router = useRouter()
-  const [deviation, setDeviation] = useState<Deviation | null>(null)
   const [measureDialogOpen, setMeasureDialogOpen] = useState(false)
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [imageToDelete, setImageToDelete] = useState<DeviationImage | null>(null)
@@ -65,16 +66,12 @@ export function DeviationDetails({ params }: DeviationDetailsProps) {
   const [canClose, setCanClose] = useState(true)
   const [isClosing, setIsClosing] = useState(false)
   const [hasHMSChanges, setHasHMSChanges] = useState(false)
-  const [measures, setMeasures] = useState<any[]>([])
-
-  useEffect(() => {
-    fetchDeviation()
-  }, [params.id])
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false)
 
   const handleDeleteImage = async (image: DeviationImage) => {
     try {
       setIsDeleting(true)
-      const response = await fetch(`/api/deviations/${params.id}/images/${image.id}`, {
+      const response = await fetch(`/api/deviations/${deviation.id}/images/${image.id}`, {
         method: 'DELETE',
       })
 
@@ -93,53 +90,6 @@ export function DeviationDetails({ params }: DeviationDetailsProps) {
       toast.error('Kunne ikke slette bilde')
     } finally {
       setIsDeleting(false)
-    }
-  }
-
-  const handleClose = async () => {
-    if (!deviation) return
-    try {
-      setIsClosing(true)
-      if (hasHMSChanges) {
-        const response = await fetch(`/api/deviations/${params.id}/hms-changes`)
-        const changes = await response.json()
-        const unimplementedChanges = changes.filter((c: any) => !c.implementedAt)
-        
-        if (unimplementedChanges.length > 0) {
-          toast.error('Alle HMS-endringer må være implementert før avviket kan lukkes')
-          return
-        }
-      }
-
-      const response = await fetch(`/api/deviations/${params.id}/close`, {
-        method: 'POST',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message)
-      }
-
-      toast.success('Avvik lukket')
-      router.refresh()
-    } catch (error) {
-      console.error('Error closing deviation:', error)
-      toast.error('Kunne ikke lukke avvik')
-    } finally {
-      setIsClosing(false)
-    }
-  }
-
-  const fetchDeviation = async () => {
-    const response = await fetch(`/api/deviations/${params.id}`)
-    if (!response.ok) throw new Error('Kunne ikke hente avvik')
-    const data = await response.json()
-    setDeviation(data)
-    // Hent tiltak
-    const measuresResponse = await fetch(`/api/deviations/${params.id}/measures`)
-    if (measuresResponse.ok) {
-      const measuresData = await measuresResponse.json()
-      setMeasures(measuresData)
     }
   }
 
@@ -169,6 +119,7 @@ export function DeviationDetails({ params }: DeviationDetailsProps) {
             deviation={deviation}
             open={statusDialogOpen}
             onOpenChange={setStatusDialogOpen}
+            onUpdate={onUpdate}
           />
           <AddMeasureDialog
             deviationId={deviation.id}
@@ -293,11 +244,19 @@ export function DeviationDetails({ params }: DeviationDetailsProps) {
       </Card>
 
       <Button 
-        onClick={handleClose} 
+        onClick={() => setCloseDialogOpen(true)}
         disabled={isClosing || (hasHMSChanges && !canClose)}
       >
-        {isClosing ? "Lukker..." : "Lukk avvik"}
+        Lukk avvik
       </Button>
+
+      <CloseDeviationDialog
+        deviationId={deviation.id}
+        open={closeDialogOpen}
+        onOpenChange={setCloseDialogOpen}
+        onSuccess={onUpdate}
+        isClosing={isClosing}
+      />
 
       <AlertDialog open={!!imageToDelete} onOpenChange={() => setImageToDelete(null)}>
         <AlertDialogContent>

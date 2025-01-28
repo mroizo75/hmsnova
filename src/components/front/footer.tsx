@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ContactModal } from "@/components/contact-modal"
  
 const FooterItem = ({ text, link }: { text: string; link: string }) => {
 return (
@@ -39,12 +40,14 @@ return (
                     <p className="text-base text-gray-300 max-w-2xl mt-10"> Er din bedrift klar for en smartere HMS-løsning?Med HMS Nova kan du trygt og enkelt oppfylle HMS-kravene, redusere risiko og spare tid. Ikke vent – ta steget mot en tryggere og mer effektiv fremtid.
                      </p>
                     <div className="flex justify-center mt-10">
-                        <Link href="#" className="gap-x-3 font-display bg-white text-gray-900 hover:bg-gray-100/90 px-8 h-12 rounded-full flex items-center">
-                            Ta kontakt
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                                <path fillRule="evenodd" d="M2 10a.75.75 0 01.75-.75h12.59l-2.1-1.95a.75.75 0 111.02-1.1l3.5 3.25a.75.75 0 010 1.1l-3.5 3.25a.75.75 0 11-1.02-1.1l2.1-1.95H2.75A.75.75 0 012 10z" clipRule="evenodd" />
-                            </svg>
-                        </Link>
+                        <ContactModal defaultMessage="Jeg ønsker mer informasjon om HMS Nova">
+                            <Link href="#" className="gap-x-3 font-display bg-white text-gray-900 hover:bg-gray-100/90 px-8 h-12 rounded-full flex items-center">
+                                Ta kontakt
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                                    <path fillRule="evenodd" d="M2 10a.75.75 0 01.75-.75h12.59l-2.1-1.95a.75.75 0 111.02-1.1l3.5 3.25a.75.75 0 010 1.1l-3.5 3.25a.75.75 0 11-1.02-1.1l2.1-1.95H2.75A.75.75 0 012 10z" clipRule="evenodd" />
+                                </svg>
+                            </Link>
+                        </ContactModal>
                     </div>
                 </div>
             </div>

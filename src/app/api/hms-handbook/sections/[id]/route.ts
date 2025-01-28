@@ -4,9 +4,8 @@ import { requireAuth } from "@/lib/utils/auth"
 import { z } from "zod"
 
 const updateSectionSchema = z.object({
-  title: z.string().min(3),
-  content: z.string().optional(),
-  order: z.number().optional()
+  content: z.any(),
+  isDraft: z.boolean().optional()
 })
 
 interface RouteParams {
@@ -49,37 +48,23 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  context: RouteParams
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await requireAuth()
-    const { id } = await context.params
     const data = await request.json()
-
     const validatedData = updateSectionSchema.parse(data)
 
     const section = await prisma.hMSSection.update({
-      where: {
-        id,
-        handbook: {
-          companyId: session.user.companyId
-        }
-      },
+      where: { id: params.id },
       data: {
-        ...validatedData,
-        updatedAt: new Date()
+        content: validatedData.content,
       }
     })
 
     return NextResponse.json(section)
   } catch (error) {
     console.error("Error updating section:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Validation error", details: error.errors },
-        { status: 400 }
-      )
-    }
     return NextResponse.json(
       { error: "Kunne ikke oppdatere seksjonen" },
       { status: 500 }

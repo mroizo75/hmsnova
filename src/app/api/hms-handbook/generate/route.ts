@@ -49,61 +49,37 @@ export async function POST(req: Request) {
         title: "HMS-håndbok",
         description: "Generert fra mal",
         published: true,
-        version: 1,
-        sections: {
-          create: template.sections.map((section, index) => ({
-            title: section.title,
-            content: section.content as any,
-            order: index,
-            handbook: {
-              connect: {
-                companyId: session.user.companyId
-              }
-            },
-            subsections: {
-              create: section.subsections.map((sub, subIndex) => ({
-                title: sub.title,
-                content: sub.content as any,
-                order: subIndex,
-                handbook: {
-                  connect: {
-                    companyId: session.user.companyId
-                  }
-                }
-              }))
-            }
-          }))
-        }
+        version: 0
       },
       update: {
-        published: true,
-        sections: {
-          deleteMany: {},
-          create: template.sections.map((section, index) => ({
-            title: section.title,
-            content: section.content as any,
-            order: index,
-            handbook: {
-              connect: {
-                companyId: session.user.companyId
-              }
-            },
-            subsections: {
-              create: section.subsections.map((sub, subIndex) => ({
-                title: sub.title,
-                content: sub.content as any,
-                order: subIndex,
-                handbook: {
-                  connect: {
-                    companyId: session.user.companyId
-                  }
-                }
-              }))
-            }
-          }))
-        }
+        published: true
       }
     })
+
+    // Opprett hovedseksjoner først
+    for (const [index, section] of template.sections.entries()) {
+      const mainSection = await prisma.hMSSection.create({
+        data: {
+          title: section.title,
+          content: section.content as any,
+          order: index,
+          handbookId: handbook.id
+        }
+      })
+
+      // Opprett underseksjoner
+      for (const [subIndex, subsection] of section.subsections.entries()) {
+        await prisma.hMSSection.create({
+          data: {
+            title: subsection.title,
+            content: subsection.content as any,
+            order: subIndex,
+            handbookId: handbook.id,
+            parentId: mainSection.id
+          }
+        })
+      }
+    }
 
     return NextResponse.json(handbook)
   } catch (error) {

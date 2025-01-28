@@ -329,7 +329,7 @@ export function TemplateEditor({ template }: { template: Template }) {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Seksjoner</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
               <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={sections} strategy={verticalListSortingStrategy}>
                   {sections.map(section => (

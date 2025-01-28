@@ -2,7 +2,7 @@ import Image from "next/image"
  
 const ContentSection = () => {
 return (
-    <section className="py-24">
+    <section id="about" className="py-24">
         <div className="max-w-7xl mx-auto px-5 sm:px-10 md:px-12 lg:px-5 flex flex-col md:flex-row gap-16">
             <div className="md:w-1/2 space-y-12 text-gray-700 dark:text-gray-300">
                 <h1 className="text-gray-900 dark:text-white font-semibold text-2xl sm:text-3xl md:text-4xl">

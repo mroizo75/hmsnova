@@ -178,7 +178,10 @@ export function EditSectionDialog({ section, open, onOpenChange }: EditSectionDi
                 <FormItem>
                   <FormLabel>Innhold</FormLabel>
                   <FormControl>
-                    <Editor {...field} />
+                    <Editor 
+                      value={field.value} 
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

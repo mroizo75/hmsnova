@@ -49,6 +49,8 @@ model User {
   image               String?
   address       Json?    // Lagrer adresse som JSON { street, postalCode, city }
   
+
+  PasswordResetToken PasswordResetToken[]
 }
 
 model Company {
@@ -86,6 +88,13 @@ model Company {
   goals       HMSGoal[]
 
   SafetyRound SafetyRound[]
+
+  // Legg til nye felt for pakkeinfo
+  subscriptionPlan    String    @default("STANDARD") // STANDARD, STANDARD_PLUS, PREMIUM
+  employeeCount       Int       @default(1)
+  storageLimit        Int       @default(1) // i GB
+  includeVernerunde   Boolean   @default(false)
+  vernerundeDate      DateTime? // Dato for siste vernerunde
 }
 
 model Address {
@@ -259,6 +268,7 @@ model Deviation {
   closedAt    DateTime?
   closedBy    String?   // Bruker-ID som lukket avviket
   hmsChanges    DeviationHMSChange[]
+  closeComment String?   // Legg til dette feltet
 
   @@index([companyId])
   @@index([status])
@@ -465,6 +475,7 @@ model SJA {
   tittel        String
   arbeidssted   String
   beskrivelse   String      @db.Text
+  deltakere     String      @db.Text
   startDato     DateTime
   sluttDato     DateTime?
   status        SJAStatus  @default(UTKAST)
@@ -1090,4 +1101,42 @@ model UserSettings {
   theme              String    @default("system") // "light", "dark", "system"
 
   @@map("user_settings")
-} 
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Booking {
+  id          String      @id @default(cuid())
+  date        DateTime
+  time        String
+  status      BookingStatus @default(PENDING)
+  meetingType MeetingType
+  name        String
+  email       String
+  company     String
+  phone       String
+  participants String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([date, time])
+  @@index([status])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum MeetingType {
+  online
+  physical
+}

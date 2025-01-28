@@ -36,4 +36,44 @@ export async function GET() {
       { status: 500 }
     )
   }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    }
+
+    const data = await request.json()
+    
+    // Opprett produkt med fareSymboler
+    const produkt = await prisma.stoffkartotek.create({
+      data: {
+        produktnavn: data.produktnavn,
+        produsent: data.produsent,
+        databladUrl: data.databladUrl,
+        beskrivelse: data.beskrivelse,
+        bruksomrade: data.bruksomrade,
+        companyId: session.user.companyId,
+        opprettetAvId: session.user.id,
+        fareSymboler: {
+          create: data.fareSymboler.map((symbol: string) => ({
+            symbol: symbol
+          }))
+        }
+      },
+      include: {
+        fareSymboler: true
+      }
+    })
+
+    return NextResponse.json(produkt)
+  } catch (error) {
+    console.error("Error creating stoffkartotek:", error)
+    return NextResponse.json(
+      { error: "Kunne ikke opprette produkt", details: error },
+      { status: 500 }
+    )
+  }
 } 

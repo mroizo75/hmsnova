@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth/auth-options"
 import { SJAClient } from "./sja-client"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
+import { Providers } from "@/components/providers"
+import { SJAWithRelations } from "./types"
 
 export default async function SJAPage() {
   const session = await getServerSession(authOptions)
@@ -22,8 +24,25 @@ export default async function SJAPage() {
       }
     },
     include: {
-      risikoer: true,
-      tiltak: true,
+      risikoer: {
+        select: {
+          id: true,
+          aktivitet: true,
+          fare: true,
+          alvorlighet: true,
+          sannsynlighet: true,
+          risikoVerdi: true
+        }
+      },
+      tiltak: {
+        select: {
+          id: true,
+          beskrivelse: true,
+          ansvarlig: true,
+          status: true,
+          frist: true
+        }
+      },
       produkter: {
         include: {
           produkt: true
@@ -60,9 +79,11 @@ export default async function SJAPage() {
   })
 
   return (
-    <Suspense fallback={<div>Laster...</div>}>
-      <SJAClient initialData={sjaList} />
-    </Suspense>
+    <Providers>
+      <Suspense fallback={<div>Laster...</div>}>
+        <SJAClient initialData={sjaList as unknown as SJAWithRelations[]} />
+      </Suspense>
+    </Providers>
   )
 }
 

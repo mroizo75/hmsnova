@@ -4,19 +4,20 @@ import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { uploadToStorage } from "@/lib/storage"
+import { DeviationType, Severity } from "@prisma/client"
+
 
 // Definer enum-typer som matcher Prisma-schema
-const DeviationType = z.enum(["NEAR_MISS", "INCIDENT", "ACCIDENT", "IMPROVEMENT", "OBSERVATION"])
-const Severity = z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
-const Status = z.enum(["AAPEN", "PAAGAAR", "FULLFOERT", "LUKKET"])
+const Status = z.enum(["OPEN", "IN_PROGRESS", "COMPLETED", "CLOSED"])
 
 const createDeviationSchema = z.object({
   title: z.string().min(1, "Tittel er påkrevd"),
   description: z.string().min(1, "Beskrivelse er påkrevd"),
-  type: DeviationType,
+  type: z.nativeEnum(DeviationType),
   category: z.string().min(1, "Kategori er påkrevd"),
-  severity: Severity,
-  status: Status.default("AAPEN"),
+  severity: z.nativeEnum(Severity),
+  status: Status.default("OPEN"),
   location: z.string().optional(),
   dueDate: z.string().optional().nullable(),
   images: z.array(z.string()).optional().default([])
@@ -57,7 +58,7 @@ async function parseFormData(req: Request) {
       severity: severity?.toString() || '',
       location: formData.get('location')?.toString() || '',
       dueDate: formData.get('dueDate')?.toString() || null,
-      status: "AAPEN" as const,
+      status: "OPEN" as const,
       images: []
     }
 
@@ -76,72 +77,86 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
-    // Parse form data
-    let body
-    try {
-      body = await parseFormData(req)
-    } catch (error) {
-      return NextResponse.json({ 
-        error: "Kunne ikke parse form data",
-        details: error instanceof Error ? error.message : "Ukjent feil"
-      }, { status: 400 })
-    }
-
-    // Validate data
-    const validationResult = createDeviationSchema.safeParse(body)
-    if (!validationResult.success) {
-      return NextResponse.json({ 
-        error: "Valideringsfeil", 
-        details: validationResult.error.format(),
-        receivedData: body
-      }, { status: 400 })
-    }
-
-    const data = validationResult.data
+    const formData = await req.formData()
     
-    // Opprett avviket
+    // Opprett avviket først
     const deviation = await prisma.deviation.create({
       data: {
-        title: data.title,
-        description: data.description,
-        type: data.type,
-        category: data.category,
-        severity: data.severity,
-        status: "AAPEN",
-        location: data.location || null,
-        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        type: formData.get('type') as DeviationType,
+        category: formData.get('category') as string,
+        severity: formData.get('severity') as Severity,
+        status: "OPEN",
+        location: formData.get('location') as string || null,
+        dueDate: formData.get('dueDate') ? new Date(formData.get('dueDate') as string) : null,
         reportedBy: session.user.id,
-        companyId: session.user.companyId
-      },
-      include: {
-        company: true
-      }
-    })
-
-    // Finn HMS-ansvarlige i bedriften
-    const hmsManagers = await prisma.user.findMany({
-      where: {
         companyId: session.user.companyId,
-        role: "COMPANY_ADMIN"
       }
     })
 
-    // Send varsling til HMS-ansvarlige
-    for (const manager of hmsManagers) {
-      await createNotification({
-        type: "DEVIATION_CREATED",
-        title: "Nytt avvik registrert",
-        message: `Et nytt avvik "${deviation.title}" er registrert av ${session.user.name || session.user.email}`,
-        userId: manager.id,
-        metadata: {
-          deviationId: deviation.id,
-          severity: deviation.severity,
-          category: deviation.category
+    // Håndter bilde-opplasting
+    const image = formData.get('image') as File
+    if (image) {
+      const fileName = `${Date.now()}-${image.name}`
+      const filePath = `companies/deviations/${deviation.id}/images/${fileName}`
+      
+      await uploadToStorage(image, filePath)
+
+      // Lagre bilde-referansen i databasen
+      await prisma.deviationImage.create({
+        data: {
+          url: filePath,
+          uploadedBy: session.user.id,
+          deviationId: deviation.id
         }
       })
     }
 
-    return NextResponse.json({ success: true, data: deviation }, { status: 201 })
+    // Finn HMS-ansvarlige og admin-brukere
+    const notifyUsers = await prisma.user.findMany({
+      where: {
+        companyId: session.user.companyId,
+        OR: [
+          { role: "COMPANY_ADMIN" },
+          { role: "ADMIN" },
+          { role: "EMPLOYEE" }
+        ]
+      }
+    })
+
+    // Send varsling til relevante brukere
+    for (const user of notifyUsers) {
+      createNotification({
+        type: "DEVIATION_CREATED",
+        title: "Nytt avvik registrert",
+        message: `Et nytt avvik "${deviation.title}" er registrert av ${session.user.name || session.user.email}`,
+        userId: user.id,
+        link: `/dashboard/deviations/${deviation.id}`
+      }).catch(console.error) // Ikke la notifikasjonsfeil stoppe hovedoperasjonen
+    }
+
+    // Invalider alle relevante queries
+    await Promise.all([
+      prisma.deviation.findMany({ // Dette trigger en revalidering av deviation-listen
+        where: { companyId: session.user.companyId },
+        include: { measures: true, images: true }
+      }),
+      prisma.deviation.groupBy({ // Dette trigger en revalidering av statistikken
+        by: ['status'],
+        where: { companyId: session.user.companyId },
+        _count: true
+      })
+    ])
+
+    return NextResponse.json({ 
+      success: true, 
+      data: {
+        ...deviation,
+        images: []
+      }
+    }, { status: 201 })
+
   } catch (error) {
     console.error('Error in POST:', error)
     return NextResponse.json({ 

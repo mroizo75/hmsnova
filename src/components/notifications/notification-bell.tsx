@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { Bell, Settings } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Bell, Settings, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,130 +13,102 @@ import {
 import { formatDistanceToNow } from "date-fns"
 import { nb } from "date-fns/locale"
 import { Badge } from "@/components/ui/badge"
-import { io } from "socket.io-client"
 import { NotificationSettingsDialog } from "./notification-settings-dialog"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface Notification {
   id: string
   type: string
   title: string
   message: string
-  isRead: boolean
+  read: boolean
   createdAt: string
-  metadata?: any
+  link?: string  // URL til avvik/SJA/etc
+  entityId?: string  // ID til relatert element
 }
 
-export function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([])
+interface NotificationBellProps {
+  onSettingsClick?: () => void;
+}
+
+export function NotificationBell({ onSettingsClick }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [hasNewNotifications, setHasNewNotifications] = useState(false)
+  const queryClient = useQueryClient()
+  const router = useRouter()
 
-  const unreadCount = notifications.filter(n => !n.isRead).length
+  // Bruk React Query for å hente notifikasjoner
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const response = await fetch('/api/notifications')
+      if (!response.ok) throw new Error('Kunne ikke hente varsler')
+      return response.json()
+    },
+    refetchInterval: 30000
+  })
 
-  // Memoizer fetchNotifications for å unngå unødvendige re-renders
-  const fetchNotifications = useCallback(async () => {
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  const handleMarkAsRead = async (id: string) => {
     try {
-      const response = await fetch("/api/notifications", {
-        // Legg til cache-kontroll headers
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      })
-      if (!response.ok) throw new Error("Kunne ikke hente varsler")
-      const data = await response.json()
-      setNotifications(data)
-      setHasNewNotifications(data.some((n: Notification) => !n.isRead))
+      await fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
     } catch (error) {
-      console.error("Error fetching notifications:", error)
-    }
-  }, [])
-
-  useEffect(() => {
-    // Initial fetch
-    fetchNotifications()
-
-    // WebSocket setup
-    const socket = io(`${window.location.protocol}//${window.location.hostname}:3001`, {
-      path: '/api/socketio',
-      transports: ['websocket'], // Bruk kun websocket, unngå polling
-      reconnectionDelay: 1000,
-      reconnection: true,
-      reconnectionAttempts: 10
-    })
-
-    // Sett opp en intervall-basert fallback med lengre intervall
-    const pollInterval = setInterval(() => {
-      if (!socket.connected) {
-        fetchNotifications()
-      }
-    }, 30000) // Sjekk hvert 30. sekund hvis websocket er nede
-
-    socket.on('connect', () => {
-      console.log('WebSocket connected:', socket.id)
-      // Stopp polling når websocket er tilkoblet
-      clearInterval(pollInterval)
-    })
-
-    socket.on('disconnect', () => {
-      console.log('WebSocket disconnected, falling back to polling')
-    })
-
-    socket.on('notification', (notification: Notification) => {
-      console.log('New notification received:', notification)
-      setNotifications(prev => [notification, ...prev])
-      setHasNewNotifications(true)
-    })
-
-    return () => {
-      console.log('Cleaning up WebSocket connection')
-      socket.disconnect()
-      clearInterval(pollInterval)
-    }
-  }, [fetchNotifications])
-
-  async function markAsRead(id: string) {
-    try {
-      await fetch(`/api/notifications/${id}/read`, { 
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      setNotifications(prev =>
-        prev.map(n =>
-          n.id === id ? { ...n, isRead: true } : n
-        )
-      )
-
-      // Sjekk om det fortsatt er uleste varsler
-      const stillHasUnread = notifications.some(n => !n.isRead && n.id !== id)
-      setHasNewNotifications(stillHasUnread)
-    } catch (error) {
-      console.error("Error marking notification as read:", error)
+      toast.error('Kunne ikke markere som lest')
     }
   }
 
-  // Når dropdown åpnes
-  const handleDropdownOpen = (open: boolean) => {
-    setIsOpen(open)
-    if (open) {
-      setHasNewNotifications(false)
+  const handleMarkAllAsRead = async () => {
+    try {
+      await fetch('/api/notifications/mark-all-read', { method: 'POST' })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      toast.success('Alle varsler markert som lest')
+      setIsOpen(false) // Lukk dropdown etter handling
+    } catch (error) {
+      toast.error('Kunne ikke markere alle som lest')
+    }
+  }
+
+  const handleNotificationClick = async (notification: Notification) => {
+    try {
+      // Marker som lest
+      await handleMarkAsRead(notification.id)
+      
+      // Naviger til riktig side basert på type
+      if (notification.link) {
+        router.push(notification.link)
+      } else if (notification.entityId) {
+        switch (notification.type) {
+          case 'DEVIATION':
+            router.push(`/dashboard/deviations/${notification.entityId}`)
+            break
+          case 'SJA':
+            router.push(`/dashboard/sja/${notification.entityId}`)
+            break
+          case 'HMS_CHANGE':
+            router.push(`/dashboard/hms-handbook`)
+            break
+        }
+      }
+      setIsOpen(false)  // Lukk dropdown etter navigering
+    } catch (error) {
+      toast.error('Kunne ikke åpne varselet')
     }
   }
 
   return (
     <>
-      <DropdownMenu open={isOpen} onOpenChange={handleDropdownOpen}>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button 
             variant="ghost" 
             size="icon" 
-            className={`relative ${hasNewNotifications ? 'animate-pulse' : ''}`}
+            className="relative"
           >
-            <Bell className={`h-5 w-5 ${hasNewNotifications ? 'text-primary' : ''}`} />
+            <Bell className={`h-5 w-5 ${unreadCount > 0 ? 'text-primary' : ''}`} />
             {unreadCount > 0 && (
               <Badge 
                 variant="destructive" 
@@ -150,13 +122,16 @@ export function NotificationBell() {
         <DropdownMenuContent align="end" className="w-80">
           <div className="flex items-center justify-between p-2">
             <h4 className="font-medium">Varsler</h4>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
+            {unreadCount > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleMarkAllAsRead}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Merk alle som lest
+              </Button>
+            )}
           </div>
           <DropdownMenuSeparator />
           {notifications.length === 0 ? (
@@ -167,12 +142,12 @@ export function NotificationBell() {
             notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={`p-4 cursor-pointer ${!notification.isRead ? 'bg-muted/50' : ''}`}
-                onClick={() => markAsRead(notification.id)}
+                className={`p-4 cursor-pointer ${!notification.read ? 'bg-muted/50' : ''}`}
+                onClick={() => handleNotificationClick(notification)}
               >
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <p className={`font-medium ${!notification.isRead ? 'text-primary' : ''}`}>
+                    <p className={`font-medium ${!notification.read ? 'text-primary' : ''}`}>
                       {notification.title}
                     </p>
                     <span className="text-xs text-muted-foreground">
@@ -189,13 +164,18 @@ export function NotificationBell() {
               </DropdownMenuItem>
             ))
           )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onSettingsClick}>
+            <Settings className="mr-2 h-4 w-4" />
+            Innstillinger
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard/notifications" className="w-full">
+              Se alle varsler
+            </Link>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <NotificationSettingsDialog 
-        open={settingsOpen} 
-        onOpenChange={setSettingsOpen} 
-      />
     </>
   )
 } 

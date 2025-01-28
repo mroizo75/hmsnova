@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { SectionChangesList } from "@/components/hms/section-changes-list"
 import { SectionChanges } from "@/components/hms/section-changes"
+import { Badge } from "@/components/ui/badge"
+import { formatDate } from "@/lib/utils/date"
 
 interface Section {
   id: string
@@ -22,6 +24,7 @@ interface Section {
     description: string
     status: string
     implementedAt: Date | null
+    createdAt: Date
     deviations: Array<{
       deviation: {
         id: string
@@ -48,10 +51,10 @@ interface Section {
 
 interface HMSContentProps {
   section?: Section
-  isEditing?: boolean
+  isEditing: boolean
 }
 
-export function HMSContent({ section, isEditing = false }: HMSContentProps) {
+export function HMSContent({ section, isEditing }: HMSContentProps) {
   const router = useRouter()
   const [content, setContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
@@ -79,7 +82,7 @@ export function HMSContent({ section, isEditing = false }: HMSContentProps) {
   if (!section) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        Velg en seksjon fra menyen til venstre for å se innholdet
+        Velg en seksjon fra menyen til venstre
       </div>
     )
   }
@@ -130,7 +133,6 @@ export function HMSContent({ section, isEditing = false }: HMSContentProps) {
           <Editor
             value={content}
             onChange={setContent}
-            placeholder="Skriv innholdet her..."
           />
         ) : (
           <div dangerouslySetInnerHTML={{ __html: typeof content === 'string' ? content : ''}} />
@@ -152,7 +154,7 @@ export function HMSContent({ section, isEditing = false }: HMSContentProps) {
         </div>
       )}
 
-      {section && (
+      {/* {section && (
         <Card>
           <CardHeader>
             <CardTitle>Endringshistorikk</CardTitle>
@@ -167,6 +169,67 @@ export function HMSContent({ section, isEditing = false }: HMSContentProps) {
             />
           </CardContent>
         </Card>
+      )} */}
+
+      {/* Endringshistorikk */}
+      {section.changes.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-medium mb-4">Endringshistorikk</h2>
+          <div className="space-y-4">
+            {section.changes.map((change) => (
+              <div key={change.id} className="border p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">{change.title}</h3>
+                  <Badge variant={change.status === 'OPEN' ? 'default' : 'secondary'}>
+                    {change.status === 'OPEN' ? 'Tilknyttet' : change.status}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">{change.description}</p>
+                
+                {/* Datoer og status */}
+                <div className="mt-4 flex gap-4 text-sm text-muted-foreground">
+                  <div>
+                    <span className="font-medium">Opprettet:</span> {formatDate(change.createdAt)}
+                  </div>
+                  {change.implementedAt && (
+                    <div>
+                      <span className="font-medium">Implementert:</span> {formatDate(change.implementedAt)}
+                    </div>
+                  )}
+                </div>
+                {/* Relaterte elementer */}
+                <div className="mt-4 space-y-3">
+                  {change.deviations.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium">Relaterte avvik:</p>
+                      <ul className="list-disc list-inside text-sm">
+                        {change.deviations.map(({ deviation }) => (
+                          <li key={deviation.id} className="text-muted-foreground">
+                            {deviation.title}
+                            <p className="ml-6 mt-1">{deviation.description}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {change.riskAssessments.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium">Relaterte risikovurderinger:</p>
+                      <ul className="list-disc list-inside text-sm">
+                        {change.riskAssessments.map(({ riskAssessment }) => (
+                          <li key={riskAssessment.id} className="text-muted-foreground">
+                            {riskAssessment.title}
+                            <p className="ml-6 mt-1">{riskAssessment.description}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

@@ -11,7 +11,7 @@ interface Produkt {
   id: string
   produktnavn: string
   fareSymboler: Array<{ symbol: string }>
-  sikkerhetsblad_url?: string | null
+  databladUrl?: string | null
 }
 
 interface StoffkartotekViewerProps {
@@ -24,6 +24,15 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
   const filteredProdukter = produkter.filter(produkt =>
     produkt.produktnavn.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Hjelpefunksjon for å generere riktig URL
+  const getStorageUrl = (databladUrl: string | null | undefined): string | undefined => {
+    if (!databladUrl) return undefined
+    if (databladUrl.startsWith('http')) return databladUrl
+    
+    // Bruk vår egen proxy-rute
+    return `/api/stoffkartotek/datablad?path=${encodeURIComponent(databladUrl)}`
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
@@ -69,7 +78,7 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
                 </div>
 
                 {/* Sikkerhetsdatablad-knapp */}
-                {produkt.sikkerhetsblad_url && (
+                {produkt.databladUrl && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -77,7 +86,7 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
                     asChild
                   >
                     <a 
-                      href={produkt.sikkerhetsblad_url}
+                      href={getStorageUrl(produkt.databladUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2"
