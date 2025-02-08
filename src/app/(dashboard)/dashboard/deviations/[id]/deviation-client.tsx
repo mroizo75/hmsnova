@@ -2,13 +2,11 @@
 
 import { DeviationView } from "./deviation-view"
 import { useRouter } from "next/navigation"
-import { Deviation, DeviationImage, DeviationMeasure } from "@prisma/client"
+import type { Deviation, DeviationImage, DeviationMeasure } from "@prisma/client"
 
-interface DeviationWithRelations extends Deviation {
+type DeviationWithRelations = Deviation & {
   measures: DeviationMeasure[]
-  images: (DeviationImage & {
-    fullUrl?: string
-  })[]
+  images: DeviationImage[]
 }
 
 export function DeviationClient({ 
@@ -20,13 +18,24 @@ export function DeviationClient({
 }) {
   const router = useRouter()
 
+  console.log('Initial data images:', initialData.images)
+
   const deviationWithFullUrls = {
     ...initialData,
-    images: initialData.images.map(image => ({
-      ...image,
-      fullUrl: `https://storage.googleapis.com/innutio-prod/${image.url}`
-    }))
+    images: initialData.images.map(image => {
+      console.log('Processing image:', image)
+      const fullUrl = image.url.startsWith('http') 
+        ? image.url 
+        : `/api/images/${image.url}`
+      console.log('Generated fullUrl:', fullUrl)
+      return {
+        ...image,
+        fullUrl
+      }
+    })
   }
+
+  console.log('Final deviation with URLs:', deviationWithFullUrls)
 
   const handleUpdate = async () => {
     router.refresh()

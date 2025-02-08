@@ -4,6 +4,7 @@ import prisma from "@/lib/db"
 import { DeviationsClient } from "./deviations-client"
 import { Deviation } from "@/lib/types/deviation"
 import { notFound } from "next/navigation"
+import { Status } from "@prisma/client"
 
 export default async function DeviationsPage() {
   const session = await getServerSession(authOptions)
@@ -11,7 +12,10 @@ export default async function DeviationsPage() {
 
   const deviations = await prisma.deviation.findMany({
     where: {
-      companyId: session.user.companyId
+      companyId: session.user.companyId,
+      status: {
+        in: Object.values(Status)
+      }
     },
     include: {
       measures: true,
@@ -31,6 +35,11 @@ export default async function DeviationsPage() {
     }
   })
 
+  // Legg til logging for debugging
+  console.log('User companyId:', session.user.companyId)
+  console.log('Found deviations count:', deviations.length)
+  console.log('Deviations company IDs:', deviations.map(d => d.companyId))
+
   // Transform data to include user names and measure counts
   const transformedDeviations = deviations.map(deviation => ({
     ...deviation,
@@ -40,7 +49,9 @@ export default async function DeviationsPage() {
     totalMeasures: deviation.measures.length,
     images: [],
     company: undefined
-  })) satisfies Deviation[]
+  }))
+
+  console.log('Transformed deviations:', transformedDeviations.map(d => ({ id: d.id, status: d.status })))
 
   return (
     <div className="container py-6">

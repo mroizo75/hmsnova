@@ -13,33 +13,100 @@ export default async function ReportsPage() {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return notFound()
 
-    // Hent statistikk
+    console.log('Session:', { userId: session.user.id, companyId: session.user.companyId })
+
     const stats = await prisma.$transaction(async (tx) => {
-      // Deviations statistikk med default verdier
+      console.log('Starting transaction...')
+
+      // Deviations statistikk
+      console.log('Fetching deviations...')
       const deviations = await tx.deviation.groupBy({
         by: ['status', 'companyId'],
         _count: {
           _all: true
         },
         where: {
-          companyId: session.user.companyId
+          companyId: session.user.companyId,
+          status: {
+            in: ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CLOSED']
+          }
         },
         orderBy: [{ status: 'asc' }]
-      }) as unknown as StatsItem[] || []
+      }).then(results => {
+        console.log('Deviations results:', results)
+        return results || []
+      }) as StatsItem[]
 
-      // RiskAssessments statistikk med default verdier
-      const riskAssessments = await tx.riskAssessment.groupBy({
-        by: ['status', 'companyId'],
-        _count: {
-          _all: true
-        },
+      // RiskAssessments statistikk og trender
+      console.log('Fetching risk assessments...')
+      const riskAssessments = await tx.riskAssessment.findMany({
         where: {
-          companyId: session.user.companyId
+          companyId: session.user.companyId,
+          status: {
+            in: ['DRAFT', 'OPEN', 'IN_PROGRESS', 'SCHEDULED', 'CLOSED', 'COMPLETED', 'CANCELLED']
+          }
         },
-        orderBy: [{ status: 'asc' }]
-      }) as unknown as StatsItem[] || []
+        include: {
+          hazards: true
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      }).then(async (results) => {
+        // Gruppér etter status for stats
+        const statsByStatus = results.reduce((acc, curr) => {
+          if (!acc[curr.status]) {
+            acc[curr.status] = {
+              status: curr.status,
+              companyId: curr.companyId,
+              _count: { _all: 0 }
+            }
+          }
+          acc[curr.status]._count._all++
+          return acc
+        }, {} as Record<string, StatsItem>)
 
-      // Monthly statistikk med default verdier
+        // Beregn trender
+        const monthlyRisks = results.reduce((acc, assessment) => {
+          const month = new Date(assessment.createdAt).toISOString().slice(0, 7)
+          
+          if (!acc[month]) {
+            acc[month] = {
+              date: month,
+              maxRiskLevel: 0,
+              assessmentCount: 0,
+              highRiskCount: 0
+            }
+          }
+
+          assessment.hazards.forEach(hazard => {
+            const riskLevel = hazard.riskLevel
+            acc[month].maxRiskLevel = Math.max(acc[month].maxRiskLevel, riskLevel)
+            if (riskLevel > 15) {
+              acc[month].highRiskCount++
+            }
+          })
+          
+          acc[month].assessmentCount++
+          return acc
+        }, {} as Record<string, any>)
+
+        return {
+          stats: Object.values(statsByStatus),
+          trends: Object.values(monthlyRisks)
+        }
+      }) as { 
+        stats: StatsItem[], 
+        trends: { 
+          date: string
+          maxRiskLevel: number
+          assessmentCount: number
+          highRiskCount: number 
+        }[] 
+      }
+
+      // Monthly statistikk
+      console.log('Fetching monthly stats...')
       const monthly = await tx.deviation.groupBy({
         by: ['createdAt'],
         _count: {
@@ -47,6 +114,9 @@ export default async function ReportsPage() {
         },
         where: {
           companyId: session.user.companyId,
+          status: {
+            in: ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CLOSED']  // Samme som deviations
+          },
           createdAt: {
             gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
           }
@@ -54,12 +124,31 @@ export default async function ReportsPage() {
         orderBy: {
           createdAt: 'asc'
         }
-      }) || []
+      }).then(results => {
+        console.log('Monthly results:', results)
+        return results || []
+      })
 
-      return [deviations, riskAssessments, monthly]
+      const finalStats = [deviations, riskAssessments.stats, monthly] as [StatsItem[], StatsItem[], any[]]
+      console.log('Final stats structure:', {
+        deviationsLength: deviations.length,
+        riskAssessmentsLength: riskAssessments.stats.length,
+        monthlyLength: monthly.length,
+        deviationsType: typeof deviations,
+        riskAssessmentsType: typeof riskAssessments.stats,
+        monthlyType: typeof monthly
+      })
+
+      return {
+        finalStats: finalStats,
+        trends: riskAssessments.trends
+      }
     })
 
+    console.log('Transaction completed')
+
     // Hent internrevisjonsdata med default verdier
+    console.log('Fetching audit data...')
     const auditData = {
       handbook: {
         version: 1,
@@ -71,7 +160,8 @@ export default async function ReportsPage() {
           where: { companyId: session.user.companyId } 
         }) || 0,
         bySeverity: [],
-        implementedMeasures: 0
+        implementedMeasures: 0,
+        companyId: session.user.companyId
       },
       riskAssessments: {
         total: await prisma.riskAssessment.count({ 
@@ -97,31 +187,26 @@ export default async function ReportsPage() {
       }
     } satisfies InternalAuditData
 
-    // Sjekk om vi har noen data i det hele tatt
-    const hasData = stats[0].length > 0 || stats[1].length > 0 || stats[2].length > 0 || 
-                    auditData.deviations.total > 0 || auditData.riskAssessments.total > 0
-
-    if (!hasData) {
-      return (
-        <div className="p-8 text-center">
-          <h2 className="text-xl font-semibold mb-4">Ingen rapportdata tilgjengelig enda</h2>
-          <p className="text-gray-600">
-            Start med å registrere avvik, risikovurderinger eller andre HMS-aktiviteter 
-            for å se statistikk og rapporter her.
-          </p>
-        </div>
-      )
-    }
-
-    return <ReportsClient stats={stats as [StatsItem[], StatsItem[], any[]]} auditData={auditData} />
+    console.log('Rendering ReportsClient...')
+    return <ReportsClient stats={stats.finalStats} auditData={auditData} trends={stats.trends} />
 
   } catch (error) {
-    console.error('Error in ReportsPage:', error)
+    console.error('Detailed error in ReportsPage:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
+    
     return (
       <div className="p-4">
         <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
           <h2 className="font-semibold mb-2">Kunne ikke laste rapportdata</h2>
           <p>Vennligst prøv igjen senere eller kontakt support hvis problemet vedvarer.</p>
+          {process.env.NODE_ENV === 'development' && (
+            <pre className="mt-2 text-xs">
+              {JSON.stringify(error, null, 2)}
+            </pre>
+          )}
         </div>
       </div>
     )

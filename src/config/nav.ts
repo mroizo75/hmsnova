@@ -13,6 +13,8 @@ import {
   BarChart3,
   ClipboardList,
   type LucideIcon,
+  Settings,
+  Wrench,
 } from "lucide-react"
 
 export interface NavItem {
@@ -21,6 +23,7 @@ export interface NavItem {
   icon?: LucideIcon
   role?: string[]
   moduleKey?: string
+  children?: NavItem[]
 }
 
 // Base navigasjon som alltid er tilgjengelig
@@ -60,6 +63,23 @@ const baseNavItems: NavItem[] = [
     href: "/dashboard/deviations",
     icon: AlertTriangle,
   },
+  {
+    title: "Utstyr",
+    href: "/dashboard/equipment",
+    icon: Wrench,
+    children: [
+      {
+        title: "Oversikt",
+        href: "/dashboard/equipment",
+        icon: Wrench
+      },
+      {
+        title: "Inspeksjoner",
+        href: "/dashboard/equipment/inspections",
+        icon: ClipboardList
+      }
+    ]
+  },
 ]
 
 // Modul-baserte navigasjonselementer
@@ -67,7 +87,7 @@ const moduleNavItems: NavItem[] = [
   {
     title: "Vernerunder",
     href: "/dashboard/safety-rounds",
-    icon: BookOpen,
+    icon: ClipboardCheck,
     moduleKey: "SAFETY_ROUNDS",
   },
   {
@@ -76,7 +96,6 @@ const moduleNavItems: NavItem[] = [
     icon: FileText,
     moduleKey: "INTERNAL_AUDIT",
   },
-
 ]
 
 // Rapport-navigasjon

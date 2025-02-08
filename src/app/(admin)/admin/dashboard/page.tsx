@@ -4,41 +4,10 @@ import { redirect } from "next/navigation"
 import prisma from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Building2, Users, ShieldAlert, ClipboardCheck } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
 import { RecentUsers } from "./recent-users"
 import { ActivityFeed } from "./activity-feed"
-import { AIInsights } from "./ai-insights"
-import { OpenAI } from "openai"
-import { headers } from 'next/headers'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-interface Insight {
-  id: string
-  category: string
-  count: number
-  trend: 'up' | 'down' | 'stable'
-  description: string
-  severity: 'LOW' | 'MEDIUM' | 'HIGH'
-  recommendation: string
-  impact: string
-  confidence: number
-  affectedCompanies: number
-  deviations: Array<{
-    id: string
-    title: string
-    status: string
-    priority: string
-    category: string
-  }>
-}
-
-interface AnalysisData {
-  insights: Insight[]
-  totalDeviations: number
-}
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions)
@@ -46,13 +15,24 @@ export default async function AdminDashboardPage() {
     redirect('/login')
   }
 
-  // Hent statistikk
+  // Behold bare grunnleggende statistikk
   const stats = await prisma.$transaction([
     prisma.company.count(),
     prisma.user.count(),
     prisma.deviation.count(),
     prisma.safetyRound.count(),
   ])
+
+  // Hent kategorier for avvik
+  const categories = await prisma.deviation.groupBy({
+    by: ['category'],
+    _count: true,
+    orderBy: {
+      _count: {
+        category: 'desc'
+      }
+    }
+  })
 
   // Hent siste brukere
   const recentUsers = await prisma.user.findMany({
@@ -99,104 +79,6 @@ export default async function AdminDashboardPage() {
       }
     })
   ])
-
-  // Hent og analyser avvik direkte
-  let analysisData: AnalysisData = {
-    insights: [],
-    totalDeviations: 0
-  }
-
-  try {
-    const deviations = await prisma.deviation.findMany({
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        category: true,
-        severity: true,
-        createdAt: true,
-        company: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
-    })
-
-    // Grupper avvik etter kategori
-    const categorizedDeviations = deviations.reduce((acc, dev) => {
-      const category = dev.category || 'Ukategorisert'
-      if (!acc[category]) {
-        acc[category] = {
-          count: 0,
-          companies: new Set(),
-          descriptions: []
-        }
-      }
-      acc[category].count++
-      acc[category].companies.add(dev.company?.id)
-      acc[category].descriptions.push(dev.description)
-      return acc
-    }, {} as Record<string, { count: number; companies: Set<string>; descriptions: string[] }>)
-
-    // Analyser hver kategori
-    const insights = await Promise.all(
-      Object.entries(categorizedDeviations).map(async ([category, data]) => {
-        const prompt = `
-          Analyser følgende informasjon om HMS-avvik:
-          Kategori: ${category}
-          Antall avvik: ${data.count}
-          Antall berørte bedrifter: ${data.companies.size}
-          
-          Beskrivelser av avvikene:
-          ${data.descriptions.join('\n')}
-          
-          Gi en kort analyse som inkluderer:
-          1. Hovedutfordringen
-          2. Mulige årsaker
-          3. Konkret anbefaling for forbedring
-          4. Vurder alvorlighetsgrad (lav/medium/høy)
-          5. Vurder trend (økende/synkende/stabil)
-          
-          Svar i JSON format med følgende struktur:
-          {
-            "description": "kort beskrivelse av hovedutfordringen",
-            "severity": "low/medium/high",
-            "trend": "increasing/decreasing/stable",
-            "recommendation": "konkret anbefaling",
-            "confidence": 0.0-1.0
-          }
-        `
-
-        const completion = await openai.chat.completions.create({
-          messages: [{ role: "user", content: prompt }],
-          model: "gpt-4-1106-preview",
-          response_format: { type: "json_object" }
-        })
-
-        const content = completion.choices[0]?.message?.content
-        if (!content) {
-          throw new Error('Ingen respons fra OpenAI')
-        }
-
-        const analysis = JSON.parse(content)
-        return {
-          id: Math.random().toString(36).substr(2, 9),
-          category,
-          affectedCompanies: data.companies.size,
-          ...analysis
-        }
-      })
-    )
-
-    analysisData = {
-      insights,
-      totalDeviations: deviations.length
-    }
-  } catch (error) {
-    console.error('Error fetching analysis data:', error)
-  }
 
   return (
     <div className="flex-1 space-y-6 p-8">
@@ -263,13 +145,28 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <AIInsights 
-          insights={analysisData.insights} 
-          totalDeviations={analysisData.totalDeviations} 
-        />
-        
-        <Card className="col-span-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {categories.map(cat => (
+          <Card key={cat.category}>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">{cat.category}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-center">
+                <div className="text-2xl font-bold">{cat._count}</div>
+                <Link href={`/admin/dashboard/${encodeURIComponent(cat.category)}`}>
+                  <Button variant="outline">
+                    Analyser
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle>Siste aktiviteter</CardTitle>
           </CardHeader>
@@ -281,7 +178,7 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3">
+        <Card>
           <CardHeader>
             <CardTitle>Nyeste brukere</CardTitle>
           </CardHeader>

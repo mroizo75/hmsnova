@@ -23,6 +23,7 @@ export interface InternalAuditData {
       count: number
     }>
     implementedMeasures: number
+    companyId: string
   }
   riskAssessments: {
     total: number

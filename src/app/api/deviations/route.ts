@@ -73,97 +73,47 @@ async function parseFormData(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    if (!session?.user?.id) {
+      return new NextResponse("Unauthorized", { status: 401 })
     }
 
     const formData = await req.formData()
-    
-    // Opprett avviket først
+    const data = Object.fromEntries(formData)
+    const imageFile = formData.get('image') as File | null
+
     const deviation = await prisma.deviation.create({
       data: {
-        title: formData.get('title') as string,
-        description: formData.get('description') as string,
-        type: formData.get('type') as DeviationType,
-        category: formData.get('category') as string,
-        severity: formData.get('severity') as Severity,
+        title: data.title as string,
+        description: data.description as string,
+        type: data.type as DeviationType,
+        category: data.category as string,
+        severity: data.severity as Severity,
+        location: data.location as string,
+        dueDate: data.dueDate ? new Date(data.dueDate as string) : null,
         status: "OPEN",
-        location: formData.get('location') as string || null,
-        dueDate: formData.get('dueDate') ? new Date(formData.get('dueDate') as string) : null,
         reportedBy: session.user.id,
         companyId: session.user.companyId,
+        equipmentId: data.equipmentId as string,
+        maintenanceRequired: data.maintenanceRequired === 'true'
       }
     })
 
-    // Håndter bilde-opplasting
-    const image = formData.get('image') as File
-    if (image) {
-      const fileName = `${Date.now()}-${image.name}`
-      const filePath = `companies/deviations/${deviation.id}/images/${fileName}`
-      
-      await uploadToStorage(image, filePath)
-
-      // Lagre bilde-referansen i databasen
+    // Håndter bildeopplasting etter at avviket er opprettet
+    if (imageFile) {
+      const imageUrl = await uploadToStorage(imageFile, 'deviations', session.user.companyId)
       await prisma.deviationImage.create({
         data: {
-          url: filePath,
-          uploadedBy: session.user.id,
-          deviationId: deviation.id
+          url: imageUrl,
+          deviationId: deviation.id,
+          uploadedBy: session.user.id
         }
       })
     }
 
-    // Finn HMS-ansvarlige og admin-brukere
-    const notifyUsers = await prisma.user.findMany({
-      where: {
-        companyId: session.user.companyId,
-        OR: [
-          { role: "COMPANY_ADMIN" },
-          { role: "ADMIN" },
-          { role: "EMPLOYEE" }
-        ]
-      }
-    })
-
-    // Send varsling til relevante brukere
-    for (const user of notifyUsers) {
-      createNotification({
-        type: "DEVIATION_CREATED",
-        title: "Nytt avvik registrert",
-        message: `Et nytt avvik "${deviation.title}" er registrert av ${session.user.name || session.user.email}`,
-        userId: user.id,
-        link: `/dashboard/deviations/${deviation.id}`
-      }).catch(console.error) // Ikke la notifikasjonsfeil stoppe hovedoperasjonen
-    }
-
-    // Invalider alle relevante queries
-    await Promise.all([
-      prisma.deviation.findMany({ // Dette trigger en revalidering av deviation-listen
-        where: { companyId: session.user.companyId },
-        include: { measures: true, images: true }
-      }),
-      prisma.deviation.groupBy({ // Dette trigger en revalidering av statistikken
-        by: ['status'],
-        where: { companyId: session.user.companyId },
-        _count: true
-      })
-    ])
-
-    return NextResponse.json({ 
-      success: true, 
-      data: {
-        ...deviation,
-        images: []
-      }
-    }, { status: 201 })
-
+    return NextResponse.json(deviation)
   } catch (error) {
-    console.error('Error in POST:', error)
-    return NextResponse.json({ 
-      success: false,
-      error: "Kunne ikke opprette avvik",
-      details: error instanceof Error ? error.message : "Ukjent feil"
-    }, { status: 500 })
+    console.error("Error creating deviation:", error)
+    return new NextResponse("Internal error", { status: 500 })
   }
 }
 

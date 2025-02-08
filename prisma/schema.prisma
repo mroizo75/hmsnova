@@ -16,7 +16,7 @@ model User {
   companyId     String
   company       Company       @relation(fields: [companyId], references: [id])
   notifications Notification[]
-  metadata      Json?
+  metadata      Json? @default("{}")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   emailQueue    EmailQueue[]
@@ -51,6 +51,18 @@ model User {
   
 
   PasswordResetToken PasswordResetToken[]
+
+  SafetyRoundImage SafetyRoundImage[]
+
+  SafetyRoundParticipant SafetyRoundParticipant[]
+
+  SafetyRoundFinding SafetyRoundFinding[] @relation("FindingStatusUpdatedBy")
+
+  certifications Json? @default("{}")  // Vil inneholde { machineCards: [], driverLicenses: [] }
+
+  HMSHandbook HMSHandbook[]
+
+  EquipmentInspection EquipmentInspection[] @relation("Inspections")
 }
 
 model Company {
@@ -63,7 +75,7 @@ model Company {
   address             Address?
   users               User[]
   modules             Module[]
-  hmsHandbook         HMSHandbook?
+  hmsHandbooks        HMSHandbook[]
   riskAssessments     RiskAssessment[]
   deviations          Deviation[]
   isVerified          Boolean          @default(false)
@@ -95,6 +107,12 @@ model Company {
   storageLimit        Int       @default(1) // i GB
   includeVernerunde   Boolean   @default(false)
   vernerundeDate      DateTime? // Dato for siste vernerunde
+
+  SafetyRoundTemplate SafetyRoundTemplate[]
+
+  Equipment Equipment[]
+
+  EquipmentInspection EquipmentInspection[]
 }
 
 model Address {
@@ -112,7 +130,7 @@ model Address {
 
 model Module {
   id          String    @id @default(cuid())
-  key         String    @unique
+  key         String    // Fjern @unique her
   label       String    
   description String?   
   isActive    Boolean   @default(true)
@@ -126,23 +144,35 @@ model Module {
   safetyRounds     SafetyRound[]
   hmsConsultations HMSConsultation[]
   
+  @@unique([companyId, key]) // Legg til denne for å sikre unik kombinasjon av bedrift og modul
   @@index([companyId])
 }
 
 model HMSHandbook {
-  id        String      @id @default(cuid())
-  version   Int         @default(1)
-  title     String
+  id          String      @id @default(cuid())
+  version     Int
+  status      String      @default("DRAFT")  // DRAFT, ACTIVE, ARCHIVED
+  companyId   String
+  company     Company     @relation(fields: [companyId], references: [id])
+  createdById String
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  title       String
   description String?
-  published Boolean     @default(false)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  companyId String @unique
-  company   Company     @relation(fields: [companyId], references: [id])
-  sections  HMSSection[]
-  releases  HMSRelease[]
+  publishedAt DateTime?
+  publishedBy String?
+  sections    HMSSection[]
+  releases    HMSRelease[]
 
   @@index([companyId])
+  @@index([createdById])
+}
+
+enum HMSStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
 }
 
 model HMSRelease {
@@ -155,6 +185,7 @@ model HMSRelease {
   approvedBy  String       // Bruker-ID som godkjente endringen
   approvedAt  DateTime     @default(now())
   content     Json         // Snapshot av hele håndboken ved release
+  changelog   Json?        // Detaljert endringslogg
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -204,7 +235,12 @@ model RiskAssessment {
   // Kobling til HMS-seksjoner
   relatedHMSSections HMSSection[]
 
+  // Legg til equipment-relasjon
+  equipmentId String?
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
+
   @@index([companyId])
+  @@index([equipmentId])
 }
 
 model Hazard {
@@ -252,7 +288,7 @@ model Deviation {
   title       String
   description String    @db.Text
   type        DeviationType
-  category    String    // F.eks. HMS, Kvalitet, Miljø
+  category    String    
   severity    Severity
   status      Status    @default(OPEN)
   dueDate     DateTime?
@@ -270,8 +306,29 @@ model Deviation {
   hmsChanges    DeviationHMSChange[]
   closeComment String?   // Legg til dette feltet
 
+  // Legg til source-felt for å spore opphavet
+  source      String?   // F.eks. "SAFETY_ROUND", "INCIDENT_REPORT" etc.
+  sourceId    String?   // ID til kilden (f.eks. safety round ID)
+  
+  // Kobling til SafetyRoundFinding
+  safetyRoundFinding SafetyRoundFinding[]
+
+  // Nye felter for objektavvik
+  equipmentId String?   // Nytt felt for å koble til utstyr
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
+  
+  // Nye felter for objektavvik
+  objectType  String?   // EQUIPMENT, FACILITY, TOOL etc
+  objectId    String?   // ID til det spesifikke objektet
+  partAffected String?  // Hvilken del er berørt
+  maintenanceRequired Boolean @default(false)
+  
+  statusHistory DeviationStatusHistory[]
+
   @@index([companyId])
   @@index([status])
+  @@index([source, sourceId])
+  @@index([equipmentId])
 }
 
 model DeviationMeasure {
@@ -382,12 +439,11 @@ enum Status {
   OPEN
   IN_PROGRESS
   SCHEDULED
-  COMPLETED
   CLOSED
+  COMPLETED
   CANCELLED
   AAPEN
   PAAGAAR
-  FULLFOERT
   LUKKET
 }
 
@@ -787,106 +843,6 @@ enum PaymentStatus {
   CANCELLED
 }
 
-// Vernerunde-modeller
-model SafetyRound {
-  id            String      @id @default(cuid())
-  title         String
-  description   String?
-  status        String      // DRAFT, SCHEDULED, IN_PROGRESS, COMPLETED
-  scheduledDate DateTime?
-  dueDate       DateTime?
-  completedAt   DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  moduleId      String
-  createdBy     String
-  assignedTo    String?
-  approvedAt    DateTime?
-  approvedBy    String?
-  companyId     String
-  company       Company     @relation(fields: [companyId], references: [id])
-  module        Module      @relation(fields: [moduleId], references: [id])
-  creator       User        @relation("CreatedSafetyRounds", fields: [createdBy], references: [id])
-  assignedUser  User?       @relation("AssignedSafetyRounds", fields: [assignedTo], references: [id])
-  findings      SafetyRoundFinding[]
-  checklistItems SafetyRoundChecklistItem[]
-  approvals     SafetyRoundApproval[]
-  report        SafetyRoundReport?
-
-  @@index([companyId])
-  @@index([moduleId])
-  @@index([createdBy])
-  @@index([assignedTo])
-}
-
-model SafetyRoundFinding {
-  id             String      @id @default(cuid())
-  description    String
-  severity       String      // "LOW", "MEDIUM", "HIGH", "CRITICAL"
-  status         String      // "OPEN", "IN_PROGRESS", "RESOLVED"
-  location       String?
-  imageUrl       String?
-  dueDate        DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  
-  safetyRound    SafetyRound @relation(fields: [safetyRoundId], references: [id], onDelete: Cascade)
-  safetyRoundId  String
-
-  checklistItem  SafetyRoundChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
-  checklistItemId String
-
-  createdBy      String
-  assignedTo     String?
-  
-  measures       SafetyRoundMeasure[]
-  Measure        Measure[]
-
-  @@index([safetyRoundId])
-  @@index([checklistItemId])
-}
-
-model SafetyRoundMeasure {
-  id          String      @id @default(cuid())
-  description String
-  status      String      // PLANNED, IN_PROGRESS, COMPLETED
-  priority    String      // HIGH, MEDIUM, LOW
-  dueDate     DateTime?
-  completedAt DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  findingId   String
-  finding     SafetyRoundFinding @relation(fields: [findingId], references: [id])
-  createdBy   String
-  completedBy String?
-  assignedTo  String?
-  estimatedCost Float?
-
-  @@index([findingId])
-}
-
-// Ny modell for sjekkliste-elementer
-model SafetyRoundChecklistItem {
-  id            String      @id @default(cuid())
-  category      String      // f.eks. "Arbeidsmiljø", "Brannsikkerhet", etc.
-  question      String      
-  description   String?     // Veiledning/hjelpetekst
-  response      String?     // "YES", "NO", "NA"
-  comment       String?     // Kommentar til svaret
-  imageUrl      String?     // Bilde knyttet til elementet
-  order         Int         // Rekkefølge i listen
-  isRequired    Boolean     @default(true)
-  completedAt   DateTime?   
-  completedBy   String?     // Bruker-ID som fylte ut
-  safetyRoundId String
-  safetyRound   SafetyRound @relation(fields: [safetyRoundId], references: [id], onDelete: Cascade)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  findings      SafetyRoundFinding[]
-
-  @@index([safetyRoundId])
-}
 
 // HMS Rådgivning-modeller
 model HMSConsultation {
@@ -931,20 +887,7 @@ model HMSConsultationAction {
   @@index([consultationId])
 }
 
-model SafetyRoundApproval {
-  id            String      @id @default(cuid())
-  token         String      @unique
-  status        String      @default("PENDING") // PENDING, APPROVED, REJECTED
-  safetyRound   SafetyRound @relation(fields: [safetyRoundId], references: [id])
-  safetyRoundId String
-  expiresAt     DateTime
-  approvedAt    DateTime?
-  approvedBy    String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
 
-  @@index([safetyRoundId])
-}
 
 model HMSTemplate {
   id          String   @id @default(cuid())
@@ -1051,23 +994,6 @@ model RiskAssessmentMeasure {
   @@index([hazardId])
 }
 
-model SafetyRoundReport {
-  id            String      @id @default(cuid())
-  safetyRoundId String      @unique
-  safetyRound   SafetyRound @relation(fields: [safetyRoundId], references: [id])
-  reportNumber  String      @unique // Unikt rapportnummer for ISO-sporing
-  generatedAt   DateTime    @default(now())
-  generatedBy   String      // User ID som genererte rapporten
-  signedAt      DateTime?
-  signedBy      String?     // User ID som signerte rapporten
-  status        String      @default("PENDING") // PENDING, SIGNED, REJECTED
-  pdfUrl        String?     // URL til den genererte PDF-en
-  metadata      Json?       // Ekstra metadata for rapporten
-
-  @@index([safetyRoundId])
-  @@index([reportNumber])
-}
-
 model NotificationSettings {
   id                    String   @id @default(cuid())
   userId                String   @unique
@@ -1140,3 +1066,373 @@ enum MeetingType {
   online
   physical
 }
+
+// Vernerunde-modeller
+model SafetyRound {
+  id            String            @id @default(cuid())
+  title         String
+  description   String?
+  status        SafetyRoundStatus @default(DRAFT)
+  scheduledDate DateTime?
+  dueDate       DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  moduleId      String
+  createdBy     String
+  assignedTo    String?
+  approvedAt    DateTime?
+  approvedBy    String?
+  companyId     String
+  templateId    String?
+
+  // Relasjoner
+  company       Company     @relation(fields: [companyId], references: [id])
+  module        Module      @relation(fields: [moduleId], references: [id])
+  creator       User        @relation("CreatedSafetyRounds", fields: [createdBy], references: [id])
+  assignedUser  User?       @relation("AssignedSafetyRounds", fields: [assignedTo], references: [id])
+  template      SafetyRoundTemplate? @relation(fields: [templateId], references: [id])
+  
+  // Innhold
+  findings      SafetyRoundFinding[]
+  checklistItems SafetyRoundChecklistItem[]
+  approvals     SafetyRoundApproval[]
+  report        SafetyRoundReport?
+  participants  SafetyRoundParticipant[]
+  images        SafetyRoundImage[]
+
+  @@index([companyId])
+  @@index([moduleId])
+  @@index([createdBy])
+  @@index([assignedTo])
+  @@index([templateId])
+}
+
+model SafetyRoundParticipant {
+  id            String            @id @default(cuid())
+  safetyRoundId String
+  userId        String
+  role          ParticipantRole   @default(PARTICIPANT)
+  joinedAt      DateTime          @default(now())
+  
+  safetyRound   SafetyRound       @relation(fields: [safetyRoundId], references: [id], onDelete: Cascade)
+  user          User              @relation(fields: [userId], references: [id])
+
+  @@unique([safetyRoundId, userId])
+  @@index([safetyRoundId])
+  @@index([userId])
+}
+
+model SafetyRoundFinding {
+  id             String          @id @default(cuid())
+  description    String
+  severity       FindingSeverity
+  status         FindingStatus   @default(OPEN)
+  statusComment  String?
+  statusUpdatedAt DateTime?
+  statusUpdatedBy String?
+  location       String?
+  dueDate        DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  
+  safetyRound    SafetyRound     @relation(fields: [safetyRoundId], references: [id], onDelete: Cascade)
+  safetyRoundId  String
+
+  checklistItem  SafetyRoundChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  checklistItemId String
+
+  createdBy      String
+  assignedTo     String?
+  
+  measures       SafetyRoundMeasure[]
+  images         SafetyRoundImage[]
+  Measure        Measure[]
+  deviation      Deviation?      @relation(fields: [deviationId], references: [id])
+  deviationId    String?        // Kobling til avviket som ble opprettet
+
+  updatedByUser  User?           @relation("FindingStatusUpdatedBy", fields: [statusUpdatedBy], references: [id])
+
+  @@index([safetyRoundId])
+  @@index([checklistItemId])
+  @@index([deviationId])
+}
+
+model SafetyRoundImage {
+  id            String            @id @default(cuid())
+  url           String
+  caption       String?
+  createdAt     DateTime          @default(now())
+  
+  // Kan tilhøre enten en vernerunde eller et funn
+  safetyRoundId String?
+  safetyRound   SafetyRound?      @relation(fields: [safetyRoundId], references: [id], onDelete: Cascade)
+  findingId     String?
+  finding       SafetyRoundFinding? @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  
+  uploadedById  String
+  uploadedBy    User              @relation(fields: [uploadedById], references: [id])
+
+  checklistItem   SafetyRoundChecklistItem? @relation(fields: [checklistItemId], references: [id])
+  checklistItemId String?
+
+  @@index([safetyRoundId])
+  @@index([findingId])
+  @@index([uploadedById])
+}
+
+model SafetyRoundMeasure {
+  id          String      @id @default(cuid())
+  description String
+  status      MeasureStatus
+  priority    Priority
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  findingId   String
+  finding     SafetyRoundFinding @relation(fields: [findingId], references: [id])
+  createdBy   String
+  completedBy String?
+  assignedTo  String?
+  estimatedCost Float?
+
+  @@index([findingId])
+}
+
+// Ny modell for sjekkliste-elementer
+model SafetyRoundChecklistItem {
+  id            String      @id @default(cuid())
+  category      String
+  question      String      
+  description   String?
+  response      String?     // YES, NO, NA
+  comment       String?
+  order         Int
+  isRequired    Boolean     @default(true)
+  completedAt   DateTime?   
+  completedBy   String?
+  safetyRoundId String
+  safetyRound   SafetyRound @relation(fields: [safetyRoundId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  findings      SafetyRoundFinding[]
+
+  // Legg til images-relasjon
+  images    SafetyRoundImage[]
+
+  @@index([safetyRoundId])
+}
+
+model SafetyRoundApproval {
+  id            String      @id @default(cuid())
+  token         String      @unique
+  status        ApprovalStatus @default(PENDING)
+  safetyRound   SafetyRound @relation(fields: [safetyRoundId], references: [id])
+  safetyRoundId String
+  expiresAt     DateTime
+  approvedAt    DateTime?
+  approvedBy    String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([safetyRoundId])
+}
+
+model SafetyRoundReport {
+  id            String      @id @default(cuid())
+  safetyRoundId String      @unique
+  safetyRound   SafetyRound @relation(fields: [safetyRoundId], references: [id])
+  reportNumber  String      @unique
+  generatedAt   DateTime    @default(now())
+  generatedBy   String
+  signedAt      DateTime?
+  signedBy      String?
+  status        ReportStatus @default(PENDING)
+  pdfUrl        String?
+  metadata      Json?
+
+  @@index([safetyRoundId])
+  @@index([reportNumber])
+}
+
+model SafetyRoundTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  industry    String?  // Bransje
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String   // Admin som opprettet malen
+  version     Int      @default(1)
+  
+  // Relasjoner
+  sections    SafetyRoundTemplateSection[]
+  companies   Company[]
+  safetyRounds SafetyRound[]
+  
+  @@index([industry])
+  @@index([createdBy])
+}
+
+model SafetyRoundTemplateSection {
+  id          String   @id @default(cuid())
+  title       String   
+  description String?
+  order       Int
+  templateId  String
+  template    SafetyRoundTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  // Relasjoner
+  checkpoints SafetyRoundCheckpoint[]
+
+  @@index([templateId])
+}
+
+model SafetyRoundCheckpoint {
+  id          String   @id @default(cuid())
+  question    String
+  description String?
+  type        CheckpointType  // Enum for spørsmålstype
+  isRequired  Boolean  @default(true)
+  order       Int
+  options     Json?    // For multiple choice spørsmål
+  sectionId   String
+  section     SafetyRoundTemplateSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  
+  @@index([sectionId])
+}
+
+enum CheckpointType {
+  YES_NO
+  MULTIPLE_CHOICE
+  TEXT
+  NUMBER
+  PHOTO
+}
+
+enum SafetyRoundStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ParticipantRole {
+  LEADER
+  PARTICIPANT
+  OBSERVER
+}
+
+enum FindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum MeasureStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReportStatus {
+  PENDING
+  SIGNED
+  REJECTED
+}
+
+// Først legger vi til en modell for utstyr/objekter
+model Equipment {
+  id          String      @id @default(cuid())
+  companyId   String
+  name        String
+  type        String      // Type utstyr (f.eks. MACHINE, TOOL, VEHICLE)
+  category    String      // Kategori (f.eks. PRODUCTION, SAFETY, TRANSPORT)
+  serialNumber String?    
+  manufacturer String?
+  model       String?
+  location    String?
+  status      String      // ACTIVE, INACTIVE, MAINTENANCE, DISPOSED
+  lastInspection DateTime?
+  nextInspection DateTime?
+  purchaseDate DateTime?
+  deviations  Deviation[] // Kobling til avvik
+  documents   EquipmentDocument[]
+  inspections EquipmentInspection[]
+  company     Company     @relation(fields: [companyId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Legg til riskAssessments-relasjon
+  riskAssessments RiskAssessment[]
+
+  @@index([companyId])
+}
+
+// Dokumentasjon tilknyttet utstyr
+model EquipmentDocument {
+  id          String    @id @default(cuid())
+  equipmentId String
+  type        String    // MANUAL, CERTIFICATE, INSPECTION_REPORT, etc.
+  title       String
+  url         String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([equipmentId])
+}
+
+// Inspeksjoner av utstyr
+model EquipmentInspection {
+  id             String    @id @default(cuid())
+  type           String    // ROUTINE, MAINTENANCE, CERTIFICATION
+  status         String    // PASSED, FAILED, NEEDS_ATTENTION
+  findings       String?
+  nextInspection DateTime?
+  inspector      User      @relation("Inspections", fields: [inspectorId], references: [id])
+  inspectorId    String
+  comments       String?
+  equipment      Equipment @relation(fields: [equipmentId], references: [id])
+  equipmentId    String
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  company        Company   @relation(fields: [companyId], references: [id])
+  companyId      String
+
+  @@index([equipmentId])
+  @@index([inspectorId])
+  @@index([companyId])
+}
+
+model DeviationStatusHistory {
+  id        String   @id @default(cuid())
+  status    String
+  comment   String?
+  updatedBy String
+  updatedAt DateTime @default(now())
+  deviation Deviation @relation(fields: [deviationId], references: [id])
+  deviationId String
+
+  @@index([deviationId])
+}
+

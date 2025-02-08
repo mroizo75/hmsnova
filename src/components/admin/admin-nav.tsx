@@ -11,7 +11,9 @@ import {
   FileText,
   Users,
   LogOut,
-  Settings
+  Settings,
+  HardHat,
+  ClipboardCheck
 } from "lucide-react"
 
 const routes = [
@@ -32,6 +34,18 @@ const routes = [
     icon: FileText,
     href: "/admin/hms-templates",
     pattern: /^\/admin\/hms-templates/
+  },
+  {
+    label: "Vernerunder",
+    icon: HardHat,
+    href: "/admin/safety-rounds",
+    pattern: /^\/admin\/safety-rounds(?!\/templates)/
+  },
+  {
+    label: "Vernerunde Maler",
+    icon: ClipboardCheck,
+    href: "/admin/safety-rounds/templates",
+    pattern: /^\/admin\/safety-rounds\/templates/
   },
   {
     label: "Brukere",

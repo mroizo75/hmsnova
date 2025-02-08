@@ -112,20 +112,32 @@ export const columns = ({
                 if (!response.ok) throw new Error('Kunne ikke hente SJA data')
                 const fullSjaData = await response.json()
                 
+                // Valider nødvendige felter
+                if (!fullSjaData || !fullSjaData.tittel) {
+                  throw new Error('Mangler nødvendig SJA-data')
+                }
+
+                // Forbered data for PDF
+                const pdfData = {
+                  ...fullSjaData,
+                  produkter: fullSjaData.produkter || [],
+                  godkjenninger: fullSjaData.godkjenninger || [],
+                  company: fullSjaData.company || { name: '', orgNumber: '' }
+                }
                 
-                // Generer PDF med komplett data
-                const blob = await pdf(<SJAPDFDocument sja={fullSjaData} />).toBlob()
+                // Generer PDF med forberedt data
+                const blob = await pdf(<SJAPDFDocument sja={pdfData} />).toBlob()
                 const url = URL.createObjectURL(blob)
                 window.open(url)
               } catch (error) {
                 console.error('Feil ved generering av PDF:', error)
-                toast.error('Kunne ikke generere PDF')
+                toast.error('Kunne ikke generere PDF: ' + (error instanceof Error ? error.message : 'Ukjent feil'))
               }
             }}
             disabled={isGeneratingPDF}
             title="Generer PDF"
           >
-            <FileText className="h-4 w-4" />
+            <FileDown className="h-4 w-4" />
           </Button>
         </div>
       )

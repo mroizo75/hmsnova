@@ -78,35 +78,33 @@ async function getCompanyStats(userId: string) {
 }
 
 async function getDeviationStats(companyId: string) {
-  const deviations = await prisma.deviation.groupBy({
-    by: ['status'],
-    where: { companyId },
-    _count: true,
-    orderBy: {
-      _count: {
-        status: 'desc'
-      }
+  // Først, la oss telle hver status separat for å unngå groupBy
+  const aapenCount = await prisma.deviation.count({
+    where: { 
+      companyId,
+      status: 'AAPEN'
     }
   })
 
-  // Initialiser med 0 for alle statuser
-  const defaultCounts = {
-    AAPEN: 0,
-    PAAGAAR: 0,
-    LUKKET: 0
-  }
+  const paagaarCount = await prisma.deviation.count({
+    where: { 
+      companyId,
+      status: 'PAAGAAR'
+    }
+  })
 
-  // Legg til faktiske tall
-  const statusCounts = deviations.reduce((acc, curr) => {
-    acc[curr.status as keyof typeof acc] = curr._count
-    return acc
-  }, defaultCounts)
+  const lukketCount = await prisma.deviation.count({
+    where: { 
+      companyId,
+      status: 'LUKKET'
+    }
+  })
 
-  // Returner med riktige nøkler for visning
+  // Returner direkte med de mappede verdiene
   return {
-    OPEN: statusCounts.AAPEN,
-    IN_PROGRESS: statusCounts.PAAGAAR,
-    CLOSED: statusCounts.LUKKET
+    OPEN: aapenCount,
+    IN_PROGRESS: paagaarCount,
+    CLOSED: lukketCount
   }
 }
 

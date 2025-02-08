@@ -340,3 +340,8 @@ rdp-month_caption {
 html {
   scroll-behavior: smooth;
 }
+
+.custom-toast-width {
+  max-width: 500px !important;
+  width: 90vw !important;
+}

@@ -21,9 +21,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { MalVelger } from "./mal-velger"
 
 const formSchema = z.object({
-  tittel: z.string().min(3, "Tittel må være minst 3 tegn"),
-  arbeidssted: z.string().min(3, "Arbeidssted må være minst 3 tegn"),
-  beskrivelse: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
+  tittel: z.string().min(1, "Tittel er påkrevd"),
+  arbeidssted: z.string().min(1, "Arbeidssted er påkrevd"),
+  beskrivelse: z.string().min(1, "Beskrivelse er påkrevd"),
   startDato: z.string(),
   sluttDato: z.string(),
   deltakere: z.string(),
@@ -35,7 +35,8 @@ const formSchema = z.object({
     id: z.string(),
     antall: z.string()
   })).optional(),
-  lagreSomMal: z.boolean().default(false)
+  lagreSomMal: z.boolean(),
+  attachments: z.any().optional(),
 })
 
 interface AddSJAModalProps {
@@ -79,31 +80,67 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      console.log('=== START SJA MUTATION ===')
-      console.log('Raw form values:', values)
-      console.log('valgteProdukter:', valgteProdukter)
-
-      const formData = {
-        ...values,
+      // Først oppretter vi SJA med grunnleggende info
+      const sjaData = {
+        tittel: values.tittel,
+        arbeidssted: values.arbeidssted,
+        beskrivelse: values.beskrivelse,
+        deltakere: values.deltakere,
         startDato: new Date(values.startDato).toISOString(),
         sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
-        produkter: valgteProdukter
+        status: "UTKAST",
+        produkter: valgteProdukter.map(p => ({
+          create: {
+            produktId: p.produktId,
+            mengde: p.mengde
+          }
+        })),
+        risikoer: {
+          create: values.identifiedRisks.split('\n')
+            .filter(Boolean)
+            .map(risiko => ({
+              aktivitet: risiko,
+              fare: risiko,
+              konsekvens: "Må vurderes",
+              sannsynlighet: 3,
+              alvorlighet: 3,
+              risikoVerdi: 9
+            }))
+        },
+        tiltak: {
+          create: values.riskMitigation.split('\n')
+            .filter(Boolean)
+            .map(tiltak => ({
+              beskrivelse: tiltak,
+              ansvarlig: values.responsiblePerson,
+              status: "PLANLAGT",
+              frist: null
+            }))
+        }
       }
-      console.log('Processed form data:', formData)
 
       const response = await fetch('/api/sja', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(sjaData)
       })
 
       const data = await response.json()
-      console.log('Server response raw:', data)
-      console.log('Server response data:', data.data)
-      console.log('Server response success:', data.success)
-
       if (!response.ok) {
         throw new Error(data.error || 'Kunne ikke opprette SJA')
+      }
+
+      // Håndter bilder separat
+      if (bilder.length > 0) {
+        const formData = new FormData()
+        bilder.forEach(file => {
+          formData.append('files', file)
+        })
+
+        await fetch(`/api/sja/${data.id}/bilder`, {
+          method: 'POST',
+          body: formData
+        })
       }
 
       return data
@@ -117,14 +154,13 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
         toast.error('Uventet respons fra server')
         return
       }
-
+      
       // Lukk modal og reset form
       onOpenChange(false)
       form.reset()
       setBilder([])
       setValgteProdukter([])
 
-      // Vis suksessmelding
       toast.success('SJA opprettet')
 
       // Kjør onAdd callback med den nye dataen
@@ -322,8 +358,18 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Identifiserte risikoer</FormLabel>
+                        <FormDescription>
+                          Skriv én risiko per linje. Hver risiko vil matches med tilsvarende tiltak på samme linje.
+                        </FormDescription>
                         <FormControl>
-                          <Textarea {...field} className="min-h-[100px]" />
+                          <Textarea 
+                            {...field} 
+                            className="min-h-[100px]"
+                            placeholder="F.eks:
+1. Fall fra høyde
+2. Elektrisk støt
+3. Tunge løft"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -335,8 +381,18 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tiltak for å redusere risiko</FormLabel>
+                        <FormDescription>
+                          Skriv ett tiltak per linje. Hvert tiltak må samsvare med risikoen på samme linjenummer.
+                        </FormDescription>
                         <FormControl>
-                          <Textarea {...field} className="min-h-[100px]" />
+                          <Textarea 
+                            {...field} 
+                            className="min-h-[100px]"
+                            placeholder="F.eks:
+1. Bruk av fallsikring og sikker stige
+2. Strømutkobling og bruk av verneutstyr
+3. Bruk av løfteutstyr og riktig løfteteknikk"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -6,37 +6,31 @@ import {
   StyleSheet,
   Image,
   Font,
-  pdf
+  pdf,
 } from '@react-pdf/renderer'
 import { SJAWithRelations } from './types'
 import { formatDate } from '@/lib/utils/date'
 
 // Registrer fonter
 Font.register({
-  family: 'Inter',
+  family: 'Helvetica',
   fonts: [
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hiA.woff2',
-      fontWeight: 700,
-    }
+    { src: 'https://fonts.cdnfonts.com/s/29107/Helvetica.woff', fontWeight: 400 },
+    { src: 'https://fonts.cdnfonts.com/s/29107/Helvetica-Bold.woff', fontWeight: 700 }
   ]
 })
 
 const styles = StyleSheet.create({
   page: {
     padding: 30,
-    fontFamily: 'Inter',
+    fontFamily: 'Helvetica',
   },
   header: {
     marginBottom: 20,
   },
   title: {
     fontSize: 24,
-    fontFamily: 'Inter',
+    fontFamily: 'Helvetica',
     fontWeight: 700,
     marginBottom: 10,
   },
@@ -50,7 +44,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'Helvetica',
     fontWeight: 700,
     marginBottom: 8,
     backgroundColor: '#f3f4f6',
@@ -62,7 +56,7 @@ const styles = StyleSheet.create({
   },
   label: {
     width: 150,
-    fontFamily: 'Inter',
+    fontFamily: 'Helvetica',
     fontWeight: 700,
   },
   value: {
@@ -75,7 +69,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#f3f4f6',
     padding: 5,
-    fontFamily: 'InterBold',
+    fontFamily: 'Helvetica',
+    fontWeight: 700,
   },
   tableRow: {
     flexDirection: 'row',
@@ -110,104 +105,160 @@ const styles = StyleSheet.create({
   },
 })
 
-interface SJAPDFProps {
-  sja: SJAWithRelations
-}
+export function SJAPDFDocument({ sja }: { sja: SJAWithRelations }) {
+  // Sikre at arrays alltid eksisterer
+  const risikoer = sja.risikoer ?? []
+  const tiltak = sja.tiltak ?? []
+  const produkter = sja.produkter ?? []
+  const vedlegg = sja.vedlegg ?? []
+  const godkjenninger = sja.godkjenninger ?? []
 
-export const SJAPDFDocument = ({ sja }: SJAPDFProps) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Sikker Jobb Analyse (SJA)</Text>
-        <Text style={styles.subtitle}>#{sja.id}</Text>
-      </View>
+  return (
+    <Document>
+      <Page style={styles.page}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Sikker Jobb Analyse (SJA)</Text>
+          <Text style={styles.subtitle}>#{sja.id || 'N/A'}</Text>
+        </View>
 
-      {/* Generell informasjon */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Generell informasjon</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Tittel:</Text>
-          <Text style={styles.value}>{sja.tittel}</Text>
+        {/* Bedriftsinformasjon */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Bedriftsinformasjon</Text>
+          <Text>{sja.company?.name || 'N/A'}</Text>
+          <Text>Org.nr: {sja.company?.orgNumber || 'N/A'}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Arbeidssted:</Text>
-          <Text style={styles.value}>{sja.arbeidssted}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Startdato:</Text>
-          <Text style={styles.value}>{formatDate(sja.startDato || new Date())}</Text>
-        </View>
-        {sja.sluttDato && (
+
+        {/* Generell informasjon */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Generell informasjon</Text>
           <View style={styles.row}>
-            <Text style={styles.label}>Sluttdato:</Text>
-            <Text style={styles.value}>{formatDate(sja.sluttDato)}</Text>
+            <Text style={styles.label}>Tittel:</Text>
+            <Text style={styles.value}>{sja.tittel || 'N/A'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Arbeidssted:</Text>
+            <Text style={styles.value}>{sja.arbeidssted || 'N/A'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Beskrivelse:</Text>
+            <Text style={styles.value}>{sja.beskrivelse || 'N/A'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Startdato:</Text>
+            <Text style={styles.value}>{sja.startDato ? formatDate(sja.startDato) : 'N/A'}</Text>
+          </View>
+          {sja.sluttDato && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Sluttdato:</Text>
+              <Text style={styles.value}>{formatDate(sja.sluttDato)}</Text>
+            </View>
+          )}
+          <View style={styles.row}>
+            <Text style={styles.label}>Status:</Text>
+            <Text style={styles.value}>{sja.status || 'N/A'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Opprettet av:</Text>
+            <Text style={styles.value}>{sja.opprettetAv?.name || 'N/A'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Opprettet dato:</Text>
+            <Text style={styles.value}>{sja.opprettetDato ? formatDate(sja.opprettetDato) : 'N/A'}</Text>
+          </View>
+        </View>
+
+        {/* Produkter */}
+        {produkter.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Produkter fra stoffkartotek</Text>
+            {produkter.map((p: any, index: number) => (
+              <View key={index} style={styles.row}>
+                <Text style={styles.label}>{p.produkt.produktnavn}</Text>
+                <Text style={styles.value}>Mengde: {p.mengde || '-'}</Text>
+              </View>
+            ))}
           </View>
         )}
-        <View style={styles.row}>
-          <Text style={styles.label}>Status:</Text>
-          <Text style={{
-            ...styles.statusBadge,
-            backgroundColor: sja.status === 'GODKJENT' ? '#dcfce7' : 
-                           sja.status === 'AVVIST' ? '#fee2e2' : '#f3f4f6',
-            color: sja.status === 'GODKJENT' ? '#166534' :
-                   sja.status === 'AVVIST' ? '#991b1b' : '#374151',
-          }}>
-            {sja.status}
-          </Text>
-        </View>
-      </View>
 
-      {/* Beskrivelse */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Beskrivelse</Text>
-        <Text>{sja.beskrivelse}</Text>
-      </View>
-
-      {/* Produkter */}
-      {sja.produkter.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Produkter</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.tableCell}>Produkt</Text>
-              <Text style={styles.tableCell}>Mengde</Text>
-            </View>
-            {sja.produkter.map((produkt, index) => (
-              <View key={index} style={styles.tableRow}>
-                <Text style={styles.tableCell}>{produkt.produkt.produktnavn}</Text>
-                <Text style={styles.tableCell}>{produkt.mengde || '-'}</Text>
+        {/* Risikoer */}
+        {risikoer.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Identifiserte risikoer</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.tableCell}>Aktivitet</Text>
+                <Text style={styles.tableCell}>Fare</Text>
+                <Text style={styles.tableCell}>Sannsynlighet</Text>
+                <Text style={styles.tableCell}>Alvorlighet</Text>
+                <Text style={styles.tableCell}>Risikoverdi</Text>
               </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Godkjenninger */}
-      {sja.godkjenninger.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Godkjenninger</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.tableCell}>Godkjent av</Text>
-              <Text style={styles.tableCell}>Status</Text>
-              <Text style={styles.tableCell}>Dato</Text>
+              {risikoer.map((risiko: any, index: number) => (
+                <View key={index} style={styles.tableRow}>
+                  <Text style={styles.tableCell}>{risiko.aktivitet}</Text>
+                  <Text style={styles.tableCell}>{risiko.fare}</Text>
+                  <Text style={styles.tableCell}>{risiko.sannsynlighet}</Text>
+                  <Text style={styles.tableCell}>{risiko.alvorlighet}</Text>
+                  <Text style={styles.tableCell}>{risiko.risikoVerdi}</Text>
+                </View>
+              ))}
             </View>
-            {sja.godkjenninger.map((godkjenning: any, index: any) => (
-              <View key={index} style={styles.tableRow}>
-                <Text style={styles.tableCell}>{godkjenning.godkjentAv.name}</Text>
-                <Text style={styles.tableCell}>{godkjenning.status}</Text>
-                <Text style={styles.tableCell}>{formatDate(godkjenning.opprettetDato)}</Text>
-              </View>
-            ))}
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Footer */}
-      <Text style={styles.footer}>
-        Generert {formatDate(new Date())} • Side 1
-      </Text>
-    </Page>
-  </Document>
-) 
+        {/* Tiltak */}
+        {tiltak.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tiltak for å redusere risiko</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.tableCell}>Beskrivelse</Text>
+                <Text style={styles.tableCell}>Ansvarlig</Text>
+                <Text style={styles.tableCell}>Status</Text>
+                <Text style={styles.tableCell}>Frist</Text>
+              </View>
+              {tiltak.map((t: any, index: number) => (
+                <View key={index} style={styles.tableRow}>
+                  <Text style={styles.tableCell}>{t.beskrivelse}</Text>
+                  <Text style={styles.tableCell}>{t.ansvarlig}</Text>
+                  <Text style={styles.tableCell}>{t.status}</Text>
+                  <Text style={styles.tableCell}>{t.frist ? formatDate(t.frist) : '-'}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Godkjenninger */}
+        {godkjenninger.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Godkjenninger</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.tableCell}>Godkjent av</Text>
+                <Text style={styles.tableCell}>Status</Text>
+                <Text style={styles.tableCell}>Dato</Text>
+              </View>
+              {godkjenninger.map((g: any, index: number) => (
+                <View key={index} style={styles.tableRow}>
+                  <Text style={styles.tableCell}>{g.godkjentAv.name}</Text>
+                  <Text style={styles.tableCell}>{g.status}</Text>
+                  <Text style={styles.tableCell}>{formatDate(g.opprettetDato)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Footer med sidenummerering */}
+        <Text 
+          style={styles.footer}
+          render={({ pageNumber, totalPages }) => (
+            `Generert ${formatDate(new Date())} • Side ${pageNumber} av ${totalPages}`
+          )}
+          fixed
+        />
+      </Page>
+    </Document>
+  )
+} 

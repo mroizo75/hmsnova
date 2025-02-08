@@ -27,7 +27,7 @@ import {
 import { ImageUpload } from "@/components/ui/image-upload"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { typeLabels, categoryOptions } from "@/lib/constants/deviations"
+import { typeLabels, categoryOptions, DEVIATION_STATUS } from "@/lib/constants/deviations"
 
 const deviationFormSchema = z.object({
   title: z.string().min(5, "Tittel må være minst 5 tegn"),
@@ -37,13 +37,13 @@ const deviationFormSchema = z.object({
   severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
   location: z.string().optional(),
   dueDate: z.string().optional().nullable(),
-  images: z.any().optional()
+  image: z.any().optional()
 })
 
 export function NewDeviationForm() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
 
   const form = useForm<z.infer<typeof deviationFormSchema>>({
     resolver: zodResolver(deviationFormSchema),
@@ -55,17 +55,14 @@ export function NewDeviationForm() {
       severity: "LOW",
       location: "",
       dueDate: null,
-      images: undefined
+      image: undefined
     }
   })
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    setSelectedImages(prev => [...prev, ...files])
-  }
-
-  const removeImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index))
+    if (e.target.files?.[0]) {
+      setSelectedImage(e.target.files[0])
+    }
   }
 
   async function onSubmit(values: z.infer<typeof deviationFormSchema>) {
@@ -74,15 +71,18 @@ export function NewDeviationForm() {
     try {
       const formData = new FormData()
 
+      // Bruk norsk status
+      formData.append('status', DEVIATION_STATUS.OPEN) // AAPEN
+
       Object.entries(values).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && key !== 'images') {
+        if (value !== null && value !== undefined && key !== 'image') {
           formData.append(key, value)
         }
       })
 
-      selectedImages.forEach(image => {
-        formData.append('images', image)
-      })
+      if (selectedImage) {
+        formData.append('image', selectedImage)
+      }
 
       const response = await fetch('/api/deviations', {
         method: 'POST',
@@ -257,10 +257,10 @@ export function NewDeviationForm() {
 
               <FormField
                 control={form.control}
-                name="images"
+                name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Bilder</FormLabel>
+                    <FormLabel>Bilde</FormLabel>
                     <FormControl>
                       <div className="space-y-4">
                         <Input
@@ -268,28 +268,14 @@ export function NewDeviationForm() {
                           accept="image/*"
                           onChange={handleImageChange}
                           className="w-full"
-                          multiple
                         />
-                        {selectedImages.length > 0 && (
-                          <div className="grid grid-cols-2 gap-4">
-                            {selectedImages.map((image, index) => (
-                              <div key={index} className="relative">
-                                <img
-                                  src={URL.createObjectURL(image)}
-                                  alt={`Preview ${index + 1}`}
-                                  className="w-full h-32 object-cover rounded-md"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  className="absolute top-2 right-2"
-                                  onClick={() => removeImage(index)}
-                                >
-                                  ×
-                                </Button>
-                              </div>
-                            ))}
+                        {selectedImage && (
+                          <div className="relative">
+                            <img
+                              src={URL.createObjectURL(selectedImage)}
+                              alt="Preview"
+                              className="w-full h-32 object-cover rounded-md"
+                            />
                           </div>
                         )}
                       </div>

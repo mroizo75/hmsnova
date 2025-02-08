@@ -122,65 +122,94 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    console.log("1. Starting POST request")
+    console.log('1. Starting POST request')
     
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return new Response(JSON.stringify({ error: "Ikke autorisert" }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const data = await req.json()
+    console.log('3. Received data:', data)
+
+    // Hvis det er fra risikovurdering
+    if (data.riskAssessmentId) {
+      const riskAssessment = await prisma.riskAssessment.findUnique({
+        where: { id: data.riskAssessmentId },
+        select: { 
+          companyId: true,
+          measures: {
+            where: {
+              id: {
+                in: data.measures || []
+              }
+            }
+          }
+        }
       })
-    }
 
-    const data = await request.json()
-    console.log("2. Received data:", JSON.stringify(data, null, 2))
-
-    const createData = {
-      title: data.title,
-      description: data.description,
-      changeType: data.changeType,
-      status: "PLANNED",
-      priority: "MEDIUM" as const,
-      createdBy: session.user.id,
-      companyId: session.user.companyId,
-      deviations: data.deviationId ? {
-        create: [{
-          deviationId: data.deviationId
-        }]
-      } : undefined
-    }
-
-    console.log("3. Creating HMS change with:", JSON.stringify(createData, null, 2))
-
-    const change = await prisma.hMSChange.create({
-      data: createData,
-      include: {
-        deviations: true
+      if (!riskAssessment?.companyId) {
+        return NextResponse.json(
+          { error: "Kunne ikke finne tilhørende risikovurdering" },
+          { status: 400 }
+        )
       }
-    })
 
-    console.log("4. HMS change created:", JSON.stringify(change, null, 2))
+      // Opprett HMS-endring for risikovurdering
+      const hmsChange = await prisma.hMSChange.create({
+        data: {
+          title: data.title,
+          description: data.description,
+          changeType: data.changeType,
+          status: data.status || "PLANNED",
+          priority: "MEDIUM",
+          createdBy: session.user.id,
+          companyId: riskAssessment.companyId,
+          riskAssessments: {
+            create: {
+              riskAssessmentId: data.riskAssessmentId
+            }
+          }
+        }
+      })
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      data: change 
-    }), { 
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    })
+      console.log('4. Created HMS change:', hmsChange)
+      return NextResponse.json(hmsChange)
+    }
+    
+    // Hvis det er fra avvik
+    if (data.deviationId) {
+      const hmsChange = await prisma.hMSChange.create({
+        data: {
+          title: data.title,
+          description: data.description,
+          changeType: data.changeType,
+          status: "PLANNED",
+          priority: "MEDIUM",
+          createdBy: session.user.id,
+          companyId: session.user.companyId,
+          deviations: {
+            create: {
+              deviationId: data.deviationId
+            }
+          }  
+        }
+      })
+      return NextResponse.json(hmsChange)
+    }
 
   } catch (error) {
-    console.error("Error in POST handler:", error)
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: "Kunne ikke opprette HMS-endring",
-      details: error instanceof Error ? error.message : "Ukjent feil"
-    }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
+    console.error('Error details:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     })
+    
+    return NextResponse.json(
+      { error: "Kunne ikke opprette HMS-endring" },
+      { status: 500 }
+    )
   }
 } 

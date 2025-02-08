@@ -25,8 +25,11 @@ export default async function EmployeesPage() {
       name: true,
       email: true,
       role: true,
-      createdAt: true,
-      metadata: true
+      phone: true,
+      image: true,
+      address: true,
+      metadata: true,
+      createdAt: true
     },
     orderBy: {
       createdAt: 'desc'

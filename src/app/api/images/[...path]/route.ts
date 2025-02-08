@@ -1,47 +1,48 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from 'next/server'
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
-import { getSignedUrl } from "@/lib/storage"
-import prisma from "@/lib/db"
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ path: string[] }> }
+  { params }: { params: { path: string[] } }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    if (!session?.user) {
+      console.log('No session found')
+      return new Response('Unauthorized', { status: 401 })
     }
 
-    const { path } = await context.params
-    const filePath = decodeURIComponent(path.join('/'))
+    const path = params.path.join('/')
+    const decodedPath = decodeURIComponent(path)
     
-    console.log('Raw file path:', filePath)
+    // Bruk direkte public URL
+    const publicUrl = `https://storage.googleapis.com/innutio-hms/${decodedPath}`
+    console.log('DEBUG: Public URL:', publicUrl)
 
-    // Fjern eventuell Google Storage URL-prefix
-    const cleanPath = filePath.replace(/^https?:\/\/storage\.googleapis\.com\/[^/]+\//, '')
-    console.log('Clean path:', cleanPath)
+    try {
+      // Hent bildet via fetch
+      const response = await fetch(publicUrl)
+      if (!response.ok) {
+        console.error('DEBUG: Fetch error:', response.status, response.statusText)
+        return new Response('Image not found', { status: 404 })
+      }
 
-    // Sjekk at brukeren har tilgang til dette bildet
-    const pathParts = cleanPath.split('/')
-    const companyId = pathParts[0] === 'companies' ? pathParts[1] : null
+      const blob = await response.blob()
+      return new Response(blob, {
+        headers: {
+          'Content-Type': blob.type || 'image/jpeg',
+          'Cache-Control': 'public, max-age=31536000',
+        },
+      })
 
-    if (!companyId || companyId !== session.user.companyId) {
-      return NextResponse.json({ error: "Ikke tilgang til dette bildet" }, { status: 403 })
+    } catch (fetchError) {
+      console.error('DEBUG: Fetch error:', fetchError)
+      return new Response(`Fetch error: ${fetchError}`, { status: 500 })
     }
-
-    console.log('Requesting image:', cleanPath)
-    const signedUrl = await getSignedUrl(cleanPath)
-    
-    return NextResponse.redirect(signedUrl)
-
   } catch (error) {
-    console.error("Error fetching image:", error)
-    return NextResponse.json(
-      { error: "Kunne ikke hente bilde" },
-      { status: 500 }
-    )
+    console.error('DEBUG: Main error:', error)
+    return new Response(`Main error: ${error}`, { status: 500 })
   }
 }
 

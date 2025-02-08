@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DeviationList } from "./deviation-list"
 import { CreateDeviationDialog } from "./create-deviation-dialog"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import type { Deviation } from "@/lib/types/deviation"
+import { useState } from "react"
 
 interface Props {
   deviations: Deviation[]
@@ -13,6 +14,30 @@ interface Props {
 
 export function DeviationsClient({ deviations }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  
+  
+  const activeDeviations = deviations.filter(d => {
+    const status = (d.status || '').toUpperCase()
+    const isActive = [
+      'OPEN',           // Engelsk
+      'IN_PROGRESS',    // Engelsk
+      'AAPEN',          // Norsk
+      'PAAGAAR',        // Norsk
+      'NY'             // Norsk
+    ].includes(status)
+    return isActive
+  })
+  
+  const closedDeviations = deviations.filter(d => {
+    const status = (d.status || '').toUpperCase()
+    return [
+      'CLOSED',         // Engelsk
+      'COMPLETED',      // Engelsk
+      'LUKKET',         // Norsk
+      'FULLFOERT'       // Norsk
+    ].includes(status)
+  })
+
 
   return (
     <div className="space-y-6">
@@ -29,7 +54,20 @@ export function DeviationsClient({ deviations }: Props) {
         </Button>
       </div>
 
-      <DeviationList deviations={deviations} />
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList>
+          <TabsTrigger value="active">Aktive avvik</TabsTrigger>
+          <TabsTrigger value="closed">Lukkede avvik</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="active">
+          <DeviationList deviations={activeDeviations} />
+        </TabsContent>
+        
+        <TabsContent value="closed">
+          <DeviationList deviations={closedDeviations} />
+        </TabsContent>
+      </Tabs>
 
       <CreateDeviationDialog 
         open={dialogOpen} 

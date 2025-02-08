@@ -11,6 +11,11 @@ import { SectionChangesList } from "@/components/hms/section-changes-list"
 import { SectionChanges } from "@/components/hms/section-changes"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils/date"
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import { Toolbar } from '@/components/editor/toolbar'
 
 interface Section {
   id: string
@@ -51,41 +56,44 @@ interface Section {
 
 interface HMSContentProps {
   section?: Section
-  isEditing: boolean
+  isEditable?: boolean
+  handbookId: string
 }
 
-export function HMSContent({ section, isEditing }: HMSContentProps) {
+export function HMSContent({ section, isEditable, handbookId }: HMSContentProps) {
   const router = useRouter()
   const [content, setContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
 
-  // Oppdater content når seksjonen endres eller redigeringsmodus endres
-  useEffect(() => {
-    if (section) {
-      // Håndter både string og JSON format
-      if (typeof section.content === 'string') {
-        try {
-          // Prøv å parse JSON hvis det er lagret som string
-          const parsed = JSON.parse(section.content)
-          setContent(parsed)
-        } catch {
-          // Hvis det ikke er JSON, bruk det som det er
-          setContent(section.content)
-        }
-      } else {
-        // Hvis det allerede er et objekt
-        setContent(section.content)
-      }
-    }
-  }, [section, isEditing])
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+    ],
+    content: content,
+    editable: isEditable,
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML()
+      console.log('Editor content updated:', html.substring(0, 100))
+      setContent(html)
+    },
+  })
 
-  if (!section) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        Velg en seksjon fra menyen til venstre
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (section && editor) {
+      console.log('Setting editor content:', section.content)
+      
+      const newContent = typeof section.content === 'string' 
+        ? section.content
+        : section.content?.html || JSON.stringify(section.content)
+      
+      editor.commands.setContent(newContent)
+      setContent(newContent)
+    }
+  }, [section, editor])
 
   async function onSave() {
     try {
@@ -95,7 +103,7 @@ export function HMSContent({ section, isEditing }: HMSContentProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content,
-          isDraft: true // Indikerer at dette er en vanlig lagring, ikke en ny versjon
+          isDraft: true
         }),
       })
 
@@ -113,11 +121,27 @@ export function HMSContent({ section, isEditing }: HMSContentProps) {
     }
   }
 
+  // Legg til denne loggen rett før return
+  console.log('Rendering HMSContent with:', {
+    hasSection: !!section,
+    isEditable,
+    contentLength: content.length,
+    contentPreview: content.substring(0, 100)
+  })
+
+  if (!section) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Velg en seksjon fra menyen til venstre
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">{section.title}</h2>
-        {isEditing && (
+        {isEditable && (
           <Button 
             onClick={onSave}
             disabled={isSaving}
@@ -128,18 +152,14 @@ export function HMSContent({ section, isEditing }: HMSContentProps) {
         )}
       </div>
 
-      <div className="prose prose-green max-w-none">
-        {isEditing ? (
-          <Editor
-            value={content}
-            onChange={setContent}
-          />
-        ) : (
-          <div dangerouslySetInnerHTML={{ __html: typeof content === 'string' ? content : ''}} />
-        )}
+      <div className="prose prose-green max-w-none border rounded-lg">
+        {isEditable && <Toolbar editor={editor} />}
+        <div className="p-4">
+          <EditorContent editor={editor} />
+        </div>
       </div>
 
-      {section.subsections.length > 0 && (
+      {section.subsections?.length > 0 && (
         <div className="mt-8 space-y-6">
           <h3 className="text-lg font-semibold">Underseksjoner</h3>
           {section.subsections.map(subsection => (
@@ -147,32 +167,19 @@ export function HMSContent({ section, isEditing }: HMSContentProps) {
               <h4 className="text-lg font-medium">{subsection.title}</h4>
               <div 
                 className="prose prose-green max-w-none mt-2"
-                dangerouslySetInnerHTML={{ __html: typeof subsection.content === 'string' ? subsection.content : '' }}
+                dangerouslySetInnerHTML={{ 
+                  __html: typeof subsection.content === 'object' 
+                    ? subsection.content.html || JSON.stringify(subsection.content)
+                    : subsection.content 
+                }}
               />
             </div>
           ))}
         </div>
       )}
 
-      {/* {section && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Endringshistorikk</CardTitle>
-            <CardDescription>
-              Endringer fra avvik og risikovurderinger som påvirker denne seksjonen
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SectionChanges 
-              sectionId={section.id}
-              isEditing={isEditing}
-            />
-          </CardContent>
-        </Card>
-      )} */}
-
       {/* Endringshistorikk */}
-      {section.changes.length > 0 && (
+      {section.changes?.length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-medium mb-4">Endringshistorikk</h2>
           <div className="space-y-4">

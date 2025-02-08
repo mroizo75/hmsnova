@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ChevronRight, Clock } from "lucide-react"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils/date"
+import { statusLabels } from "@/lib/constants/deviations"
 
 // Oversettelser for prioritet
 const priorityLabels: Record<string, string> = {
@@ -15,12 +16,17 @@ const priorityLabels: Record<string, string> = {
   "CRITICAL": "Kritisk"
 }
 
-// Status farger og tekst
+// Status farger og tekst - kun norske statuser
 const statusConfig: Record<string, { color: string; label: string }> = {
   "AAPEN": { color: "bg-yellow-500/10 text-yellow-500", label: "Åpen" },
   "PAAGAAR": { color: "bg-blue-500/10 text-blue-500", label: "Pågår" },
   "FULLFOERT": { color: "bg-green-500/10 text-green-500", label: "Fullført" },
-  "LUKKET": { color: "bg-gray-500/10 text-gray-500", label: "Lukket" }
+  "LUKKET": { color: "bg-gray-500/10 text-gray-500", label: "Lukket" },
+  // Mapping for engelske statuser til norske
+  "OPEN": { color: "bg-yellow-500/10 text-yellow-500", label: "Åpen" },
+  "IN_PROGRESS": { color: "bg-blue-500/10 text-blue-500", label: "Pågår" },
+  "COMPLETED": { color: "bg-green-500/10 text-green-500", label: "Fullført" },
+  "CLOSED": { color: "bg-gray-500/10 text-gray-500", label: "Lukket" }
 }
 
 interface DeviationCardProps {

@@ -20,13 +20,23 @@ export interface StatsItem {
 }
 
 interface Props {
-  stats: [StatsItem[], StatsItem[], any[]]  // [deviations, riskAssessments, monthlyStats]
-  auditData: InternalAuditData | null  // Endre til å tillate null
+  stats: [StatsItem[], StatsItem[], any[]]
+  auditData: InternalAuditData
+  trends: {
+    date: string
+    maxRiskLevel: number
+    assessmentCount: number
+    highRiskCount: number
+  }[]
 }
 
-export function ReportsClient({ stats, auditData }: Props) {
+export function ReportsClient({ stats, auditData, trends }: Props) {
   const [deviationStats, riskAssessmentStats, monthlyStats] = stats
   const [activeTab, setActiveTab] = useState("overview")
+
+  // Håndter tomme data
+  const hasDeviations = deviationStats && deviationStats.length > 0
+  const companyId = hasDeviations ? deviationStats[0].companyId : auditData.deviations.companyId
 
   return (
     <div className="space-y-6">
@@ -49,30 +59,19 @@ export function ReportsClient({ stats, auditData }: Props) {
         </TabsContent>
 
         <TabsContent value="deviations">
-          <DeviationReport stats={deviationStats as StatsItem[]} />
+          <DeviationReport stats={deviationStats} />
         </TabsContent>
 
         <TabsContent value="risks">
-          <RiskReport stats={riskAssessmentStats as StatsItem[]} />
+          <RiskReport stats={riskAssessmentStats} trends={trends} />
         </TabsContent>
 
         <TabsContent value="custom">
-          <CustomReport companyId={deviationStats[0].companyId} />
+          <CustomReport companyId={companyId} />
         </TabsContent>
 
         <TabsContent value="audit">
-          {auditData ? (
-            <InternalAuditReport data={auditData} />
-          ) : (
-            <Card className="p-6">
-              <div className="text-center">
-                <h3 className="text-lg font-medium">Kunne ikke laste internrevisjonsdata</h3>
-                <p className="text-muted-foreground mt-2">
-                  Prøv å laste siden på nytt eller kontakt support hvis problemet vedvarer.
-                </p>
-              </div>
-            </Card>
-          )}
+          <InternalAuditReport data={auditData} />
         </TabsContent>
       </Tabs>
     </div>

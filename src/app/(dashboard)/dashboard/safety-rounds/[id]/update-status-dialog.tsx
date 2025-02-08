@@ -1,53 +1,47 @@
 "use client"
 
-import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { SafetyRoundStatus } from "@prisma/client"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (data: { status: string; comment?: string }) => Promise<void>
-  currentStatus: string
+  safetyRound: {
+    id: string
+    status: SafetyRoundStatus
+  }
 }
 
-export function UpdateStatusDialog({ 
-  open, 
-  onOpenChange, 
-  onSubmit,
-  currentStatus 
-}: Props) {
-  const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState(currentStatus)
-  const [comment, setComment] = useState("")
+const statusLabels: Record<SafetyRoundStatus, string> = {
+  DRAFT: 'Kladd',
+  IN_PROGRESS: 'Under arbeid',
+  COMPLETED: 'Fullført',
+  CANCELLED: 'Kansellert',
+  SCHEDULED: 'Planlagt'
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+export function UpdateStatusDialog({ open, onOpenChange, safetyRound }: Props) {
+  const router = useRouter()
+
+  async function updateStatus(status: SafetyRoundStatus) {
     try {
-      setLoading(true)
-      await onSubmit({ status, comment })
+      const res = await fetch(`/api/safety-rounds/${safetyRound.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
+
+      if (!res.ok) throw new Error()
+
       onOpenChange(false)
-      setComment("")
+      toast.success('Status oppdatert')
+      router.refresh()
     } catch (error) {
+      console.error('Error updating status:', error)
       toast.error('Kunne ikke oppdatere status')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -56,53 +50,19 @@ export function UpdateStatusDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Oppdater status</DialogTitle>
-          <DialogDescription>
-            Velg ny status for vernerunden
-          </DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select
-              value={status}
-              onValueChange={setStatus}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Velg status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DRAFT">Kladd</SelectItem>
-                <SelectItem value="IN_PROGRESS">Under arbeid</SelectItem>
-                <SelectItem value="COMPLETED">Fullført</SelectItem>
-                <SelectItem value="CANCELLED">Kansellert</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Kommentar (valgfri)</Label>
-            <Textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Legg til en kommentar om statusendringen"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
+        <div className="grid grid-cols-2 gap-4">
+          {Object.entries(statusLabels).map(([value, label]) => (
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
+              key={value}
+              variant={value === safetyRound.status ? 'default' : 'outline'}
+              onClick={() => updateStatus(value as SafetyRoundStatus)}
+              className="w-full"
             >
-              Avbryt
+              {label}
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Oppdaterer..." : "Oppdater status"}
-            </Button>
-          </div>
-        </form>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   )

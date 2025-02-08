@@ -57,7 +57,9 @@ export async function POST(
       where: { id: handbookId },
       data: { 
         version: handbook.version + 1,
-        published: true
+        status: "ACTIVE",
+        publishedAt: new Date(),
+        publishedBy: session.user.id
       }
     })
 

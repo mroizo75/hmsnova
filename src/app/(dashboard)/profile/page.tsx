@@ -19,7 +19,8 @@ export default async function ProfilePage() {
       email: true,
       phone: true,
       image: true,
-      address: true
+      address: true,
+      certifications: true
     }
   })
 

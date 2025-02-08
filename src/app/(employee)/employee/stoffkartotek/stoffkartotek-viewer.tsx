@@ -4,14 +4,16 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, FileText, AlertTriangle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Search, FileText } from "lucide-react"
+import { FareSymbolBadge } from "@/app/(dashboard)/dashboard/stoffkartotek/fare-symbol-badge"
+import type { FareSymbol } from "@prisma/client"
 
 interface Produkt {
   id: string
   produktnavn: string
-  fareSymboler: Array<{ symbol: string }>
+  fareSymboler: Array<{ symbol: FareSymbol }>
   databladUrl?: string | null
+  beskrivelse?: string | null
 }
 
 interface StoffkartotekViewerProps {
@@ -57,21 +59,23 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
           filteredProdukter.map((produkt) => (
             <Card key={produkt.id} className="p-4">
               <div className="flex items-start justify-between">
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <h3 className="font-medium">{produkt.produktnavn}</h3>
                   
-                  {/* Faresymboler */}
+                  {produkt.beskrivelse && (
+                    <p className="text-sm text-muted-foreground">
+                      {produkt.beskrivelse}
+                    </p>
+                  )}
+                  
                   {produkt.fareSymboler.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {produkt.fareSymboler.map((symbol, index) => (
-                        <Badge 
+                        <FareSymbolBadge 
                           key={`${produkt.id}-${index}`}
-                          variant="secondary"
-                          className="bg-orange-100 text-orange-700 hover:bg-orange-100"
-                        >
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          {symbol.symbol}
-                        </Badge>
+                          symbol={symbol.symbol}
+                          showLabel
+                        />
                       ))}
                     </div>
                   )}
@@ -82,7 +86,7 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="ml-4"
+                    className="ml-4 whitespace-nowrap"
                     asChild
                   >
                     <a 

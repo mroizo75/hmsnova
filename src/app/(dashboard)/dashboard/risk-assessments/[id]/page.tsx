@@ -6,6 +6,7 @@ import { RiskAssessmentClient } from "./risk-assessment-client"
 import { Suspense } from "react"
 import { HMSChangesSection } from "./hms-changes-section"
 import type { Hazard, RiskAssessment } from "@prisma/client"
+import { revalidatePath } from "next/cache"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -103,6 +104,7 @@ export default async function RiskAssessmentPage(props: PageProps) {
         }
       },
       include: {
+        equipment: true,
         hazards: {
           include: {
             riskMeasures: true,
@@ -118,15 +120,7 @@ export default async function RiskAssessmentPage(props: PageProps) {
         },
         hmsChanges: {
           include: {
-            hmsChange: {
-              select: {
-                id: true,
-                title: true,
-                description: true,
-                status: true,
-                implementedAt: true
-              }
-            }
+            hmsChange: true
           }
         }
       }
@@ -139,7 +133,13 @@ export default async function RiskAssessmentPage(props: PageProps) {
     return (
       <div className="space-y-6">
         <Suspense fallback={<div>Laster...</div>}>
-          <RiskAssessmentClient assessment={assessment as unknown as RiskAssessmentWithHazards} />
+          <RiskAssessmentClient 
+            assessment={assessment as unknown as RiskAssessmentWithHazards} 
+            onUpdate={async () => {
+              'use server'
+              revalidatePath(`/dashboard/risk-assessments/${id}`)
+            }} 
+          />
         </Suspense>
         
         <HMSChangesSection riskAssessment={assessment as unknown as RiskAssessmentWithHMSChanges} />

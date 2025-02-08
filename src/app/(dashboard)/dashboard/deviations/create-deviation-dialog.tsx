@@ -32,19 +32,23 @@ import * as z from "zod"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { Plus, Upload } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import React from "react"
-import { typeLabels, categoryOptions } from "@/lib/constants/deviations"
+import { typeLabels, categoryOptions, DEVIATION_STATUS } from "@/lib/constants/deviations"
+import { Checkbox } from "@/components/ui/checkbox"
+import { DeviationType } from "@prisma/client"
 
 const formSchema = z.object({
-  title: z.string().min(5, "Tittel må være minst 5 tegn"),
-  description: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
-  type: z.enum(["NEAR_MISS", "INCIDENT", "ACCIDENT", "IMPROVEMENT", "OBSERVATION"]),
+  title: z.string().min(2, "Tittel må være minst 2 tegn"),
+  description: z.string().min(5, "Beskrivelse må være minst 5 tegn"),
+  type: z.nativeEnum(DeviationType),
   category: z.string().min(1, "Velg kategori"),
   severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
   location: z.string().optional(),
-  dueDate: z.string().optional().nullable(),
-  image: z.any().optional()
+  dueDate: z.string().optional(),
+  image: z.any().optional(),
+  equipmentId: z.string().optional(),
+  maintenanceRequired: z.boolean().default(false)
 })
 
 interface Props {
@@ -56,26 +60,51 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [equipment, setEquipment] = useState<any[]>([])
+
+  useEffect(() => {
+    if (open) {
+      fetch('/api/equipment')
+        .then(res => res.json())
+        .then(data => setEquipment(data))
+        .catch(err => console.error('Feil ved henting av utstyr:', err))
+    }
+  }, [open])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
+      type: "OBSERVATION" as DeviationType,
+      category: "",
+      severity: "LOW",
       location: "",
-      dueDate: null,
-      image: undefined
+      dueDate: "",
+      image: undefined,
+      equipmentId: "",
+      maintenanceRequired: false
     },
   })
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log("Form values:", values)
     try {
       setIsSubmitting(true)
       const formData = new FormData()
+      console.log("Creating FormData...")
 
-      Object.entries(values).forEach(([key, value]) => {
+      const formattedValues = {
+        ...values,
+        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null
+      }
+
+      formData.append('status', DEVIATION_STATUS.OPEN)
+
+      Object.entries(formattedValues).forEach(([key, value]) => {
         if (value !== null && value !== undefined && key !== 'image') {
-          formData.append(key, value)
+          formData.append(key, value.toString())
+          console.log(`Appending ${key}:`, value)
         }
       })
 
@@ -137,28 +166,46 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
             Fyll ut skjemaet under for å registrere et nytt avvik eller en hendelse.
           </DialogDescription>
         </DialogHeader>
+        
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[500px] overflow-y-auto p-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tittel</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Kort beskrivende tittel..." />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="max-h-[500px] overflow-y-auto pr-6">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tittel</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Kort beskrivende tittel..." />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Beskrivelse</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        {...field} 
+                        placeholder="Beskriv avviket eller hendelsen..."
+                        rows={5}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Type</FormLabel>
+                    <FormLabel>Type avvik *</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -166,11 +213,11 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Object.entries(typeLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="NEAR_MISS">Nestenulykke</SelectItem>
+                        <SelectItem value="INCIDENT">Hendelse</SelectItem>
+                        <SelectItem value="ACCIDENT">Ulykke</SelectItem>
+                        <SelectItem value="IMPROVEMENT">Forbedringsforslag</SelectItem>
+                        <SelectItem value="OBSERVATION">Observasjon</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -182,11 +229,8 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
                 name="severity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Alvorlighetsgrad</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
+                    <FormLabel>Alvorlighetsgrad *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Velg alvorlighetsgrad" />
@@ -203,60 +247,83 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
                   </FormItem>
                 )}
               />
-            </div>
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Kategori</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Velg kategori" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categoryOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Beskrivelse</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      {...field} 
-                      placeholder="Beskriv avviket eller hendelsen..."
-                      rows={5}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="location"
+                name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Sted</FormLabel>
+                    <FormLabel>Kategori *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Velg kategori" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="SAFETY">Sikkerhet</SelectItem>
+                        <SelectItem value="ENVIRONMENT">Miljø</SelectItem>
+                        <SelectItem value="QUALITY">Kvalitet</SelectItem>
+                        <SelectItem value="OTHER">Annet</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sted</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Hvor skjedde det..." />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Frist</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date"
+                          {...field}
+                          value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                        />
+                      </FormControl>
+
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="image"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bilde</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Hvor skjedde det..." />
+                      <div className="flex items-center gap-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="flex-1"
+                        />
+                        {selectedImage && (
+                          <p className="text-sm text-muted-foreground">
+                            {selectedImage.name}
+                          </p>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -264,49 +331,46 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
               />
               <FormField
                 control={form.control}
-                name="dueDate"
+                name="equipmentId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Frist</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="date"
-                        {...field}
-                        value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                      />
-                    </FormControl>
+                    <FormLabel>Utstyr</FormLabel>
+                    <Select onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Velg utstyr" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {equipment.map((item: any) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} - {item.serialNumber}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-            <FormField
-              control={form.control}
-              name="image"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Bilde</FormLabel>
-                  <FormControl>
-                    <div className="flex items-center gap-4">
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="flex-1"
+              <FormField
+                name="maintenanceRequired"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
                       />
-                      {selectedImage && (
-                        <p className="text-sm text-muted-foreground">
-                          {selectedImage.name}
-                        </p>
-                      )}
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end">
+                    </FormControl>
+                    <FormLabel>Krever vedlikehold</FormLabel>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="flex justify-end pt-4 border-t mt-4">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Lagrer..." : "Lagre"}
               </Button>

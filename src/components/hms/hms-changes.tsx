@@ -13,13 +13,15 @@ import { toast } from "sonner"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { Checkbox } from "@/components/ui/checkbox"
 
 const changeFormSchema = z.object({
   title: z.string().min(3, "Tittel må være minst 3 tegn"),
   description: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
   changeType: z.enum(["POLICY", "PROCEDURE", "TRAINING", "EQUIPMENT", "OTHER"]),
   deviationId: z.string().optional(),
-  measures: z.array(z.string()).optional()
+  measures: z.array(z.string()).optional(),
+  addToHandbook: z.boolean().default(false)
 })
 
 interface Measure {
@@ -53,7 +55,8 @@ export function HMSChanges({ deviationId, riskAssessmentId, sectionId, onHasChan
     defaultValues: {
       title: "",
       description: "",
-      changeType: "POLICY"
+      changeType: "POLICY",
+      addToHandbook: false
     }
   })
 
@@ -99,8 +102,13 @@ export function HMSChanges({ deviationId, riskAssessmentId, sectionId, onHasChan
       
       const payload = {
         ...data,
-        deviationId: deviationId,
-        measures: selectedMeasures
+        riskAssessmentId,
+        sectionId,
+        deviationId,
+        measures: selectedMeasures,
+        status: "PLANNED",
+        priority: "MEDIUM",
+        addToHandbook: data.addToHandbook
       }
 
       console.log('Frontend - Full payload:', JSON.stringify(payload, null, 2))
@@ -124,7 +132,11 @@ export function HMSChanges({ deviationId, riskAssessmentId, sectionId, onHasChan
       }
       
       toast.success('HMS-endring opprettet')
+      if (data.addToHandbook) {
+        toast.success('Endringen blir lagt til i HMS-håndboken')
+      }
       setIsDialogOpen(false)
+      form.reset()
       onHasChanges?.(true)
     } catch (error) {
       console.error('Frontend - Error:', error)
@@ -197,6 +209,24 @@ export function HMSChanges({ deviationId, riskAssessmentId, sectionId, onHasChan
                           <SelectItem value="EQUIPMENT">Utstyr</SelectItem>
                         </SelectContent>
                       </Select>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="addToHandbook"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center space-x-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal">
+                        Legg til i HMS-håndboken
+                      </FormLabel>
                     </FormItem>
                   )}
                 />

@@ -14,7 +14,7 @@ import { User, Settings, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { NotificationSettingsDialog } from "@/components/notifications/notification-settings-dialog"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface HeaderProps {
   user: any;
@@ -25,6 +25,23 @@ export function Header({ user, className }: HeaderProps) {
   const { data: session } = useSession()
   const router = useRouter()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [companyName, setCompanyName] = useState<string>("")
+
+  useEffect(() => {
+    async function fetchCompanyName() {
+      try {
+        const response = await fetch('/api/company/name')
+        const data = await response.json()
+        setCompanyName(data.name)
+      } catch (error) {
+        console.error('Error fetching company name:', error)
+      }
+    }
+
+    if (session?.user) {
+      fetchCompanyName()
+    }
+  }, [session])
 
   if (!session?.user) {
     return null
@@ -33,7 +50,13 @@ export function Header({ user, className }: HeaderProps) {
   return (
     <header className="border-b bg-background dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex h-16 items-center px-4 gap-4">
-        <div className="flex-1" />
+        <div className="flex-1">
+          {companyName && (
+            <span className="text-muted-foreground">
+              Velkommen, {companyName}
+            </span>
+          )}
+        </div>
         <NotificationBell onSettingsClick={() => setSettingsOpen(true)} />
         <NotificationSettingsDialog 
           open={settingsOpen}

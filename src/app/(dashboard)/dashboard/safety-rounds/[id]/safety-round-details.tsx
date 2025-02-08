@@ -1,130 +1,149 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils/date"
-import { ArrowLeft, Plus } from "lucide-react"
-import Link from "next/link"
-import { FindingsList } from "./findings-list"
-import { AddFindingDialog } from "./add-finding-dialog"
+import { useState, useEffect } from "react"
 import { UpdateStatusDialog } from "./update-status-dialog"
-import { useState } from "react"
+import { SafetyRoundFindings } from "@/components/safety-rounds/safety-round-findings"
+import type { SafetyRound } from "@prisma/client"
+import { SafetyRoundCheckpoints } from "@/app/(dashboard)/dashboard/safety-rounds/[id]/safety-round-checkpoints"
 
-interface SafetyRoundDetailsProps {
-  safetyRound: any // Utvid dette med riktig type
+interface Props {
+  safetyRound: SafetyRound & {
+    template: {
+      id: string
+      name: string
+    } | null
+    assignedUser: {
+      id: string
+      name: string | null
+      email: string
+      image: string | null
+    } | null
+    participants: Array<{
+      user: {
+        id: string
+        name: string | null
+        email: string
+        image: string | null
+      }
+    }>
+    findings: Array<{
+      id: string
+      images: Array<{
+        id: string
+        url: string
+      }>
+    }>
+    checklistItems: Array<{
+      id: string
+      category: string
+      question: string
+      order: number
+    }>
+    images: Array<{
+      id: string
+      url: string
+      caption: string | null
+    }>
+  }
 }
 
-export function SafetyRoundDetails({ safetyRound: initialData }: SafetyRoundDetailsProps) {
-  const [safetyRound, setSafetyRound] = useState(initialData)
+export function SafetyRoundDetails({ safetyRound }: Props) {
+  const [isUpdateStatusOpen, setIsUpdateStatusOpen] = useState(false)
+  const [findingDialogOpen, setFindingDialogOpen] = useState(false)
 
-  function getStatusBadge(status: string) {
-    switch (status) {
-      case 'COMPLETED':
-        return <Badge variant="default">Fullført</Badge>
-      case 'IN_PROGRESS':
-        return <Badge variant="secondary">Pågår</Badge>
-      case 'DRAFT':
-        return <Badge variant="secondary">Utkast</Badge>
-      default:
-        return <Badge>{status}</Badge>
-    }
-  }
+  useEffect(() => {
+    console.log('SafetyRoundDetails MOUNTED:', {
+      id: safetyRound.id,
+      title: safetyRound.title,
+      hasChecklistItems: !!safetyRound.checklistItems,
+      checklistItemsCount: safetyRound.checklistItems?.length,
+      firstItem: safetyRound.checklistItems?.[0]
+    })
+  }, [safetyRound])
 
-  function updateSafetyRound(data: { status: string; comment?: string }) {
-    throw new Error("Function not implemented.")
-  }
+  console.log('SafetyRoundDetails received:', {
+    hasChecklistItems: !!safetyRound.checklistItems,
+    checklistItemsLength: safetyRound.checklistItems?.length,
+    firstItem: safetyRound.checklistItems?.[0]
+  })
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/safety-rounds">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">{safetyRound.title}</h1>
-          {getStatusBadge(safetyRound.status)}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{safetyRound.title}</h1>
+          {safetyRound.description && (
+            <p className="text-muted-foreground mt-2">{safetyRound.description}</p>
+          )}
         </div>
-        <div className="flex gap-2">
-          <AddFindingDialog
-            safetyRoundId={safetyRound.id}
-            onSuccess={(newFinding) => {
-              setSafetyRound({
-                ...safetyRound,
-                findings: [...safetyRound.findings, newFinding]
-              })
-            }}
-          />
-          <UpdateStatusDialog
-            open={false}
-            onOpenChange={() => {}}
-            currentStatus={safetyRound.status}
-            onSubmit={async (data) => {
-              const updated = await updateSafetyRound(data)
-              setSafetyRound(updated)
-            }}
-          />
-        </div>
+        <Button onClick={() => setIsUpdateStatusOpen(true)}>
+          Oppdater status
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Funn og observasjoner</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FindingsList 
-              findings={safetyRound.findings}
-              onUpdate={(updatedFinding: any) => {
-                setSafetyRound({
-                  ...safetyRound,
-                  findings: safetyRound.findings.map((f: any) =>
-                    f.id === updatedFinding.id ? updatedFinding : f
-                  )
-                })
-              }}
-            />
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-4">Detaljer</h2>
+            <dl className="space-y-4">
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">Status</dt>
+                <dd>
+                  <Badge>{safetyRound.status}</Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">Ansvarlig</dt>
+                <dd>{safetyRound.assignedUser?.name || safetyRound.assignedUser?.email}</dd>
+              </div>
+              {safetyRound.scheduledDate && (
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground">Planlagt dato</dt>
+                  <dd>{formatDate(safetyRound.scheduledDate)}</dd>
+                </div>
+              )}
+              {safetyRound.dueDate && (
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground">Frist</dt>
+                  <dd>{formatDate(safetyRound.dueDate)}</dd>
+                </div>
+              )}
+            </dl>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Detaljer</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {safetyRound.description && (
-              <div>
-                <div className="font-medium">Beskrivelse</div>
-                <div className="text-sm text-muted-foreground">
-                  {safetyRound.description}
-                </div>
-              </div>
-            )}
-            <div>
-              <div className="font-medium">Status</div>
-              <div className="text-sm text-muted-foreground">
-                {getStatusBadge(safetyRound.status)}
-              </div>
-            </div>
-            {safetyRound.dueDate && (
-              <div>
-                <div className="font-medium">Frist</div>
-                <div className="text-sm text-muted-foreground">
-                  {formatDate(safetyRound.dueDate)}
-                </div>
-              </div>
-            )}
-            <div>
-              <div className="font-medium">Antall funn</div>
-              <div className="text-sm text-muted-foreground">
-                {safetyRound.findings.length}
-              </div>
-            </div>
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold mb-4">Deltakere</h2>
+            <ul className="space-y-2">
+              {safetyRound.participants.map((participant) => (
+                <li key={participant.user.id}>
+                  {participant.user.name || participant.user.email}
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       </div>
+
+
+      {(() => {
+        console.log('About to render SafetyRoundCheckpoints')
+        return <SafetyRoundCheckpoints 
+          checklistItems={safetyRound.checklistItems as any} 
+          safetyRoundId={safetyRound.id}
+        />
+      })()}
+
+      <UpdateStatusDialog 
+        open={isUpdateStatusOpen}
+        onOpenChange={setIsUpdateStatusOpen}
+        safetyRound={safetyRound}
+      />
     </div>
   )
 } 

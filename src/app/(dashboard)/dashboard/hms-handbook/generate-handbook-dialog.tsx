@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { useState } from "react"
 import { toast } from "sonner"
+import { useSession } from "next-auth/react"
 
 interface GenerateHandbookDialogProps {
   templates: {
@@ -28,19 +29,28 @@ interface GenerateHandbookDialogProps {
 }
 
 export function GenerateHandbookDialog({ templates }: GenerateHandbookDialogProps) {
+  const { data: session } = useSession()
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [loading, setLoading] = useState(false)
 
   const generateHandbook = async () => {
+    if (!session?.user?.companyId) {
+      toast.error('Ingen bedrift funnet')
+      return
+    }
+
     try {
       setLoading(true)
+      console.log("Generating handbook with template:", selectedTemplate)
+
       const response = await fetch('/api/hms-handbook/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          templateId: selectedTemplate || templates[0]?.id // Send første mal som default hvis ingen er valgt
+          companyId: session.user.companyId,  // Send med companyId
+          templateId: selectedTemplate || templates[0]?.id
         })
       })
 
@@ -52,6 +62,7 @@ export function GenerateHandbookDialog({ templates }: GenerateHandbookDialogProp
       toast.success('HMS-håndbok er generert')
       window.location.reload()
     } catch (error) {
+      console.error("Generate error:", error)
       toast.error(error instanceof Error ? error.message : 'Noe gikk galt')
     } finally {
       setLoading(false)

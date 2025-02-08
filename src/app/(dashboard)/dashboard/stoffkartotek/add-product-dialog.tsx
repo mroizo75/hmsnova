@@ -61,8 +61,6 @@ export function AddStoffkartotekModal({
         })
 
         if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text()
-          console.error('Upload error:', errorText)
           throw new Error('Kunne ikke laste opp datablad')
         }
 
@@ -79,8 +77,6 @@ export function AddStoffkartotekModal({
         fareSymboler: selectedSymbols
       }
 
-      console.log('Sending request:', requestData)
-
       const response = await fetch('/api/stoffkartotek', {
         method: 'POST',
         headers: {
@@ -89,19 +85,8 @@ export function AddStoffkartotekModal({
         body: JSON.stringify(requestData)
       })
 
-      const responseText = await response.text()
-      console.log('Server response:', responseText)
-
       if (!response.ok) {
-        throw new Error(responseText || 'Kunne ikke lagre produkt')
-      }
-
-      let data
-      try {
-        data = JSON.parse(responseText)
-      } catch (e) {
-        console.error('Failed to parse response:', e)
-        throw new Error('Ugyldig respons fra server')
+        throw new Error('Kunne ikke lagre produkt')
       }
 
       onOpenChange(false)

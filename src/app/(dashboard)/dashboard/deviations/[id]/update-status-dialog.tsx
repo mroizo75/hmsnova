@@ -31,13 +31,17 @@ import * as z from "zod"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { ClipboardEdit } from "lucide-react"
-import React from "react"
-import { statusLabels } from "@/lib/constants/deviations"
+import React, { ReactNode } from "react"
+import { statusLabels } from "@/lib/constants/status"
 import { useQueryClient } from "@tanstack/react-query"
 import { Status } from "@prisma/client"
+import { deviationStatusLabels, DEVIATION_STATUSES, isValidDeviationStatus } from "@/lib/constants/deviation-status"
 
 const formSchema = z.object({
-  status: z.nativeEnum(Status),
+  status: z.nativeEnum(Status).refine(
+    status => isValidDeviationStatus(status),
+    { message: "Ugyldig status for avvik" }
+  ),
   comment: z.string().optional(),
 })
 
@@ -45,6 +49,7 @@ interface Deviation {
   id: string
   status: string
   measures: {
+    [x: string]: ReactNode
     id: string
     status: string
   }[]
@@ -59,6 +64,7 @@ interface Props {
 
 export function UpdateStatusDialog({ deviation, open, onOpenChange, onUpdate }: Props) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -70,47 +76,66 @@ export function UpdateStatusDialog({ deviation, open, onOpenChange, onUpdate }: 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      console.log('Attempting to update status to:', values.status)
+      
       // Sjekk om alle tiltak er fullført før lukking
-      if (values.status === "LUKKET") {
+      if (values.status === 'LUKKET') {
+        console.log('Checking measures for CLOSED status')
         const uncompletedMeasures = deviation.measures.filter(
-          m => m.status !== "FULLFOERT"
+          m => m.status !== "CLOSED"
         )
         
         if (uncompletedMeasures.length > 0) {
-          toast.error("Alle tiltak må være fullført før avviket kan lukkes")
+          toast.error(
+            <div className="space-y-2">
+              <p>Kan ikke lukke avviket ennå</p>
+              <p className="text-sm">
+                Du har {uncompletedMeasures.length} ufullførte tiltak
+              </p>
+            </div>
+          )
           return
         }
       }
 
-      const response = await fetch(`/api/deviations/${deviation.id}`, {
+      const response = await fetch(`/api/deviations/${deviation.id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           status: values.status,
-          comment: values.comment
+          comment: values.comment || undefined // Kun send med comment hvis den har en verdi
         }),
       })
 
-      const responseData = await response.json()
-
       if (!response.ok) {
-        throw new Error(responseData.details || "Kunne ikke oppdatere status")
+        const error = await response.json()
+        throw new Error(error.message || "Kunne ikke oppdatere status")
       }
 
-      toast.success("Status oppdatert")
+      toast.success(
+        <div>
+          <p>Status oppdatert</p>
+          <p className="text-sm">
+            Avviket er nå {statusLabels[values.status].toLowerCase()}
+          </p>
+        </div>
+      )
+      
       onOpenChange(false)
       await onUpdate()
-      
       router.refresh()
-      setTimeout(() => {
-        router.refresh()
-      }, 100)
-
     } catch (error) {
       console.error('Error updating status:', error)
-      toast.error(error instanceof Error ? error.message : "Kunne ikke oppdatere status")
+      toast.error(
+        <div>
+          <p>Kunne ikke oppdatere status</p>
+          <p className="text-sm">
+            {error instanceof Error ? error.message : "En uventet feil oppstod"}
+          </p>
+        </div>
+      )
     }
   }
 
@@ -143,13 +168,15 @@ export function UpdateStatusDialog({ deviation, open, onOpenChange, onUpdate }: 
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Velg status" />
+                        <SelectValue placeholder="Velg status">
+                          {field.value ? deviationStatusLabels[field.value as Status] : "Velg status"}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {Object.entries(statusLabels).map(([value, label]) => (
+                      {Object.entries(DEVIATION_STATUSES).map(([key, value]) => (
                         <SelectItem key={value} value={value}>
-                          {label}
+                          {deviationStatusLabels[value]}
                         </SelectItem>
                       ))}
                     </SelectContent>

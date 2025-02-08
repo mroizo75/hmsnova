@@ -5,11 +5,10 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { useState, useEffect } from "react"
-import Image from "next/image"
+import { useState } from "react"
 import { formatDate } from "@/lib/utils/date"
 import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { Trash2, Maximize2, Minimize2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -30,55 +29,57 @@ interface DeviationImage {
   deviationId: string
 }
 
-interface Props {
-  images: DeviationImage[]
-  onDeleteClick?: (image: DeviationImage) => void
+interface ImageGalleryProps {
+  images: Array<{
+    id: string
+    url: string
+    fullUrl?: string
+    caption?: string | null
+    createdAt: Date
+  }>
+  onDeleteClick?: (image: any) => void
 }
 
-function getImagePath(url: string): string {
-  // Hvis URL-en er en full Google Storage URL, hent ut bare stien
-  if (url.startsWith('https://storage.googleapis.com/')) {
-    return url.replace(`https://storage.googleapis.com/${process.env.NEXT_PUBLIC_GOOGLE_CLOUD_BUCKET_NAME}/`, '')
-  }
-  // Ellers er det allerede en relativ sti
-  return url
-}
-
-export function ImageGallery({ images, onDeleteClick }: Props) {
+export function ImageGallery({ images, onDeleteClick }: ImageGalleryProps) {
   const [selectedImage, setSelectedImage] = useState<DeviationImage | null>(null)
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
   const [imageToDelete, setImageToDelete] = useState<DeviationImage | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [fallbackUrls, setFallbackUrls] = useState<Record<string, string>>({})
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
-  useEffect(() => {
-    const fetchImageUrls = async () => {
-      const urls: Record<string, string> = {}
-      for (const image of images) {
-        try {
-          const imagePath = getImagePath(image.url)
-          console.log('Fetching image path:', imagePath)
-          const response = await fetch(`/api/images/${encodeURIComponent(imagePath)}`)
-          if (response.ok) {
-            urls[image.id] = response.url
-          }
-        } catch (error) {
-          console.error('Error fetching image URL:', error)
-        }
-      }
-      setImageUrls(urls)
+  const getImageUrl = (image: { url: string, id: string }) => {
+    // Hvis vi allerede har en fallback URL for dette bildet, bruk den
+    if (fallbackUrls[image.id]) {
+      return fallbackUrls[image.id]
     }
+    
+    // Hvis URL-en allerede er en full URL, bruk den
+    if (image.url.startsWith('http')) {
+      return image.url
+    }
+    
+    // Ellers, bruk vår proxy
+    return `/api/images/${image.url}`
+  }
 
-    fetchImageUrls()
-  }, [images])
+  const handleImageError = (image: { url: string, id: string }) => {
+    // Generer direkte URL som fallback
+    const directUrl = `https://storage.googleapis.com/innutio-hms/${image.url}`
+    console.log('Trying direct URL:', directUrl)
+    
+    // Lagre fallback URL-en for dette bildet
+    setFallbackUrls(prev => ({
+      ...prev,
+      [image.id]: directUrl
+    }))
+  }
 
   const handleDelete = async (image: DeviationImage) => {
     if (onDeleteClick) {
-      // Hvis vi har en ekstern håndtering, bruk den
       onDeleteClick(image)
       return
     }
 
-    // Ellers bruk intern håndtering
     try {
       setIsDeleting(true)
       const response = await fetch(`/api/deviations/${image.deviationId}/images/${image.id}`, {
@@ -90,12 +91,6 @@ export function ImageGallery({ images, onDeleteClick }: Props) {
       }
 
       toast.success('Bilde slettet')
-      setImageUrls(prev => {
-        const newUrls = { ...prev }
-        delete newUrls[image.id]
-        return newUrls
-      })
-      
       setImageToDelete(null)
       setSelectedImage(null)
 
@@ -107,104 +102,127 @@ export function ImageGallery({ images, onDeleteClick }: Props) {
     }
   }
 
-  if (images.length === 0) {
-    return (
-      <div className="text-center p-8 text-muted-foreground">
-        Ingen bilder er lastet opp ennå
-      </div>
-    )
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen)
+  }
+
+  if (!images?.length) {
+    return <p className="text-muted-foreground">Ingen bilder lastet opp</p>
   }
 
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {images.map((image) => (
-          <Dialog key={image.id} onOpenChange={() => setSelectedImage(null)}>
+          <Dialog key={image.id} onOpenChange={(open) => {
+            if (!open) {
+              setSelectedImage(null)
+              setIsFullscreen(false)
+            }
+          }}>
             <DialogTrigger asChild>
               <div className="relative aspect-square group">
                 <button
                   className="relative w-full h-full overflow-hidden rounded-lg border"
-                  onClick={() => setSelectedImage(image)}
+                  onClick={() => setSelectedImage(image as unknown as DeviationImage)}
                 >
-                  {imageUrls[image.id] && (
-                    <>
-                      <Image
-                        src={imageUrls[image.id]}
-                        alt={image.caption || "Bilde"}
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                    </>
-                  )}
+                  <img
+                    src={getImageUrl(image)}
+                    alt={image.caption || "Bilde"}
+                    className={`
+                      object-cover w-full h-full
+                      ${isFullscreen ? 'cursor-zoom-out' : 'cursor-zoom-in'}
+                    `}
+                    onClick={toggleFullscreen}
+                    onError={() => handleImageError(image)}
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDeleteClick ? onDeleteClick(image) : setImageToDelete(image)
-                  }}
-                  className="absolute top-2 right-2 p-1.5 rounded-full bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {onDeleteClick && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDeleteClick(image)
+                    }}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </DialogTrigger>
-            {selectedImage?.id === image.id && imageUrls[image.id] && (
-              <DialogContent className="max-w-3xl">
-                <div className="relative aspect-video">
-                  <Image
-                    src={imageUrls[image.id]}
+            {selectedImage?.id === image.id && (
+              <DialogContent className={`${isFullscreen ? 'w-screen h-screen max-w-none !p-0' : 'max-w-4xl'}`}>
+                <div className={`relative ${isFullscreen ? 'h-full' : 'aspect-video'}`}>
+                  <img
+                    src={getImageUrl(image)}
                     alt={image.caption || "Bilde"}
-                    fill
-                    className="object-contain"
+                    className={`
+                      object-contain w-full h-full
+                      ${isFullscreen ? 'cursor-zoom-out' : 'cursor-zoom-in'}
+                    `}
+                    onClick={toggleFullscreen}
+                    onError={() => handleImageError(image)}
                   />
-                </div>
-                <div className="mt-2 flex justify-between items-start">
-                  <div>
-                    {image.caption && (
-                      <p className="text-sm">{image.caption}</p>
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      Lastet opp {formatDate(image.createdAt)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setImageToDelete(image)}
+                  <button
+                    onClick={toggleFullscreen}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Slett bilde
-                  </Button>
+                    {isFullscreen ? (
+                      <Minimize2 className="h-5 w-5" />
+                    ) : (
+                      <Maximize2 className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
+                {!isFullscreen && (
+                  <div className="mt-2 flex justify-between items-start">
+                    <div>
+                      {image.caption && (
+                        <p className="text-sm">{image.caption}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground">
+                        Lastet opp {formatDate(image.createdAt)}
+                      </p>
+                    </div>
+                    {onDeleteClick && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setImageToDelete(image as unknown as DeviationImage)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Slett bilde
+                      </Button>
+                    )}
+                  </div>
+                )}
               </DialogContent>
             )}
           </Dialog>
         ))}
       </div>
 
-      {!onDeleteClick && (
-        <AlertDialog open={!!imageToDelete} onOpenChange={() => setImageToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Dette vil permanent slette bildet. Denne handlingen kan ikke angres.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Avbryt</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-red-600 hover:bg-red-700"
-                onClick={() => imageToDelete && handleDelete(imageToDelete)}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Sletter..." : "Slett bilde"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+      <AlertDialog open={!!imageToDelete} onOpenChange={() => setImageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil permanent slette bildet. Denne handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => imageToDelete && handleDelete(imageToDelete)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Sletter..." : "Slett bilde"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 } 

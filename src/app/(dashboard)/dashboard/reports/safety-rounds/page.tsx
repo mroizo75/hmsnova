@@ -1,44 +1,64 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
-import { notFound } from "next/navigation"
-import { SafetyRoundReportList } from "./safety-round-report-list"
+import { redirect } from "next/navigation"
+import { SafetyRoundReports } from "./safety-round-reports"
+import { SafetyRoundStats } from "./safety-round-stats"
+import { SafetyRoundTrends } from "./safety-round-trends"
+import { SafetyRoundReport } from "@/types/safety-rounds"
 
 export default async function SafetyRoundReportsPage() {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return notFound()
+  if (!session?.user) redirect('/login')
 
-  const reports = await prisma.safetyRoundReport.findMany({
+  const reports = await prisma.safetyRound.findMany({
     where: {
-      safetyRound: {
-        companyId: session.user.companyId
-      }
+      module: {
+        companyId: session.user.companyId,
+        key: 'SAFETY_ROUNDS'
+      },
+      status: 'COMPLETED'
     },
-    include: {
-      safetyRound: {
-        include: {
-          creator: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      completedAt: true,
+      findings: {
+        select: {
+          id: true,
+          description: true,
+          severity: true,
+          status: true,
+          createdAt: true,
+          measures: {
             select: {
-              name: true
+              id: true,
+              description: true,
+              completedAt: true,
+              createdAt: true,
+              status: true
             }
           },
-          assignedUser: {
+          images: {
             select: {
-              name: true
+              id: true,
+              url: true
             }
           }
         }
       }
     },
     orderBy: {
-      generatedAt: 'desc'
+      completedAt: 'desc'
     }
   })
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Vernerunderapporter</h1>
-      <SafetyRoundReportList reports={reports} />
+    <div className="space-y-8">
+      <SafetyRoundStats stats={reports} />
+      <SafetyRoundTrends data={reports} />
+      <SafetyRoundReports reports={reports} />
     </div>
   )
 } 

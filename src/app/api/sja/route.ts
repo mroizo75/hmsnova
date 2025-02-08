@@ -55,141 +55,89 @@ function parseTiltak(riskMitigation: string | null, responsiblePerson: string | 
     }))
 }
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+      return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const formData = await request.formData()
-    const images = formData.getAll('images') as File[]
+    const formData = await req.formData()
     
-    // Opprett SJA først
+    // Hent data fra formData
+    const tittel = formData.get('tittel') as string
+    const arbeidssted = formData.get('arbeidssted') as string
+    const beskrivelse = formData.get('beskrivelse') as string
+    const startDato = formData.get('startDato') as string
+    const sluttDato = formData.get('sluttDato') as string
+    const deltakere = formData.get('deltakere') as string
+    const risikoerText = formData.get('risikoer') as string
+    const tiltakText = formData.get('tiltak') as string
+    const ansvarlig = formData.get('ansvarlig') as string
+    const kommentarer = formData.get('kommentarer') as string
+    const lagreSomMal = formData.get('lagreSomMal') === 'true'
+    const produkterJson = formData.get('produkter') as string
+    const produkter = JSON.parse(produkterJson || '[]')
+
+    // Parse risikoer og tiltak
+    const parsedRisikoer = parseRisikoer(risikoerText)
+    const parsedTiltak = parseTiltak(tiltakText, ansvarlig)
+    
+    // Opprett SJA
     const sja = await prisma.sJA.create({
       data: {
-        tittel: formData.get('tittel') as string,
-        arbeidssted: formData.get('arbeidssted') as string,
-        beskrivelse: formData.get('beskrivelse') as string,
-        startDato: new Date(formData.get('startDato') as string),
-        sluttDato: new Date(formData.get('sluttDato') as string),
-        deltakere: formData.get('deltakere') as string,
+        tittel,
+        arbeidssted,
+        beskrivelse,
+        deltakere,
+        startDato: new Date(startDato),
+        sluttDato: new Date(sluttDato),
         status: "UTKAST",
         opprettetAvId: session.user.id,
         companyId: session.user.companyId,
-        // Parse og opprett risikoer og tiltak som egne relasjoner
         risikoer: {
-          create: parseRisikoer(formData.get('risikoer') as string)
+          create: parsedRisikoer
         },
         tiltak: {
-          create: parseTiltak(formData.get('tiltak') as string, formData.get('ansvarlig') as string)
+          create: parsedTiltak
+        },
+        produkter: {
+          create: produkter.map((p: any) => ({
+            produktId: p.produktId,
+            mengde: p.mengde
+          }))
         }
       },
       include: {
         risikoer: true,
-        tiltak: true
+        tiltak: true,
+        produkter: true,
+        opprettetAv: true
       }
     })
 
-    // Last opp bilder og opprett SJABilde-relasjoner
-    const uploadedImages = []
-    for (const image of images) {
-      if (image instanceof File) {
-        const fileName = `companies/${session.user.companyId}/sja/${sja.id}/images/${Date.now()}-${image.name}`
-        const imagePath = await uploadToStorage(image, fileName)
-        
-        // Opprett SJABilde-relasjon
-        const sjaBilde = await prisma.sJABilde.create({
+    // Håndter bilder hvis de finnes
+    const images = formData.getAll('images') as File[]
+    if (images.length > 0) {
+      for (const image of images) {
+        const url = await uploadToStorage(image, session.user.id, sja.id)
+        await prisma.sJABilde.create({
           data: {
-            url: imagePath as string,
-            lastetOppAvId: session.user.id,
-            sjaId: sja.id
+            sjaId: sja.id,
+            url,
+            lastetOppAvId: session.user.id
           }
         })
-        
-        uploadedImages.push(sjaBilde)
       }
     }
 
-    // Lagre som mal hvis valgt
-    const lagreSomMal = formData.get('lagreSomMal') === 'true'
-    if (lagreSomMal) {
-      await prisma.sJAMal.create({
-        data: {
-          tittel: sja.tittel,
-          beskrivelse: sja.beskrivelse,
-          prosjektNavn: "",
-          arbeidssted: sja.arbeidssted,
-          deltakere: sja.deltakere,
-          ansvarlig: sja.tiltak[0]?.ansvarlig || "",
-          arbeidsoppgaver: sja.beskrivelse,
-          navn: sja.tittel,
-
-          // Opprett risikoer som egne relasjoner
-          risikoer: {
-            create: sja.risikoer.map(risiko => ({
-              aktivitet: risiko.aktivitet,
-              fare: risiko.fare,
-              konsekvens: risiko.konsekvens,
-              sannsynlighet: risiko.sannsynlighet,
-              alvorlighet: risiko.alvorlighet,
-              risikoVerdi: risiko.risikoVerdi,
-              tiltak: sja.tiltak[0]?.beskrivelse || ""
-            }))
-          },
-          
-          // Opprett tiltak som egne relasjoner
-          tiltak: {
-            create: sja.tiltak.map(tiltak => ({
-              beskrivelse: tiltak.beskrivelse,
-              ansvarlig: tiltak.ansvarlig,
-              frist: tiltak.frist
-            }))
-          },
-          
-          // Metadata
-          opprettetAvId: session.user.id,
-          companyId: session.user.companyId
-        }
-      })
-    }
-
-    // Send notifikasjoner til relevante brukere
-    const notifyUsers = await prisma.user.findMany({
-      where: {
-        companyId: session.user.companyId,
-        OR: [
-          { role: "COMPANY_ADMIN" },
-          { role: "ADMIN" }
-        ]
-      }
-    })
-
-    for (const user of notifyUsers) {
-      createNotification({
-        type: "SJA_CREATED",
-        title: "Ny SJA registrert",
-        message: `${session.user.name} har opprettet en ny SJA: ${sja.tittel}`,
-        userId: user.id,
-        link: `/dashboard/sja/${sja.id}`
-      }).catch(console.error)
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      data: {
-        ...sja,
-        images: uploadedImages.map(bilde => bilde.url)
-      }
-    }, { status: 201 })
-
+    return NextResponse.json({ success: true, data: sja })
   } catch (error) {
-    console.error('Error in POST:', error)
-    return NextResponse.json({ 
-      success: false,
-      error: "Kunne ikke opprette SJA",
-      details: error instanceof Error ? error.message : "Ukjent feil"
-    }, { status: 500 })
+    console.error('Error creating SJA:', error)
+    return NextResponse.json(
+      { success: false, error: 'Could not create SJA' },
+      { status: 500 }
+    )
   }
 }
 

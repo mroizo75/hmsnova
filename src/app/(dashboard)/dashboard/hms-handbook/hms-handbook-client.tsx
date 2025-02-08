@@ -2,7 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, ChevronRight, Pencil, Search } from "lucide-react"
+import { Plus, ChevronRight, Pencil, Search, History, GitCompare } from "lucide-react"
 import { AddSectionDialog } from "./add-section-dialog"
 import { HMSContent } from "./hms-content"
 import { HMSNavigation } from "./hms-navigation"
@@ -13,6 +13,10 @@ import { ReleaseDialog } from "./release-dialog"
 import { VersionHistoryDialog } from "./version-history-dialog"
 import { Input } from "@/components/ui/input"
 import type { JsonValue } from "@prisma/client/runtime/library"
+import { CreateVersionButton } from "./create-version-button"
+import Link from "next/link"
+import { format } from "date-fns"
+
 
 interface HMSChange {
   id: string
@@ -87,16 +91,22 @@ export interface Section {
 export interface HMSHandbook {
   id: string
   version: number
+  title: string
+  description: string | null
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
   sections: Section[]
-  published: boolean
+  companyId: string
+  hasDraft: boolean
+  draftId?: string
+  updatedAt: Date
 }
 
-interface PageProps {
-  handbook: HMSHandbook | null
+interface Props {
+  handbook: HMSHandbook
 }
 
-export function HMSHandbookClient({ handbook }: PageProps) {
-  const [selectedSection, setSelectedSection] = useState<Section | null>(null)
+export function HMSHandbookClient({ handbook }: Props) {
+  const [selectedSection, setSelectedSection] = useState<Section | null>(handbook.sections[0])
   const [isEditing, setIsEditing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
@@ -104,7 +114,7 @@ export function HMSHandbookClient({ handbook }: PageProps) {
 
   // Legg til søkefunksjonalitet som ikke påvirker eksisterende kode
   const filteredSections = searchQuery.trim().length >= 2
-    ? findAllMatchingSections(handbook?.sections || [], searchQuery.toLowerCase())
+    ? findAllMatchingSections(handbook.sections, searchQuery.toLowerCase())
     : []
 
   // Hjelpefunksjon for å søke rekursivt gjennom seksjoner
@@ -124,7 +134,7 @@ export function HMSHandbookClient({ handbook }: PageProps) {
   }
 
   // Hvis håndboken eksisterer men ikke har seksjoner, vis initialiseringsknapp
-  if (handbook && handbook.sections.length === 0) {
+  if (handbook.sections.length === 0) {
     async function initializeHandbook() {
       try {
         const response = await fetch('/api/hms-handbook/initialize', {
@@ -255,27 +265,31 @@ export function HMSHandbookClient({ handbook }: PageProps) {
   // Vis håndboken med seksjoner
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">HMS-håndbok v{handbook.version}</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">HMS-håndbok v{handbook.version}</h1>
+          <p className="text-muted-foreground">
+            Sist oppdatert: {format(new Date(handbook.updatedAt), 'dd.MM.yyyy')}
+          </p>
+        </div>
+        
         <div className="flex gap-2">
-          {selectedSection && (
-            <Button
-              variant="outline"
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              {isEditing ? "Avslutt redigering" : "Rediger"}
-            </Button>
-          )}
-          <VersionHistoryDialog 
-            handbookId={handbook.id}
-            currentVersion={handbook.version}
+          <CreateVersionButton 
+            version={handbook.version}
+            companyId={handbook.companyId}
           />
-          <ReleaseDialog 
-            handbookId={handbook.id} 
-            currentVersion={handbook.version}
-          />
-          <AddSectionDialog handbookId={handbook.id} />
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/hms-handbook/history">
+              <History className="w-4 h-4 mr-2" />
+              Historikk
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/hms-handbook/compare">
+              <GitCompare className="w-4 h-4 mr-2" />
+              Sammenlign versjoner
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -331,7 +345,8 @@ export function HMSHandbookClient({ handbook }: PageProps) {
             <Card className="p-6">
               <HMSContent 
                 section={selectedSection || undefined}
-                isEditing={isEditing}
+                isEditable={isEditing}
+                handbookId={handbook.id}
               />
             </Card>
           </div>

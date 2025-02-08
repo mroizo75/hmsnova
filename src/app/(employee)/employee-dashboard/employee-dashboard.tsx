@@ -8,7 +8,8 @@ import {
   Settings,
   ChevronRight,
   LogOut,
-  TestTube
+  TestTube,
+  ClipboardCheck
 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -58,6 +59,13 @@ export function EmployeeDashboard() {
       icon: TestTube,
       href: "/employee/stoffkartotek",
       color: "bg-purple-100 text-purple-600"
+    },
+    {
+      title: "Vernerunder",
+      description: "Delta og gjennomfør vernerunder",
+      icon: ClipboardCheck,
+      href: "/employee/safety-rounds",
+      color: "bg-teal-100 text-teal-600"
     }
   ]
 
@@ -123,10 +131,10 @@ export function EmployeeDashboard() {
               <p className="text-sm font-medium">Nytt avvik</p>
             </Card>
           </Link>
-          <Link href="/employee/sja">
-            <Card className="p-4 bg-green-50 border-green-100">
-              <FileText className="w-6 h-6 text-green-500 mb-2" />
-              <p className="text-sm font-medium">Ny SJA</p>
+          <Link href="/employee/safety-rounds">
+            <Card className="p-4 bg-teal-50 border-teal-100">
+              <ClipboardCheck className="w-6 h-6 text-teal-500 mb-2" />
+              <p className="text-sm font-medium">Vernerunder</p>
             </Card>
           </Link>
         </div>

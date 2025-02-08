@@ -15,20 +15,46 @@ import { formatDate } from "@/lib/utils/date"
 import { EditEmployeeDialog } from "./edit-employee-dialog"
 import { useState } from "react"
 import { DeleteEmployeeDialog } from "./delete-employee-dialog"
+import { EmployeeDetailsDialog } from "./employee-details-dialog"
 
 export type Employee = {
   id: string
   name: string | null
   email: string
   role: string
+  phone: string | null
+  image: string | null
+  address: any
+  metadata: any
   createdAt: Date
-  metadata?: any
 }
 
 export const columns: ColumnDef<Employee>[] = [
   {
     accessorKey: "name",
     header: "Navn",
+    cell: ({ row }) => {
+      const [showDetails, setShowDetails] = useState(false)
+      const employee = row.original
+
+      return (
+        <>
+          <Button
+            variant="ghost"
+            className="p-0 hover:bg-transparent hover:underline text-left font-medium"
+            onClick={() => setShowDetails(true)}
+          >
+            {employee.name || employee.email}
+          </Button>
+          
+          <EmployeeDetailsDialog
+            employee={employee}
+            open={showDetails}
+            onOpenChange={setShowDetails}
+          />
+        </>
+      )
+    }
   },
   {
     accessorKey: "email",

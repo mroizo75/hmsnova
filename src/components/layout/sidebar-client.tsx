@@ -15,9 +15,11 @@ import {
   BookOpen,
   TestTube,
   Shield,
-  ClipboardList
+  ClipboardList,
+  Wrench
 } from "lucide-react"
 import Image from "next/image"
+import { LucideIcon } from "lucide-react"
 
 interface SidebarClientProps {
   modules: {
@@ -27,8 +29,15 @@ interface SidebarClientProps {
   }[]
 }
 
+interface NavigationItem {
+  name: string
+  href: string
+  icon: LucideIcon
+  children?: NavigationItem[]
+}
+
 // Definer modul-mapping for navigasjon
-const moduleBasedNavigation = {
+const moduleBasedNavigation: Record<string, NavigationItem> = {
   SAFETY_ROUNDS: {
     name: 'Vernerunder',
     href: '/dashboard/safety-rounds',
@@ -39,11 +48,10 @@ const moduleBasedNavigation = {
     href: '/dashboard/reports/internal-audit',
     icon: FileText
   },
-
 }
 
 // Alltid tilgjengelige navigasjonselementer
-const baseNavigation = [
+const baseNavigation: NavigationItem[] = [
   {
     name: 'Dashboard',
     href: '/dashboard',
@@ -79,11 +87,27 @@ const baseNavigation = [
     href: '/dashboard/deviations',
     icon: AlertTriangle
   },
-
+  {
+    name: 'Utstyr',
+    href: '/dashboard/equipment',
+    icon: Wrench,
+    children: [
+      {
+        name: 'Oversikt',
+        href: '/dashboard/equipment',
+        icon: Wrench
+      },
+      {
+        name: 'Inspeksjoner',
+        href: '/dashboard/equipment/inspections',
+        icon: ClipboardList
+      }
+    ]
+  },
 ]
 
 // Bunnavigasjon (alltid nederst)
-const bottomNavigation = [
+const bottomNavigation: NavigationItem[] = [
   {
     name: 'Innstillinger',
     href: '/settings',
@@ -116,19 +140,41 @@ export function SidebarClient({ modules }: SidebarClientProps) {
           <nav className="flex-1 p-4 space-y-1">
             {/* Hovednavigasjon */}
             {mainNavigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
-                  pathname === item.href
-                    ? "bg-green-50 text-green-700" 
-                    : "text-gray-700 hover:bg-gray-50"
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+                    pathname === item.href
+                      ? "bg-green-50 text-green-700" 
+                      : "text-gray-700 hover:bg-gray-50"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+                
+                {/* Vis undermenyer hvis de finnes */}
+                {item.children && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {item.children.map((child: any) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+                          pathname === child.href
+                            ? "bg-green-50 text-green-700" 
+                            : "text-gray-600 hover:bg-gray-50"
+                        )}
+                      >
+                        <child.icon className="h-4 w-4" />
+                        {child.name}
+                      </Link>
+                    ))}
+                  </div>
                 )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.name}
-              </Link>
+              </div>
             ))}
 
             {/* Rapporter-seksjon */}

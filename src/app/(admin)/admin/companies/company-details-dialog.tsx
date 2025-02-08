@@ -17,6 +17,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 
 interface Module {
   id: string
@@ -33,6 +36,33 @@ interface CompanyDetailsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+const formSchema = z.object({
+  name: z.string().min(1, "Navn er påkrevd"),
+  modules: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    isActive: z.boolean()
+  }))
+})
+
+const defaultModules = [
+  {
+    key: "DASHBOARD",
+    label: "Dashbord",
+    description: "Oversikt over bedriftens aktiviteter og statistikk"
+  },
+  {
+    key: "DOCUMENTS",
+    label: "Dokumenter",
+    description: "Last opp og administrer bedriftens dokumenter"
+  },
+  {
+    key: "SAFETY_ROUNDS",
+    label: "Bedriftsvernerunder",
+    description: "Gjennomfør og administrer vernerunder"
+  }
+] as const
+
 export function CompanyDetailsDialog({
   company,
   open,
@@ -42,6 +72,19 @@ export function CompanyDetailsDialog({
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
   const [activeModules, setActiveModules] = useState<string[]>([])
   const [isLoadingModules, setIsLoadingModules] = useState(true)
+  const [loading, setLoading] = useState(false)
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: company?.name || "",
+      modules: defaultModules.map(module => ({
+        key: module.key,
+        label: module.label,
+        isActive: company?.modules.some(m => m.key === module.key && m.isActive) || false
+      }))
+    }
+  })
 
   // Definer tilgjengelige moduler
   const availableModules: Module[] = [
@@ -259,6 +302,40 @@ export function CompanyDetailsDialog({
       toast.error('Kunne ikke oppdatere betalingsstatus')
     } finally {
       setIsUpdatingPayment(false)
+    }
+  }
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      setLoading(true)
+      const response = await fetch(
+        company ? `/api/admin/companies/${company.id}` : "/api/admin/companies",
+        {
+          method: company ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(values),
+        }
+      )
+
+      if (!response.ok) throw new Error()
+
+      toast.success(
+        company
+          ? "Bedrift oppdatert"
+          : "Bedrift opprettet"
+      )
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error saving company:", error)
+      toast.error(
+        company
+          ? "Kunne ikke oppdatere bedrift"
+          : "Kunne ikke opprette bedrift"
+      )
+    } finally {
+      setLoading(false)
     }
   }
 

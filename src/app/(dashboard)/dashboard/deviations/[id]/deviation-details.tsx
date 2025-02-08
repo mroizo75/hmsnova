@@ -34,6 +34,8 @@ interface DeviationImage {
   caption: string | null
   createdAt: Date
   deviationId: string
+  uploadedBy: string
+  fullUrl?: string
 }
 
 interface Deviation {
@@ -52,8 +54,24 @@ interface Deviation {
   images: DeviationImage[]
 }
 
+interface DeviationWithRelations {
+  id: string
+  title: string
+  description: string
+  status: string
+  severity: string
+  type: string
+  category: string
+  location?: string
+  dueDate?: Date
+  createdAt: Date
+  closedAt?: Date
+  measures: any[]
+  images: DeviationImage[]
+}
+
 interface DeviationDetailsProps {
-  deviation: Deviation
+  deviation: DeviationWithRelations
   onUpdate: () => Promise<void>
 }
 
@@ -168,7 +186,7 @@ export function DeviationDetails({ deviation, onUpdate }: DeviationDetailsProps)
             </div>
             <ImageGallery 
               images={deviation.images} 
-              onDeleteClick={setImageToDelete}
+              onDeleteClick={(image) => setImageToDelete(image as DeviationImage)}
             />
           </Card>
         </div>
@@ -180,7 +198,7 @@ export function DeviationDetails({ deviation, onUpdate }: DeviationDetailsProps)
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Status</p>
                 <Badge className={statusColors[deviation.status]}>
-                  {statusLabels[deviation.status]}
+                  {statusLabels[deviation.status] || deviation.status}
                 </Badge>
               </div>
               <div>
@@ -278,6 +296,24 @@ export function DeviationDetails({ deviation, onUpdate }: DeviationDetailsProps)
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {deviation.images.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-lg font-medium mb-2">Bilder</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {deviation.images.map(image => (
+              <div key={image.id} className="relative">
+                <img 
+                  src={image.fullUrl} 
+                  alt="Avviksbilde"
+                  className="rounded-lg object-cover w-full h-48"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

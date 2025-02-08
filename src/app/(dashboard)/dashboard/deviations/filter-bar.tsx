@@ -13,10 +13,11 @@ import { Search, SortAsc, SortDesc } from "lucide-react"
 import React from "react"
 
 interface FilterBarProps {
-  onFilterChange: (filters: FilterOptions) => void
-  onSortChange: (sort: SortOptions) => void
   filters: FilterOptions
   sort: SortOptions
+  onFilterChange: (filters: FilterOptions) => void
+  onSortChange: (sort: SortOptions) => void
+  statusOptions: Array<{ value: string, label: string }>
 }
 
 export interface FilterOptions {
@@ -72,7 +73,7 @@ const sortFields = [
   { value: "status", label: "Status" },
 ]
 
-export function FilterBar({ onFilterChange, onSortChange, filters, sort }: FilterBarProps) {
+export function FilterBar({ filters, sort, onFilterChange, onSortChange, statusOptions }: FilterBarProps) {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onFilterChange({ ...filters, search: e.target.value })
   }

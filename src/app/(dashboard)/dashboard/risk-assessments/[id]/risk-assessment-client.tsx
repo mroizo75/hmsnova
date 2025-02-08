@@ -10,6 +10,8 @@ import { useState } from "react"
 import { Pencil, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { HazardCard } from "./hazard-card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { UpdateStatusDialog } from "./update-status-dialog"
 
 interface Measure {
   id: string
@@ -61,15 +63,24 @@ interface RiskAssessment {
   createdAt: Date
   updatedAt: Date
   hazards: Hazard[]
+  equipment?: {
+    id: string
+    name: string
+    type: string
+    category: string
+    serialNumber?: string | null
+    location?: string | null
+  } | null
 }
 
 interface PageProps {
   assessment: RiskAssessment
+  onUpdate: () => Promise<void>
 }
 
-export function RiskAssessmentClient({ assessment }: PageProps) {
-  const [isEditing, setIsEditing] = useState(false)
+export function RiskAssessmentClient({ assessment, onUpdate }: PageProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
 
   // Beregn statistikk for risikomatrisen
   const matrixData = assessment.hazards.reduce((acc, hazard) => {
@@ -90,14 +101,12 @@ export function RiskAssessmentClient({ assessment }: PageProps) {
         <div className="flex-1 flex justify-between items-center">
           <h1 className="text-3xl font-bold">{assessment.title}</h1>
           <div className="flex items-center gap-2">
-            <Badge>{assessment.status}</Badge>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              {isEditing ? "Avslutt redigering" : "Rediger"}
-            </Button>
+            <UpdateStatusDialog
+              assessment={assessment}
+              open={statusDialogOpen}
+              onOpenChange={setStatusDialogOpen}
+              onUpdate={onUpdate}
+            />
             <AddHazardDialog 
               assessmentId={assessment.id} 
               open={dialogOpen}
@@ -115,6 +124,35 @@ export function RiskAssessmentClient({ assessment }: PageProps) {
                 <h3 className="font-semibold mb-1">Beskrivelse</h3>
                 <p className="text-muted-foreground">{assessment.description}</p>
               </div>
+              
+              {assessment.equipment && (
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-2">Utstyrsinformasjon</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-sm text-muted-foreground">Navn:</span>
+                      <p>{assessment.equipment.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Type:</span>
+                      <p>{assessment.equipment.type}</p>
+                    </div>
+                    {assessment.equipment.serialNumber && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Serienummer:</span>
+                        <p>{assessment.equipment.serialNumber}</p>
+                      </div>
+                    )}
+                    {assessment.equipment.location && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Plassering:</span>
+                        <p>{assessment.equipment.location}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="font-semibold mb-1">Avdeling/Område</h3>

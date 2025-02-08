@@ -1,75 +1,160 @@
-import { NextResponse } from "next/server"
-import { z } from "zod"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
-import { requireAuth } from "@/lib/utils/auth"
-
-const publishSchema = z.object({
-  comment: z.string().min(10).optional(),
-  version: z.number().optional()
-})
-
-interface RouteParams {
-  params: Promise<{ id: string }>
-}
+import { NextResponse } from "next/server"
 
 export async function POST(
   request: Request,
-  context: RouteParams
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await requireAuth()
-    const body = await request.json()
-    
-    const validatedData = publishSchema.parse(body)
-    const { id } = await context.params
-
-    // Finn gjeldende versjon
-    const currentHandbook = await prisma.hMSHandbook.findUnique({
-      where: {
-        id,
-        companyId: session.user.companyId
-      }
-    })
-
-    if (!currentHandbook) {
-      return NextResponse.json({ error: "HMS-håndbok ikke funnet" }, { status: 404 })
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    // Opprett ny versjon
-    const newVersion = currentHandbook.version + 1
+    const body = await request.json()
 
-    const publishedHandbook = await prisma.hMSHandbook.update({
-      where: { id },
-      data: {
-        published: true,
-        version: newVersion,
-      }
-    })
-
-    // Logg publiseringen
-    await prisma.auditLog.create({
-      data: {
-        action: "PUBLISH_HMS_HANDBOOK",
-        entityType: "HMS_HANDBOOK",
-        entityId: id,
-        userId: session.user.id,
-        companyId: session.user.companyId,
-        details: {
-          version: newVersion,
-          comment: validatedData.comment
+    // Hent kladden
+    const draft = await prisma.hMSHandbook.findFirst({
+      where: { 
+        id: params.id,
+        status: 'DRAFT'
+      },
+      include: { 
+        sections: {
+          include: {
+            subsections: true,
+            changes: true
+          }
         }
       }
     })
 
-    return NextResponse.json(publishedHandbook)
-  } catch (error) {
-    console.error("Error publishing HMS handbook:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Validation error", details: error.errors },
-        { status: 400 }
-      )
+    if (!draft) {
+      throw new Error("Draft not found")
     }
-    return new NextResponse("Internal error", { status: 500 })
+
+    // Hent aktiv håndbok
+    const activeHandbook = await prisma.hMSHandbook.findFirst({
+      where: { 
+        companyId: draft.companyId,
+        status: 'ACTIVE'
+      },
+      include: { 
+        sections: {
+          include: {
+            subsections: true
+          }
+        }
+      }
+    })
+
+    // Generer endringslogg
+    const changelog = generateChangelog(activeHandbook?.sections || [], draft.sections)
+
+    // Utfør transaksjonen
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Arkiver den aktive håndboken
+      if (activeHandbook) {
+        await tx.hMSHandbook.update({
+          where: { id: activeHandbook.id },
+          data: { 
+            status: 'ARCHIVED',
+          }
+        })
+      }
+
+      // 2. Publiser kladden som ny aktiv håndbok
+      const published = await tx.hMSHandbook.update({
+        where: { id: draft.id },
+        data: {
+          status: 'ACTIVE',
+          publishedAt: new Date(),
+          publishedBy: session.user.id,
+          version: draft.version // Behold versjonsnummeret fra kladden
+        }
+      })
+
+      // 3. Opprett release for historikk
+      await tx.hMSRelease.create({
+        data: {
+          version: published.version,
+          handbookId: published.id,
+          changes: body.changes,
+          reason: body.reason,
+          approvedBy: session.user.id,
+          content: draft.sections,
+          changelog: JSON.stringify(changelog)
+        }
+      })
+
+      return published
+    })
+
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("[PUBLISH_HANDBOOK]", error)
+    return new NextResponse("Internal Error", { status: 500 })
   }
+}
+
+interface Change {
+  type: 'ADD' | 'MODIFY' | 'DELETE'
+  sectionId: string
+  title: string
+  content?: string
+  oldContent?: string
+  newContent?: string
+}
+
+// Hjelpefunksjon for å generere endringslogg
+function generateChangelog(oldSections: any[], newSections: any[]): Change[] {
+  const changes: Change[] = []
+
+  for (const newSection of newSections) {
+    const oldSection = oldSections.find(s => s.id === newSection.id)
+    
+    if (!oldSection) {
+      changes.push({
+        type: 'ADD',
+        sectionId: newSection.id,
+        title: newSection.title,
+        content: newSection.content
+      })
+      continue
+    }
+
+    if (oldSection.content !== newSection.content) {
+      changes.push({
+        type: 'MODIFY',
+        sectionId: newSection.id,
+        title: newSection.title,
+        oldContent: oldSection.content,
+        newContent: newSection.content
+      })
+    }
+
+    // Sjekk underseksjoner rekursivt
+    if (newSection.subsections?.length > 0) {
+      const subChanges = generateChangelog(
+        oldSection.subsections || [],
+        newSection.subsections
+      )
+      changes.push(...subChanges)
+    }
+  }
+
+  // Finn slettede seksjoner
+  for (const oldSection of oldSections) {
+    if (!newSections.find(s => s.id === oldSection.id)) {
+      changes.push({
+        type: 'DELETE',
+        sectionId: oldSection.id,
+        title: oldSection.title
+      })
+    }
+  }
+
+  return changes
 } 

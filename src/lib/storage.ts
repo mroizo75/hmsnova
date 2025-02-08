@@ -36,12 +36,15 @@ export async function getSignedUrl(filePath: string) {
   }
 }
 
-export async function uploadToStorage(file: File, path: string) {
+export async function uploadToStorage(file: File, path: string, companyId: string) {
   try {
-    console.log('Uploading file to path:', path)
-    const buffer = Buffer.from(await file.arrayBuffer())
+    // Strukturer filbanen med companyId
+    const fullPath = `companies/${companyId}/${path}`
+    console.log('Uploading file to path:', fullPath)
     
-    const blob = bucket.file(path)
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const blob = bucket.file(fullPath)
+    
     const blobStream = blob.createWriteStream({
       resumable: false,
       metadata: {
@@ -49,17 +52,13 @@ export async function uploadToStorage(file: File, path: string) {
       },
     })
 
-    return new Promise((resolve, reject) => {
-      blobStream.on('error', (err) => {
-        console.error('Upload error:', err)
-        reject(err)
-      })
-
+    return new Promise<string>((resolve, reject) => {
+      blobStream.on('error', reject)
       blobStream.on('finish', async () => {
-        // Returner filstien i stedet for URL
-        resolve(path)
+        // Generer full URL
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fullPath}`
+        resolve(publicUrl)
       })
-
       blobStream.end(buffer)
     })
   } catch (error) {
@@ -88,6 +87,35 @@ export async function deleteFromStorage(filePath: string) {
 
   } catch (error) {
     console.error('Error deleting file:', error)
+    throw error
+  }
+}
+
+export async function uploadProfileImage(file: File, companyId: string, employeeId: string) {
+  try {
+    const path = `companies/${companyId}/profile/${employeeId}/profileImg`
+    console.log('Uploading profile image:', path)
+    
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const blob = bucket.file(path)
+    
+    const blobStream = blob.createWriteStream({
+      resumable: false,
+      metadata: {
+        contentType: file.type,
+      },
+    })
+
+    return new Promise<string>((resolve, reject) => {
+      blobStream.on('error', reject)
+      blobStream.on('finish', async () => {
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${path}`
+        resolve(publicUrl)
+      })
+      blobStream.end(buffer)
+    })
+  } catch (error) {
+    console.error('Profile image upload error:', error)
     throw error
   }
 } 

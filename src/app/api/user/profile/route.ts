@@ -2,31 +2,43 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { NextResponse } from "next/server"
 import prisma from "@/lib/db"
+import { Prisma } from "@prisma/client"
 
-export async function PUT(request: Request) {
+export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+    if (!session?.user?.id) {
+      return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const data = await request.json()
-    
-    const user = await prisma.user.update({
+    const body = await req.json()
+    const { name, email, phone, address, image, certifications } = body
+
+    const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
+      select: { metadata: true }
+    })
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: session.user.id
+      },
       data: {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        address: data.address
+        name,
+        email,
+        phone,
+        image,
+        address: address ? address : Prisma.JsonNull,
+        certifications: {
+          machineCards: certifications?.machineCards || [],
+          driverLicenses: certifications?.driverLicenses || []
+        }
       }
     })
 
-    return NextResponse.json(user)
+    return NextResponse.json(updatedUser)
   } catch (error) {
-    return NextResponse.json(
-      { error: "Kunne ikke oppdatere profil" },
-      { status: 500 }
-    )
+    console.error("Profile update error:", error)
+    return new NextResponse("Internal error", { status: 500 })
   }
 } 

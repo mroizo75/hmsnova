@@ -1,38 +1,63 @@
+import { Storage } from '@google-cloud/storage'
+import { NextResponse } from 'next/server'
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
-import { NextResponse } from "next/server"
-import { uploadToStorage } from "@/lib/storage"
-import { nanoid } from "nanoid"
+
+const storage = new Storage({
+  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS || '{}'),
+})
+
+const bucket = storage.bucket(process.env.GOOGLE_CLOUD_BUCKET_NAME!)
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
+    console.log("Session:", session)
+    
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
+      return new NextResponse("Unauthorized", { status: 401 })
     }
 
     const formData = await req.formData()
-    const file = formData.get("file") as File
-    if (!file) {
-      return NextResponse.json({ error: "Ingen fil lastet opp" }, { status: 400 })
+    const file = formData.get('file') as File
+    const companyId = formData.get('companyId') as string
+    const type = formData.get('type') as string // f.eks. 'profile'
+    
+    console.log("Received upload request:", {
+      fileType: file?.type,
+      fileSize: file?.size,
+      companyId,
+      type
+    })
+
+    if (!file || !companyId) {
+      return new NextResponse("Missing required fields", { status: 400 })
     }
 
-    // Generer en unik filsti med bedrifts-ID for å isolere filer per bedrift
-    const filePath = `${session.user.companyId}/sja/${nanoid()}-${file.name}`
-    
-    // Last opp til Google Cloud Storage
-    const path = await uploadToStorage(file, filePath)
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const path = `companies/${companyId}/${type}/${session.user.id}/image`
+    const blob = bucket.file(path)
 
-    // Konstruer full URL
-    const url = `https://storage.googleapis.com/${process.env.GOOGLE_CLOUD_BUCKET_NAME}/${path}`
+    await new Promise((resolve, reject) => {
+      const blobStream = blob.createWriteStream({
+        resumable: false,
+        metadata: {
+          contentType: file.type,
+        },
+      })
+      
+      blobStream.on('error', reject)
+      blobStream.on('finish', resolve)
+      blobStream.end(buffer)
+    })
 
-    return NextResponse.json({ url })
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${path}`
+    return NextResponse.json({ url: publicUrl })
+
   } catch (error) {
-    console.error("Error uploading file:", error)
-    return NextResponse.json(
-      { error: "Kunne ikke laste opp fil" },
-      { status: 500 }
-    )
+    console.error('Upload error:', error)
+    return new NextResponse("Upload failed", { status: 500 })
   }
 }
 
