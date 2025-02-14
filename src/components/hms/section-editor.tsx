@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Editor } from "@/components/editor"
-import { PendingChangesDialog } from "@/app/(dashboard)/dashboard/hms-handbook/pending-changes-dialog"
+import { PendingChangesDialog } from "@/app/(dashboard)/dashboard/hms-handbook/draft/[id]/pending-changes-dialog"
 import { SectionChangesList } from "@/components/hms/section-changes-list"
 import { Plus } from "lucide-react"
 

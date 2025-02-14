@@ -14,10 +14,7 @@ export async function PATCH(req: Request) {
     const body = await req.json()
     const { name, email, phone, address, image, certifications } = body
 
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { metadata: true }
-    })
+    console.log("Saving certifications:", certifications)
 
     const updatedUser = await prisma.user.update({
       where: {
@@ -28,17 +25,56 @@ export async function PATCH(req: Request) {
         email,
         phone,
         image,
-        address: address ? address : Prisma.JsonNull,
-        certifications: {
-          machineCards: certifications?.machineCards || [],
-          driverLicenses: certifications?.driverLicenses || []
-        }
+        address,
+        certifications // Dette er JSON-feltet
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        image: true,
+        address: true,
+        certifications: true
       }
     })
 
+    console.log("Updated user:", updatedUser)
     return NextResponse.json(updatedUser)
   } catch (error) {
     console.error("Profile update error:", error)
+    return new NextResponse("Internal error", { status: 500 })
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return new NextResponse("Unauthorized", { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        image: true,
+        address: true,
+        certifications: true,
+        companyId: true
+      }
+    })
+
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 })
+    }
+
+    return NextResponse.json(user)
+  } catch (error) {
+    console.error("Profile fetch error:", error)
     return new NextResponse("Internal error", { status: 500 })
   }
 } 

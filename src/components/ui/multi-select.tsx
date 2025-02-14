@@ -1,9 +1,21 @@
 "use client"
 
 import * as React from "react"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "./command"
-import { Badge } from "./badge"
-import { X } from "lucide-react"
+import { Check } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 interface Option {
   value: string
@@ -13,82 +25,62 @@ interface Option {
 interface MultiSelectProps {
   options: Option[]
   selected: string[]
-  onChange: (selected: string[]) => void
+  onChange: (value: string[]) => void
   placeholder?: string
 }
 
-export function MultiSelect({ options, selected, onChange, placeholder }: MultiSelectProps) {
+export function MultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder = "Velg..."
+}: MultiSelectProps) {
   const [open, setOpen] = React.useState(false)
-  const [inputValue, setInputValue] = React.useState("")
-
-  const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(inputValue.toLowerCase())
-  )
 
   return (
-    <Command className="overflow-visible bg-white">
-      <div 
-        className="group border border-input px-3 py-2 text-sm rounded-md"
-        onClick={() => setOpen(true)}
-      >
-        <div className="flex gap-1 flex-wrap">
-          {selected.map((value) => {
-            const option = options.find((o) => o.value === value)
-            return (
-              <Badge key={value} variant="secondary">
-                {option?.label}
-                <button
-                  className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      onChange(selected.filter((s) => s !== value))
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                  }}
-                  onClick={() => onChange(selected.filter((s) => s !== value))}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )
-          })}
-          <CommandInput 
-            placeholder={placeholder} 
-            value={inputValue}
-            onValueChange={setInputValue}
-            onBlur={() => setTimeout(() => setOpen(false), 200)}
-            onFocus={() => setOpen(true)}
-            className="flex-1 min-w-[120px] outline-none bg-transparent"
-          />
-        </div>
-      </div>
-      <div className="relative mt-2">
-        {open && (
-          <div className="absolute top-0 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in">
-            <CommandEmpty>Ingen resultater.</CommandEmpty>
-            <CommandGroup className="max-h-60 overflow-auto">
-              {filteredOptions.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  onSelect={() => {
-                    onChange(
-                      selected.includes(option.value)
-                        ? selected.filter((s) => s !== option.value)
-                        : [...selected, option.value]
-                    )
-                    setInputValue("")
-                  }}
-                >
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </div>
-        )}
-      </div>
-    </Command>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {selected.length === 0
+            ? placeholder
+            : `${selected.length} valgt`}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0">
+        <Command>
+          <CommandInput placeholder="Søk..." />
+          <CommandEmpty>Ingen resultater.</CommandEmpty>
+          <CommandGroup>
+            {options.map((option) => (
+              <CommandItem
+                key={option.value}
+                onSelect={() => {
+                  onChange(
+                    selected.includes(option.value)
+                      ? selected.filter((item) => item !== option.value)
+                      : [...selected, option.value]
+                  )
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    selected.includes(option.value)
+                      ? "opacity-100"
+                      : "opacity-0"
+                  )}
+                />
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 } 

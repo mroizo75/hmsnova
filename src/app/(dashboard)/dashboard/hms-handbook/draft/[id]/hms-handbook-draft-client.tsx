@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import type { Section } from "../../hms-handbook-client"
 import { formatDate } from "@/lib/utils/date"
+import { PendingChanges } from "./pending-changes"
+import { PendingChangesDialog } from "./pending-changes-dialog"
 
 interface HMSHandbookDraft {
   id: string
@@ -36,6 +38,7 @@ export function HMSHandbookDraftClient({ draft }: Props) {
   const [selectedSection, setSelectedSection] = useState<Section | null>(draft.sections[0])
   const [activeTab, setActiveTab] = useState("content")
   const router = useRouter()
+  const [isChangesDialogOpen, setIsChangesDialogOpen] = useState(false)
 
   // Funksjon for å finne en seksjon basert på ID
   const findSection = (sections: Section[], id: string): Section | null => {
@@ -101,7 +104,6 @@ export function HMSHandbookDraftClient({ draft }: Props) {
                       {selectedSection.changes.length}
                     </Badge>
                   )}
-
                 </TabsTrigger>
                 <TabsTrigger value="standards">Standarder og dokumenter</TabsTrigger>
               </TabsList>
@@ -120,26 +122,48 @@ export function HMSHandbookDraftClient({ draft }: Props) {
                 <Card className="p-6">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-lg font-medium">HMS-endringer</h2>
-                      <Button variant="outline" size="sm" onClick={() => {
-                        // Implementer dialog for å legge til endringer
-                      }}>
-                        Legg til endring
+                      <h2 className="text-lg font-medium">HMS-endringer for {selectedSection.title}</h2>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsChangesDialogOpen(true)}
+                      >
+                        Legg til endringer
                       </Button>
                     </div>
-                    {selectedSection.changes?.map((change) => (
-                      <div key={change.id} className="border p-4 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium">{change.title}</h3>
-                          <Badge variant={change.status === 'OPEN' ? 'default' : 'secondary'}>
-                            {change.status === 'OPEN' ? 'Aktiv' : change.status}
-                          </Badge>
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {change.description}
-                        </p>
+                    
+                    {/* Vis eksisterende endringer */}
+                    {selectedSection.changes && selectedSection.changes.length > 0 ? (
+                      <div className="space-y-4">
+                        {selectedSection.changes.map((change) => (
+                          <Card key={change.id} className="p-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-medium">{change.title}</h3>
+                              <Badge variant={change.status === 'OPEN' ? 'default' : 'secondary'}>
+                                {change.status === 'OPEN' ? 'Aktiv' : change.status}
+                              </Badge>
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {change.description}
+                            </p>
+                          </Card>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Ingen HMS-endringer er lagt til i denne seksjonen ennå
+                      </p>
+                    )}
+
+                    {/* Dialog for å legge til endringer */}
+                    <PendingChangesDialog
+                      open={isChangesDialogOpen}
+                      onOpenChange={setIsChangesDialogOpen}
+                      sectionId={selectedSection.id}
+                      onChangesSelected={() => {
+                        router.refresh()
+                        toast.success('HMS-endringer lagt til')
+                      }}
+                    />
                   </div>
                 </Card>
               </TabsContent>

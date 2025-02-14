@@ -56,7 +56,11 @@ export function BehandleSJAModal({ sja, open, onOpenChange, onBehandle }: Behand
       const oppdatertSja = await response.json()
       onBehandle(oppdatertSja)
       onOpenChange(false)
-      toast.success(`SJA ${values.status === SJAStatus.GODKJENT ? 'godkjent' : 'avvist'}`)
+      toast.success(
+        values.status === SJAStatus.GODKJENT 
+          ? 'SJA godkjent' 
+          : 'SJA avvist'
+      )
     } catch (error) {
       console.error('Feil ved behandling av SJA:', error)
       toast.error('Kunne ikke behandle SJA')

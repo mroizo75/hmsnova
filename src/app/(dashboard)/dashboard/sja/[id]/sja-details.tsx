@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { formatDate } from "@/lib/utils/date"
-import { Upload, ExternalLink, ArrowLeft } from "lucide-react"
+import { Upload, ExternalLink, ArrowLeft, Image as ImageIcon, FileText } from "lucide-react"
 import { useState } from "react"
 import { AddVedleggModal } from "../add-vedlegg-modal"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,11 @@ import { SJAStatus } from "@prisma/client"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Table, TableHeader, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table"
+import { useSignedUrls } from '@/hooks/use-signed-urls'
+import Image from 'next/image'
+import { ImageModal } from "@/components/ui/image-modal"
+import { PDFDocument, StandardFonts } from 'pdf-lib'
+import { toast } from 'react-hot-toast'
 
 interface SJADetailsProps {
   sja: any
@@ -19,18 +24,129 @@ interface SJADetailsProps {
 }
 
 export function SJADetails({ sja, userRole }: SJADetailsProps) {
-  console.log('SJA data:', JSON.stringify(sja, null, 2))
-  
   const [addVedleggOpen, setAddVedleggOpen] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const isAdmin = userRole === "COMPANY_ADMIN"
   const router = useRouter()
 
   // Sikre at arrays alltid eksisterer
-  const risikoer = sja.risikoer ?? []
-  const tiltak = sja.tiltak ?? []
-  const produkter = sja.produkter ?? []
-  const vedlegg = sja.vedlegg ?? []
-  const godkjenninger = sja.godkjenninger ?? []
+  const risikoer = sja?.risikoer ?? []
+  const tiltak = sja?.tiltak ?? []
+  const produkter = sja?.produkter ?? []
+  const vedlegg = sja?.vedlegg ?? []
+  const bilder = sja?.bilder ?? []
+  const godkjenninger = sja?.godkjenninger ?? []
+
+  // Hjelpefunksjon for å konstruere full URL
+  const getFullImageUrl = (path: string) => {
+    if (!path) return null
+    return `companies/${sja.companyId}/${path}`
+  }
+
+  // Samle alle URLer som faktisk eksisterer
+  const urlsToSign = [
+    ...(vedlegg?.map((v: any) => v.url) || []),
+    ...(bilder?.map((b: any) => getFullImageUrl(b.url)) || [])
+  ].filter(Boolean)
+
+  const { signedUrls, loading: urlsLoading, error: urlError } = useSignedUrls(urlsToSign)
+
+  // Bildegalleri-seksjonen
+  const renderBilder = () => {
+    if (!sja) return <p>Laster...</p>
+    
+    if (urlsLoading) {
+      return <p>Laster bilder...</p>
+    }
+
+    if (urlError) {
+      return <p className="text-red-500">Kunne ikke laste bilder: {urlError}</p>
+    }
+
+    if (!bilder?.length) {
+      return <p className="text-muted-foreground">Ingen bilder er lagt til</p>
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {bilder.map((bilde: any, index: number) => {
+          const fullUrl = getFullImageUrl(bilde.url)
+          const signedUrl = signedUrls[fullUrl as string]
+          
+          if (!signedUrl) return null
+
+          return (
+            <div 
+              key={bilde.id} 
+              className="relative aspect-video group cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setSelectedImage(signedUrl)}
+            >
+              <Image
+                src={signedUrl}
+                alt={bilde.beskrivelse || `Bilde ${index + 1}`}
+                fill
+                className="object-cover rounded-lg"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <ImageIcon className="w-8 h-8 text-white" />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  async function getBase64FromUrl(url: string): Promise<string> {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const base64 = reader.result as string
+        // Fjern data:image/jpeg;base64, fra starten
+        const base64Clean = base64.split(',')[1]
+        resolve(base64Clean)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  const generatePDF = async () => {
+    try {
+      const response = await fetch(`/api/sja/${sja.id}/pdf`)
+      if (!response.ok) throw new Error('Kunne ikke generere PDF')
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `SJA-${sja.id}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Feil ved generering av PDF:', error)
+      toast.error('Kunne ikke generere PDF')
+    }
+  }
+
+  // Hjelpefunksjon for å beregne risikoverdi
+  const beregnRisikoverdi = (sannsynlighet: number, alvorlighet: number) => {
+    return sannsynlighet * alvorlighet;
+  }
+
+  const getRisikoNivå = (sannsynlighet: number, alvorlighet: number) => {
+    const risikoVerdi = beregnRisikoverdi(sannsynlighet, alvorlighet)
+    
+    // Bestem risikonivå og farge basert på risikoverdi
+    if (risikoVerdi > 15) return { verdi: risikoVerdi, nivå: "Høy", color: "text-red-600" }
+    if (risikoVerdi > 8) return { verdi: risikoVerdi, nivå: "Middels", color: "text-yellow-600" }
+    return { verdi: risikoVerdi, nivå: "Lav", color: "text-green-600" }
+  }
+
+  if (!sja) return <div>Laster...</div>
 
   return (
     <div className="space-y-6">
@@ -141,41 +257,61 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Risikoer og tiltak</h2>
           <div className="space-y-4">
-            {risikoer.map((risiko: any) => (
-              <div key={risiko.id} className="border-b pb-4 last:border-0">
-                <h3 className="font-medium">{risiko.beskrivelse}</h3>
-                <ul className="mt-2 space-y-2">
-                  {tiltak.map((tiltak: any) => (
-                    <li key={tiltak.id} className="text-sm">
-                      • {tiltak.beskrivelse}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {risikoer.map((risiko: any, index: number) => {
+              const { verdi, nivå, color } = getRisikoNivå(risiko.sannsynlighet, risiko.alvorlighet)
+              return (
+                <div key={index} className="space-y-2 p-4 border rounded-lg">
+                  <p><strong>Aktivitet:</strong> {risiko.aktivitet}</p>
+                  <p><strong>Fare:</strong> {risiko.fare}</p>
+                  <p>
+                    <strong>Risikoverdi:</strong>{" "}
+                    <span className={color}>
+                      {risiko.sannsynlighet} × {risiko.alvorlighet} = {verdi} ({nivå})
+                    </span>
+                    <span className="text-sm text-gray-600 ml-2">
+                      (Sannsynlighet × Alvorlighet = Risikoverdi)
+                    </span>
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {tiltak.map((tiltak: any) => (
+                      <li key={tiltak.id} className="text-sm">
+                        • {tiltak.beskrivelse}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })}
           </div>
         </Card>
 
         <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Bilder</h2>
+          {renderBilder()}
+        </Card>
+
+        <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Vedlegg</h2>
-          {vedlegg.length > 0 ? (
+          {urlsLoading ? (
+            <p>Laster vedlegg...</p>
+          ) : vedlegg.length > 0 ? (
             <ul className="space-y-2">
               {vedlegg.map((v: any) => (
                 <li key={v.id}>
                   <Link 
-                    href={v.url} 
+                    href={signedUrls[v.url as string] || v.url}
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex items-center text-blue-600 hover:underline"
+                    className="text-blue-600 hover:underline flex items-center gap-2"
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    {v.navn}
+                    <ExternalLink className="h-4 w-4" />
+                    {v.navn || 'Vedlegg'}
                   </Link>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-muted-foreground">Ingen vedlegg lagt til</p>
+            <p className="text-muted-foreground">Ingen vedlegg er lagt til</p>
           )}
         </Card>
       </div>
@@ -198,15 +334,18 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {risikoer.map((risiko: any) => (
-                  <TableRow key={risiko.id}>
-                    <TableCell>{risiko.aktivitet}</TableCell>
-                    <TableCell>{risiko.fare}</TableCell>
-                    <TableCell>{risiko.sannsynlighet}</TableCell>
-                    <TableCell>{risiko.alvorlighet}</TableCell>
-                    <TableCell>{risiko.risikoVerdi}</TableCell>
-                  </TableRow>
-                ))}
+                {risikoer.map((risiko: any) => {
+                  const risikoVerdi = beregnRisikoverdi(risiko.sannsynlighet, risiko.alvorlighet)
+                  return (
+                    <TableRow key={risiko.id}>
+                      <TableCell>{risiko.aktivitet}</TableCell>
+                      <TableCell>{risiko.fare}</TableCell>
+                      <TableCell>{risiko.sannsynlighet}</TableCell>
+                      <TableCell>{risiko.alvorlighet}</TableCell>
+                      <TableCell>{risikoVerdi}</TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -244,11 +383,26 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
         </Card>
       )}
 
+      <ImageModal
+        isOpen={!!selectedImage}
+        onClose={() => setSelectedImage(null)}
+        imageUrl={selectedImage || ''}
+      />
+
       <AddVedleggModal
         open={addVedleggOpen}
         onOpenChange={setAddVedleggOpen}
         sjaId={sja.id}
       />
+
+      <Button 
+        variant="outline" 
+        onClick={generatePDF}
+        className="gap-2"
+      >
+        <FileText className="h-4 w-4" />
+        Generer PDF
+      </Button>
     </div>
   )
 } 

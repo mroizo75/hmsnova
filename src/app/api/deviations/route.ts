@@ -81,6 +81,7 @@ export async function POST(req: Request) {
     const data = Object.fromEntries(formData)
     const imageFile = formData.get('image') as File | null
 
+    // Først oppretter vi avviket
     const deviation = await prisma.deviation.create({
       data: {
         title: data.title as string,
@@ -98,9 +99,12 @@ export async function POST(req: Request) {
       }
     })
 
-    // Håndter bildeopplasting etter at avviket er opprettet
+    // Så laster vi opp bildet med den nye stien
     if (imageFile) {
-      const imageUrl = await uploadToStorage(imageFile, 'deviations', session.user.companyId)
+      // Nå bruker vi deviationId i stien
+      const path = `deviations/${deviation.id}/images/${imageFile.name}`
+      const imageUrl = await uploadToStorage(imageFile, path, session.user.companyId)
+      
       await prisma.deviationImage.create({
         data: {
           url: imageUrl,

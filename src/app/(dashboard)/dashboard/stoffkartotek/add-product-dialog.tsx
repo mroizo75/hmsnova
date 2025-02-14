@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { FareSymbol } from "@prisma/client"
+import { FareSymbol, PPESymbol } from "@prisma/client"
 import { FareSymbolBadge } from "./fare-symbol-badge"
+import { PPESymbolBadge } from "./ppe-symbol-badge"
 import { Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -17,12 +18,43 @@ interface AddStoffkartotekModalProps {
   onAdd: (formData: FormData) => Promise<any>
 }
 
+// Definer PPE_GROUPS etter at vi er sikre på at PPESymbol er importert
+console.log("Available PPE Symbols:", Object.values(PPESymbol)) // Debug logging
+
+// Definer gruppene med PPESymbol fra Prisma
+const PPE_GROUPS = {
+  'Personlig verneutstyr': [
+    'M003_WEAR_EAR_PROTECTION',
+    'M004_WEAR_EYE_PROTECTION',
+    'M007_WEAR_OPAQUE_EYE_PROTECTION',
+    'M008_WEAR_FOOT_PROTECTION',
+    'M009_WEAR_PROTECTIVE_GLOVES',
+    'M010_WEAR_PROTECTIVE_CLOTHING',
+    'M013_WEAR_FACE_SHIELD',
+    'M014_WEAR_HEAD_PROTECTION',
+    'M015_WEAR_HIGH_VISIBILITY',
+    'M016_WEAR_MASK',
+    'M017_WEAR_RESPIRATORY_PROTECTION',
+    'M018_WEAR_SAFETY_HARNESS',
+    'M026_USE_PROTECTIVE_APRON',
+    'M047_USE_BREATHING_EQUIPMENT',
+    'M059_WEAR_LAB_COAT'
+  ] as PPESymbol[],
+  'Hygiene og sikkerhet': [
+    'M011_WASH_HANDS',
+    'M022_USE_BARRIER_CREAM'
+  ] as PPESymbol[]
+} as const;
+
 export function AddStoffkartotekModal({
   open,
   onOpenChange,
   onAdd,
 }: AddStoffkartotekModalProps) {
+  console.log("Component mounted") // Debug logging
+  
   const [selectedSymbols, setSelectedSymbols] = useState<FareSymbol[]>([])
+  const [selectedPPE, setSelectedPPE] = useState<PPESymbol[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
@@ -74,7 +106,8 @@ export function AddStoffkartotekModal({
         databladUrl,
         beskrivelse: formData.get('beskrivelse'),
         bruksomrade: formData.get('bruksomrade'),
-        fareSymboler: selectedSymbols
+        fareSymboler: selectedSymbols.map(symbol => ({ symbol })),
+        ppeSymboler: selectedPPE.map(symbol => ({ symbol }))
       }
 
       const response = await fetch('/api/stoffkartotek', {
@@ -91,6 +124,7 @@ export function AddStoffkartotekModal({
 
       onOpenChange(false)
       setSelectedSymbols([])
+      setSelectedPPE([])
       setSelectedFile(null)
       setUploadProgress(0)
       ;(e.target as HTMLFormElement).reset()
@@ -106,6 +140,15 @@ export function AddStoffkartotekModal({
 
   const toggleSymbol = (symbol: FareSymbol) => {
     setSelectedSymbols(prev => 
+      prev.includes(symbol)
+        ? prev.filter(s => s !== symbol)
+        : [...prev, symbol]
+    )
+  }
+
+  const togglePPE = (symbol: PPESymbol) => {
+    console.log("Toggling symbol:", symbol)
+    setSelectedPPE(prev => 
       prev.includes(symbol)
         ? prev.filter(s => s !== symbol)
         : [...prev, symbol]
@@ -203,6 +246,39 @@ export function AddStoffkartotekModal({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* PPE Symboler */}
+            <div className="space-y-4">
+              <h3 className="font-medium text-sm text-muted-foreground">
+                Påkrevd verneutstyr
+              </h3>
+              {Object.entries(PPE_GROUPS).map(([groupName, symbols]) => (
+                <div key={groupName} className="space-y-2">
+                  <h4 className="text-sm font-medium">{groupName}</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {symbols.map((symbol) => (
+                      <button
+                        key={symbol}
+                        type="button"
+                        onClick={() => togglePPE(symbol)}
+                        className={cn(
+                          "flex items-center justify-start w-full p-2 rounded transition-colors",
+                          selectedPPE.includes(symbol)
+                            ? "bg-secondary/20 ring-2 ring-secondary"
+                            : "hover:bg-secondary/10"
+                        )}
+                      >
+                        <PPESymbolBadge 
+                          symbol={symbol} 
+                          showLabel 
+                          selected={selectedPPE.includes(symbol)} 
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Beskrivelse og bruksområde */}

@@ -4,73 +4,73 @@ import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
 
 export async function POST(request: NextRequest) {
-  console.log('=== API: MOTTAR MAL-REQUEST ===')
+  console.log('\n=== API: STARTER MAL-OPPRETTELSE ===')
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
-      console.log('API: Ingen autorisert bruker')
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
     const json = await request.json()
-    console.log('API: Mottatt mal-data:', json)
+    console.log('\nAPI: Mottatt mal-data:', JSON.stringify(json, null, 2))
 
-    const { 
-      navn,
-      beskrivelse,
-      tittel,
-      prosjektNavn,
-      arbeidssted,
-      deltakere,
-      ansvarlig,
-      arbeidsoppgaver,
-      risikoer,
-      tiltak
-    } = json
-
+    // Først oppretter vi selve malen
     const mal = await prisma.sJAMal.create({
       data: {
-        navn,
-        beskrivelse,
-        tittel,
-        prosjektNavn,
-        arbeidssted,
-        deltakere,
-        ansvarlig,
-        arbeidsoppgaver,
-        risikoer: {
-          create: risikoer.map((r: any) => ({
-            aktivitet: r.aktivitet,
-            fare: r.fare,
-            konsekvens: r.konsekvens,
-            sannsynlighet: r.sannsynlighet,
-            alvorlighet: r.alvorlighet,
-            risikoVerdi: r.risikoVerdi,
-            tiltak: r.tiltak
-          }))
-        },
-        tiltak: {
-          create: tiltak.map((t: any) => ({
-            beskrivelse: t.beskrivelse,
-            ansvarlig: t.ansvarlig,
-            frist: t.frist ? new Date(t.frist) : null
-          }))
-        },
+        navn: json.navn,
+        beskrivelse: json.beskrivelse,
+        tittel: json.tittel,
+        arbeidssted: json.arbeidssted,
+        deltakere: json.deltakere,
+        ansvarlig: json.deltakere,
+        arbeidsoppgaver: json.beskrivelse || '',
         companyId: session.user.companyId,
         opprettetAvId: session.user.id
-      },
+      }
+    })
+
+    // Så legger vi til risikoer
+    if (json.risikoer?.length > 0) {
+      await prisma.sJAMalRisiko.createMany({
+        data: json.risikoer.map((r: any) => ({
+          malId: mal.id,
+          aktivitet: r.aktivitet,
+          fare: r.fare,
+          konsekvens: r.konsekvens || '',
+          sannsynlighet: r.sannsynlighet,
+          alvorlighet: r.alvorlighet,
+          risikoVerdi: r.risikoVerdi,
+          tiltak: r.tiltak || ''
+        }))
+      })
+    }
+
+    // Og til slutt tiltak
+    if (json.tiltak?.length > 0) {
+      await prisma.sJAMalTiltak.createMany({
+        data: json.tiltak.map((t: any) => ({
+          malId: mal.id,
+          beskrivelse: t.beskrivelse,
+          ansvarlig: t.ansvarlig,
+          frist: t.frist ? new Date(t.frist) : null
+        }))
+      })
+    }
+
+    // Hent den komplette malen med relasjoner
+    const kompletMal = await prisma.sJAMal.findUnique({
+      where: { id: mal.id },
       include: {
         risikoer: true,
         tiltak: true
       }
     })
 
-    console.log('API: Mal opprettet:', mal)
-    return NextResponse.json(mal)
+    return NextResponse.json(kompletMal)
   } catch (error) {
-    console.error("API: Feil ved opprettelse av SJA-mal:", error)
+    console.error("\nAPI: Feil ved opprettelse av SJA-mal:", error)
     return NextResponse.json(
-      { error: "Kunne ikke opprette mal" },
+      { error: error instanceof Error ? error.message : "Kunne ikke opprette mal" },
       { status: 500 }
     )
   }

@@ -20,10 +20,9 @@ interface HandbookVersion {
   id: string
   version: number
   title: string
-  publishedAt: Date
-  publishedBy: {
-    name: string | null
-  } | null
+  publishedAt: Date | null
+  publishedBy: string | null
+  status: string
   sections: Array<{
     id: string
     title: string
@@ -38,26 +37,47 @@ interface HandbookVersion {
   }>
 }
 
-export default async function HistoryPage() {
-  const session = await getServerSession(authOptions)
-  console.log("History Page Session:", session?.user)
-
-  if (!session?.user?.companyId) redirect("/login")
-
+export default function HistoryPage() {
   const [versions, setVersions] = useState<HandbookVersion[]>([])
+  const [session, setSession] = useState<any>(null)
   const [selectedVersions, setSelectedVersions] = useState<{v1?: string, v2?: string}>({})
   const [comparison, setComparison] = useState<{v1?: HandbookVersion, v2?: HandbookVersion}>({})
   const [isComparing, setIsComparing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchVersions()
+    async function checkAuth() {
+      const response = await fetch('/api/auth/session')
+      const sessionData = await response.json()
+      
+      if (!sessionData?.user?.companyId) {
+        window.location.href = '/login'
+        return
+      }
+      
+      setSession(sessionData)
+      fetchVersions()
+    }
+
+    checkAuth()
   }, [])
 
   async function fetchVersions() {
-    const response = await fetch('/api/hms-handbook/versions')
-    if (response.ok) {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/hms-handbook/versions')
+      if (!response.ok) throw new Error('Kunne ikke hente versjoner')
+      
       const data = await response.json()
-      setVersions(data.filter((v: HandbookVersion) => v.publishedAt))
+      setVersions(data.filter((v: HandbookVersion) => 
+        v.status === 'ACTIVE' && v.publishedAt
+      ))
+    } catch (error) {
+      setError('Kunne ikke laste versjonshistorikk')
+      console.error('Error fetching versions:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -100,6 +120,9 @@ export default async function HistoryPage() {
     })
   }
 
+  if (isLoading) return <div>Laster...</div>
+  if (error) return <div className="text-red-500">{error}</div>
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -114,10 +137,12 @@ export default async function HistoryPage() {
         </Button>
       </div>
 
-      <CreateVersionButton 
-        companyId={session.user.companyId} 
-        userId={session.user.id}
-      />
+      {session?.user && (
+        <CreateVersionButton 
+          companyId={session.user.companyId} 
+          userId={session.user.id}
+        />
+      )}
 
       {isComparing ? (
         <Card className="p-6">
@@ -207,8 +232,8 @@ export default async function HistoryPage() {
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold">Versjon {version.version}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Publisert {format(new Date(version.publishedAt), 'dd.MM.yyyy')} 
-                  av {version.publishedBy?.name}
+                  Publisert {version.publishedAt ? format(new Date(version.publishedAt), 'dd.MM.yyyy') : 'Ikke publisert'}
+                  av {version.publishedBy}
                 </p>
               </div>
               <Button variant="outline" asChild>

@@ -3,29 +3,38 @@ import { formatDate } from "@/lib/utils/date"
 import { jsPDF } from "jspdf"
 import autoTable from 'jspdf-autotable'
 import { statusLabels } from "@/lib/constants/sja"
-import { FareSymbol } from "@prisma/client"
 
-export async function generatePDF(sja: SJAWithRelations) {
+interface ImagePosition {
+  x: number
+  y: number
+}
+
+export async function generatePDF(sja: SJAWithRelations, signedImageUrls?: Record<string, string>) {
   const doc = new jsPDF()
+  let yPos = 20 // Start y-posisjon
   
   // Tittel og header
   doc.setFontSize(20)
-  doc.text("Sikker Jobb Analyse", 14, 20)
+  doc.text("Sikker Jobb Analyse", 14, yPos)
+  yPos += 20
   
   // Generell informasjon
   doc.setFontSize(12)
-  doc.text(`Tittel: ${sja.tittel}`, 14, 35)
-  doc.text(`Arbeidssted: ${sja.arbeidssted}`, 14, 42)
-  doc.text(`Status: ${statusLabels[sja.status]}`, 14, 49)
-  doc.text(`Startdato: ${formatDate(sja.startDato)}`, 14, 56)
+  doc.text(`Tittel: ${sja.tittel}`, 14, yPos); yPos += 7
+  doc.text(`Arbeidssted: ${sja.arbeidssted}`, 14, yPos); yPos += 7
+  doc.text(`Status: ${statusLabels[sja.status as keyof typeof statusLabels]}`, 14, yPos); yPos += 7
+  doc.text(`Startdato: ${formatDate(sja.startDato as any)}`, 14, yPos); yPos += 7
   if (sja.sluttDato) {
-    doc.text(`Sluttdato: ${formatDate(sja.sluttDato)}`, 14, 63)
+    doc.text(`Sluttdato: ${formatDate(sja.sluttDato as any)}`, 14, yPos)
+    yPos += 7
   }
-  
+  yPos += 10
+
   // Produkter fra stoffkartotek
   doc.setFontSize(14)
-  doc.text("Produkter fra stoffkartotek", 14, 77)
-  
+  doc.text("Produkter fra stoffkartotek", 14, yPos)
+  yPos += 10
+
   const produktData = sja.produkter.map(p => [
     p.produkt.produktnavn,
     p.produkt.produsent || 'Ikke spesifisert',
@@ -34,136 +43,119 @@ export async function generatePDF(sja: SJAWithRelations) {
   ])
   
   autoTable(doc, {
-    startY: 82,
+    startY: yPos,
     head: [['Produkt', 'Produsent', 'Mengde', 'Faresymboler']],
     body: produktData
   })
   
-  // Beskrivelse
-  const currentY = (doc as any).lastAutoTable.finalY + 15
-  doc.setFontSize(14)
-  doc.text("Beskrivelse", 14, currentY)
-  doc.setFontSize(12)
-  doc.text(sja.beskrivelse, 14, currentY + 7)
-  
+  yPos = (doc as any).lastAutoTable.finalY + 15
+
   // Risikoer og tiltak
-  const risikoY = currentY + 25
   doc.setFontSize(14)
-  doc.text("Identifiserte risikoer", 14, risikoY)
-  
-  if (sja.risikoer && Array.isArray(sja.risikoer) && sja.risikoer.length > 0) {
-    const risikoData = sja.risikoer.map((r: any) => [
-      r.beskrivelse,
+  doc.text("Identifiserte risikoer og tiltak", 14, yPos)
+  yPos += 10
+
+  if (sja.risikoer?.length > 0) {
+    const risikoData = sja.risikoer.map(r => [
+      r.aktivitet,
+      r.fare,
+      r.konsekvens,
+      r.sannsynlighet.toString(),
+      r.alvorlighet.toString(),
+      r.risikoVerdi.toString(),
       sja.tiltak
         .filter((t: any) => t.risikoId === r.id)
-        .map((t: any) => `• ${t.beskrivelse}`)
-        .join('\n') || 'Ingen tiltak registrert'
+        .map(t => `• ${t.beskrivelse}`)
+        .join('\n') || 'Ingen tiltak'
     ])
     
     autoTable(doc, {
-      startY: risikoY + 5,
-      head: [['Risiko', 'Tiltak']],
-      body: risikoData
+      startY: yPos,
+      head: [['Aktivitet', 'Fare', 'Konsekvens', 'S', 'A', 'R', 'Tiltak']],
+      body: risikoData,
+      styles: { fontSize: 10 },
+      columnStyles: {
+        3: { cellWidth: 15 },
+        4: { cellWidth: 15 },
+        5: { cellWidth: 15 }
+      }
     })
-  } else {
-    doc.setFontSize(12)
-    doc.text("Ingen risikoer registrert", 14, risikoY + 7)
+    
+    yPos = (doc as any).lastAutoTable.finalY + 15
   }
-  
-  // Vedlegg
-  const vedleggY = (doc as any).lastAutoTable?.finalY + 15 || risikoY + 25
-  doc.setFontSize(14)
-  doc.text("Vedlegg", 14, vedleggY)
-  
-  if (sja.vedlegg && Array.isArray(sja.vedlegg) && sja.vedlegg.length > 0) {
-    let currentY = vedleggY + 10
 
-    for (const vedlegg of sja.vedlegg) {
+  // Bilder
+  if (sja.bilder && sja.bilder.length > 0) {
+    doc.setFontSize(14)
+    doc.text("Bilder", 14, yPos)
+    yPos += 10
+
+    const imageWidth = 80
+    const imageHeight = 60
+    const margin = 14
+
+    for (const bilde of sja.bilder) {
       try {
-        const isImage = vedlegg.type?.startsWith('image/') || 
-                       /\.(jpg|jpeg|png|gif)$/i.test(vedlegg.url)
+        if (yPos + imageHeight > doc.internal.pageSize.height - 20) {
+          doc.addPage()
+          yPos = 20
+        }
 
-        if (isImage) {
-          console.log('Processing image:', vedlegg.navn)
-          
-          // Hent signert URL fra vår egen API
-          const response = await fetch(`/api/sja/${sja.id}/vedlegg/image?url=${encodeURIComponent(vedlegg.url)}`)
-          if (!response.ok) {
-            throw new Error('Kunne ikke hente signert URL')
-          }
-          
-          const { url: signedUrl } = await response.json()
-          
-          // Last ned bildet med signert URL
-          const imageResponse = await fetch(signedUrl)
-          if (!imageResponse.ok) {
-            throw new Error('Kunne ikke laste ned bildet')
-          }
+        // Bygg full URL for bildet
+        const fullPath = `companies/${sja.companyId}/${bilde.url}`
+        
+        // Hent signert URL
+        const response = await fetch(`/api/sja/${sja.id}/pdf-images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paths: [fullPath] })
+        })
 
-          const blob = await imageResponse.blob()
-          console.log('Blob type:', blob.type)
-          
-          const base64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader()
-            reader.onloadend = () => resolve(reader.result as string)
-            reader.readAsDataURL(blob)
-          })
+        if (!response.ok) continue
+        
+        const { urls } = await response.json()
+        const signedUrl = urls[0]?.signedUrl
 
-          // Beregn bildestørrelse (maks 180px bredde for A4-side)
-          const img = new Image()
-          await new Promise((resolve) => {
-            img.onload = resolve
-            img.src = base64
-          })
+        if (!signedUrl) continue
 
-          const maxWidth = 180
-          const ratio = img.height / img.width
-          const width = Math.min(maxWidth, img.width)
-          const height = width * ratio
+        // Last ned bildet
+        const imageResponse = await fetch(signedUrl)
+        if (!imageResponse.ok) continue
 
-          // Sjekk om vi trenger ny side
-          if (currentY + height > doc.internal.pageSize.height - 20) {
-            doc.addPage()
-            currentY = 20
-          }
+        const blob = await imageResponse.blob()
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
+        })
 
-          // Legg til bildenavn
-          doc.setFontSize(12)
-          doc.text(vedlegg.navn, 14, currentY)
-          currentY += 7
+        // Legg til bildet i PDF
+        doc.addImage(base64, 'JPEG', margin, yPos, imageWidth, imageHeight)
 
-          // Legg til bildet
-          doc.addImage(base64, 'JPEG', 14, currentY, width, height)
-          currentY += height + 10
-
+        // Legg til beskrivelse hvis den finnes
+        if (bilde.beskrivelse) {
+          doc.setFontSize(10)
+          doc.text(bilde.beskrivelse, margin, yPos + imageHeight + 5)
+          yPos += imageHeight + 20
         } else {
-          if (currentY > doc.internal.pageSize.height - 30) {
-            doc.addPage()
-            currentY = 20
-          }
-          doc.setFontSize(12)
-          doc.text(`📎 ${vedlegg.navn} (${vedlegg.type || 'Ukjent type'})`, 14, currentY)
-          currentY += 7
+          yPos += imageHeight + 10
         }
       } catch (error) {
-        console.error(`Error processing vedlegg ${vedlegg.navn}:`, error)
-        doc.setFontSize(12)
-        doc.text(`❌ Kunne ikke laste: ${vedlegg.navn}`, 14, currentY)
-        currentY += 7
+        console.error('Feil ved prosessering av bilde:', error)
       }
     }
-  } else {
-    doc.setFontSize(12)
-    doc.text("Ingen vedlegg", 14, vedleggY + 10)
   }
-  
-  // Footer med metadata
-  doc.setFontSize(10)
-  const pageHeight = doc.internal.pageSize.height
-  doc.text(`Opprettet av: ${sja.opprettetAv?.name || 'Ukjent'}`, 14, pageHeight - 20)
-  doc.text(`Dato: ${formatDate(sja.opprettetDato as any)}`, 14, pageHeight - 15)
-  doc.text(`Bedrift: ${sja.company?.name || 'Ukjent'}`, 14, pageHeight - 10)
-  
-  // Last ned PDF
-  doc.save(`SJA-${sja.id}.pdf`)
+
+  // Footer på hver side
+  const pageCount = (doc as any).internal.pages.length
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(10)
+    const pageHeight = doc.internal.pageSize.height
+    doc.text(`Opprettet av: ${sja.opprettetAv?.name || 'Ukjent'}`, 14, pageHeight - 20)
+    doc.text(`Dato: ${formatDate(sja.opprettetDato as any)}`, 14, pageHeight - 15)
+    doc.text(`Side ${i} av ${pageCount}`, 14, pageHeight - 10)
+  }
+
+  return doc
 }

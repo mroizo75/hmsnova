@@ -1,190 +1,90 @@
-import { createNotification } from "@/lib/services/notification-service"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
-import prisma from "@/lib/db"
-import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-import { Role, SJAStatus, NotificationType } from "@prisma/client"
-import { uploadToStorage } from "@/lib/storage"
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import prisma from '@/lib/db'
 
-// Valideringsskjema for SJA
-const sjaSchema = z.object({
-  tittel: z.string().min(3, "Tittel må være minst 3 tegn"),
-  arbeidssted: z.string().min(3, "Arbeidssted må være minst 3 tegn"),
-  beskrivelse: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
-  startDato: z.string().transform(str => new Date(str)),
-  sluttDato: z.string().transform(str => new Date(str)),
-  deltakere: z.string(),
-  risikoer: z.string(),
-  tiltak: z.string(),
-  ansvarlig: z.string(),
-  kommentarer: z.string().optional(),
-  produkter: z.array(z.object({
-    id: z.string(),
-    antall: z.string(),
-  })).optional(),
-  lagreSomMal: z.boolean().optional()
-})
-
-// Hjelpefunksjoner for parsing
-function parseRisikoer(identifiedRisks: string | null) {
-  if (!identifiedRisks) return []
-  return identifiedRisks
-    .split('\n')
-    .filter(line => line.trim())
-    .map((risk, index) => ({
-      aktivitet: risk.trim(),
-      fare: `Fare relatert til: ${risk.trim()}`,
-      konsekvens: `Mulig konsekvens av ${risk.trim().toLowerCase()}`,
-      sannsynlighet: Math.min(Math.floor(index / 2) + 1, 5),
-      alvorlighet: Math.min(Math.floor(index / 2) + 2, 5),
-      risikoVerdi: Math.min(Math.floor(index / 2) + 1, 5) * Math.min(Math.floor(index / 2) + 2, 5)
-    }))
-}
-
-function parseTiltak(riskMitigation: string | null, responsiblePerson: string | null) {
-  if (!riskMitigation || !responsiblePerson) return []
-  return riskMitigation
-    .split('\n')
-    .filter(line => line.trim())
-    .map(tiltak => ({
-      beskrivelse: tiltak.trim().replace(/^[-•\s]+/, ''),
-      ansvarlig: responsiblePerson,
-      status: 'PLANLAGT',
-      frist: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-    }))
-}
-
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    const formData = await req.formData()
-    
-    // Hent data fra formData
-    const tittel = formData.get('tittel') as string
-    const arbeidssted = formData.get('arbeidssted') as string
-    const beskrivelse = formData.get('beskrivelse') as string
-    const startDato = formData.get('startDato') as string
-    const sluttDato = formData.get('sluttDato') as string
-    const deltakere = formData.get('deltakere') as string
-    const risikoerText = formData.get('risikoer') as string
-    const tiltakText = formData.get('tiltak') as string
-    const ansvarlig = formData.get('ansvarlig') as string
-    const kommentarer = formData.get('kommentarer') as string
-    const lagreSomMal = formData.get('lagreSomMal') === 'true'
-    const produkterJson = formData.get('produkter') as string
-    const produkter = JSON.parse(produkterJson || '[]')
-
-    // Parse risikoer og tiltak
-    const parsedRisikoer = parseRisikoer(risikoerText)
-    const parsedTiltak = parseTiltak(tiltakText, ansvarlig)
-    
-    // Opprett SJA
-    const sja = await prisma.sJA.create({
-      data: {
-        tittel,
-        arbeidssted,
-        beskrivelse,
-        deltakere,
-        startDato: new Date(startDato),
-        sluttDato: new Date(sluttDato),
-        status: "UTKAST",
-        opprettetAvId: session.user.id,
-        companyId: session.user.companyId,
-        risikoer: {
-          create: parsedRisikoer
-        },
-        tiltak: {
-          create: parsedTiltak
-        },
-        produkter: {
-          create: produkter.map((p: any) => ({
-            produktId: p.produktId,
-            mengde: p.mengde
-          }))
-        }
-      },
-      include: {
-        risikoer: true,
-        tiltak: true,
-        produkter: true,
-        opprettetAv: true
-      }
-    })
-
-    // Håndter bilder hvis de finnes
-    const images = formData.getAll('images') as File[]
-    if (images.length > 0) {
-      for (const image of images) {
-        const url = await uploadToStorage(image, session.user.id, sja.id)
-        await prisma.sJABilde.create({
-          data: {
-            sjaId: sja.id,
-            url,
-            lastetOppAvId: session.user.id
-          }
-        })
-      }
-    }
-
-    return NextResponse.json({ success: true, data: sja })
-  } catch (error) {
-    console.error('Error creating SJA:', error)
-    return NextResponse.json(
-      { success: false, error: 'Could not create SJA' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
 
-    const sjaer = await prisma.sJA.findMany({
-      where: {
+    const json = await request.json()
+    console.log('Innkommende data:', json)
+
+    const sja = await prisma.sJA.create({
+      data: {
+        tittel: json.tittel,
+        arbeidssted: json.arbeidssted,
+        beskrivelse: json.beskrivelse,
+        startDato: new Date(json.startDato),
+        sluttDato: json.sluttDato ? new Date(json.sluttDato) : null,
+        status: json.status || "UTKAST",
+        deltakere: json.deltakere,
         companyId: session.user.companyId,
+        opprettetAvId: session.user.id,
+        bilder: json.bilder?.create ? json.bilder : {
+          create: json.bilder?.map((url: string) => ({
+            url: url
+          })) || []
+        },
+        produkter: json.produkter,
+        risikoer: json.risikoer?.create ? {
+          create: json.risikoer.create.map((r: any) => ({
+            aktivitet: r.aktivitet,
+            fare: r.fare,
+            konsekvens: r.konsekvens || '',
+            sannsynlighet: r.sannsynlighet,
+            alvorlighet: r.alvorlighet,
+            risikoVerdi: r.risikoVerdi
+          }))
+        } : {
+          create: json.risikoer?.map((r: any) => ({
+            aktivitet: r.aktivitet,
+            fare: r.fare,
+            konsekvens: r.konsekvens || '',
+            sannsynlighet: r.sannsynlighet,
+            alvorlighet: r.alvorlighet,
+            risikoVerdi: r.risikoVerdi
+          })) || []
+        },
+        tiltak: json.tiltak?.create ? {
+          create: json.tiltak.create.map((t: any) => ({
+            beskrivelse: t.beskrivelse,
+            ansvarlig: t.ansvarlig,
+            status: t.status || "PLANLAGT",
+            frist: t.frist ? new Date(t.frist) : null
+          }))
+        } : {
+          create: json.tiltak?.map((t: any) => ({
+            beskrivelse: t.beskrivelse,
+            ansvarlig: t.ansvarlig,
+            status: t.status || "PLANLAGT",
+            frist: t.frist ? new Date(t.frist) : null
+          })) || []
+        }
       },
       include: {
+        risikoer: true,
+        tiltak: true,
+        produkter: true,
+        bilder: true,
         opprettetAv: {
           select: {
             name: true,
             email: true,
-          },
-        },
-        risikoer: true,
-        tiltak: true,
-        godkjenninger: {
-          include: {
-            godkjentAv: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        opprettetDato: "desc",
-      },
+            role: true
+          }
+        }
+      }
     })
 
-    return NextResponse.json(sjaer)
+    return NextResponse.json(sja)
   } catch (error) {
-    console.error("Feil ved henting av SJA-er:", error)
+    console.error("Feil ved oppretting av SJA:", error)
     return NextResponse.json(
-      {
-        error: "Kunne ikke hente SJA-er",
-        message: error instanceof Error ? error.message : "Ukjent feil",
-      },
+      { error: "Kunne ikke opprette SJA" },
       { status: 500 }
     )
   }

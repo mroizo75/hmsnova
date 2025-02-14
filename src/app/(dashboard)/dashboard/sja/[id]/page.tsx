@@ -24,6 +24,11 @@ export default async function SJADetailsPage(props: PageProps) {
         companyId: session.user.companyId
       },
       include: {
+        company: {
+          include: {
+            address: true
+          }
+        },
         risikoer: true,
         tiltak: true,
         produkter: {
@@ -31,6 +36,8 @@ export default async function SJADetailsPage(props: PageProps) {
             produkt: true
           }
         },
+        bilder: true,
+        vedlegg: true,
         opprettetAv: {
           select: {
             name: true,
@@ -47,13 +54,9 @@ export default async function SJADetailsPage(props: PageProps) {
               }
             }
           }
-        },
-        vedlegg: true,
-        company: true
+        }
       }
     })
-
-    console.log('Fetched SJA:', JSON.stringify(sja, null, 2))
 
     if (!sja) return notFound()
 

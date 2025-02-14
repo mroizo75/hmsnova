@@ -1,5 +1,6 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { FareSymbolBadge } from "./fare-symbol-badge"
+import { PPESymbolBadge } from "./ppe-symbol-badge"
 import { Button } from "@/components/ui/button"
 import { Edit, Trash2, FileText } from "lucide-react"
 import Link from "next/link"
@@ -14,9 +15,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { FareSymbol } from "@prisma/client"
+import { FareSymbol, PPESymbol } from "@prisma/client"
 
 interface FareSymbolMapping {
+  id: string
+  symbol: string
+}
+
+interface PPESymbolMapping {
   id: string
   symbol: string
 }
@@ -29,6 +35,7 @@ interface Produkt {
   beskrivelse: string | null
   bruksomrade: string | null
   fareSymboler: FareSymbolMapping[]
+  ppeSymboler: PPESymbolMapping[]
 }
 
 interface TableMeta {
@@ -49,12 +56,44 @@ export const columns: ColumnDef<Produkt>[] = [
     accessorKey: "fareSymboler",
     header: "Faresymboler",
     cell: ({ row }) => {
-      const fareSymboler = row.original.fareSymboler
+      const fareSymboler = row.getValue("fareSymboler") as FareSymbolMapping[]
+      if (!fareSymboler?.length) return null
+      
       return (
-        <div className="flex gap-1">
-          {fareSymboler?.map((symbol: FareSymbolMapping) => (
-            <FareSymbolBadge key={symbol.id} symbol={symbol.symbol as FareSymbol} />
+        <div className="flex flex-wrap gap-1">
+          {fareSymboler.map(mapping => (
+            <FareSymbolBadge key={mapping.id} symbol={mapping.symbol as FareSymbol} />
           ))}
+        </div>
+      )
+    }
+  },
+  {
+    accessorKey: "ppeSymboler",
+    header: "Verneutstyr",
+    cell: ({ row }) => {
+      const rowData = row.original // Get entire row data
+      console.log("Full row data:", rowData) // Debug
+      
+      const ppeSymboler = row.getValue("ppeSymboler") as PPESymbolMapping[]
+      console.log("PPE Symboler fra row:", ppeSymboler)
+      
+      if (!ppeSymboler?.length) {
+        console.log("No PPE symbols found") // Debug
+        return null
+      }
+      
+      return (
+        <div className="flex flex-wrap gap-1">
+          {ppeSymboler.map(mapping => {
+            console.log("Rendering PPE symbol:", mapping)
+            return (
+              <PPESymbolBadge 
+                key={mapping.id} 
+                symbol={mapping.symbol as PPESymbol} 
+              />
+            )
+          })}
         </div>
       )
     }
@@ -63,47 +102,41 @@ export const columns: ColumnDef<Produkt>[] = [
     accessorKey: "databladUrl",
     header: "Datablad",
     cell: ({ row }) => {
-      const localUrl = row.getValue("databladUrl") as string | null
+      const url = row.getValue("databladUrl") as string | null
+      if (!url) return null
       
-      if (!localUrl) return null
-
-      // Konverter lokal URL til Google Cloud Storage URL
-      const transformUrl = (url: string) => {
-        if (!url) return url
-        if (url.startsWith('http')) return url
-        
-        // Bruk samme proxy-rute som i employee-visningen
-        return `/api/stoffkartotek/datablad?path=${encodeURIComponent(url)}`
-      }
-
-      const cloudUrl = transformUrl(localUrl)
-
       return (
-        <Button variant="ghost" size="sm" asChild>
-          <a href={cloudUrl} target="_blank" rel="noopener noreferrer">
-            <FileText className="w-4 h-4 mr-2" />
-            Vis datablad
-          </a>
-        </Button>
+        <Link 
+          href={url}
+          target="_blank"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <FileText className="w-4 h-4" />
+          <span>Åpne</span>
+        </Link>
       )
     }
   },
   {
     id: "actions",
     cell: ({ row, table }) => {
-      const meta = table.options.meta as TableMeta;
       const product = row.original
-      const isDeleting = meta.isDeleting as boolean
+      const meta = table.options.meta as TableMeta
+      const isDeleting = meta.isDeleting
 
       return (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
+          <Button
+            variant="ghost" 
+            size="sm"
+            asChild
+          >
             <Link href={`/dashboard/stoffkartotek/${product.id}/edit`}>
               <Edit className="w-4 h-4" />
               <span className="sr-only">Rediger</span>
             </Link>
           </Button>
-          
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button 

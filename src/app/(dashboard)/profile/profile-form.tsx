@@ -18,6 +18,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { MultiSelect } from "@/components/ui/multi-select"
+import { useState } from "react"
 
 const profileFormSchema = z.object({
   name: z.string().min(2, {
@@ -70,40 +71,63 @@ const DRIVER_LICENSES = [
   { value: "CE", label: "CE - Lastebil med tilhenger" },
 ]
 
-export function ProfileForm({ user }: { user: any }) {
+interface ProfileFormProps {
+  user: {
+    id: string
+    name: string
+    email: string
+    phone: string | null
+    image: string | null
+    address: any
+    certifications: any
+    companyId: string  // Nå er dette garantert å være her
+  }
+}
+
+export function ProfileForm({ user }: ProfileFormProps) {
   const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [equipment, setEquipment] = useState<any[]>([])
+
+  console.log("Full user object:", user)
+
+  if (!user.companyId) {
+    throw new Error("CompanyId er påkrevd")
+  }
+
   console.log("User data from database:", {
-    certifications: user?.certifications,
-    machineCards: user?.certifications?.machineCards,
-    driverLicenses: user?.certifications?.driverLicenses
+    certifications: user.certifications,
+    machineCards: user.certifications?.machineCards,
+    driverLicenses: user.certifications?.driverLicenses
   })
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: user?.name || "",
-      email: user?.email || "",
-      phone: user?.phone || "",
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
       address: {
-        street: user?.address?.street || "",
-        postalCode: user?.address?.postalCode || "",
-        city: user?.address?.city || "",
+        street: user.address?.street || "",
+        postalCode: user.address?.postalCode || "",
+        city: user.address?.city || "",
       },
-      image: user?.image || "",
-      machineCards: user?.certifications?.machineCards || [],
-      driverLicenses: user?.certifications?.driverLicenses || []
+      image: user.image || "",
+      machineCards: user.certifications?.machineCards || [],
+      driverLicenses: user.certifications?.driverLicenses || []
     },
   })
 
-  async function onSubmit(values: ProfileFormValues) {
+  const onSubmit = async (data: ProfileFormValues) => {
+    console.log("Sending profile data:", data);
+    setIsSubmitting(true)
     try {
-      let imageUrl = values.image
-      console.log("Starting submit with values:", values)
+      let imageUrl = data.image
 
-      if (values.image instanceof File) {
-        console.log("Uploading file:", values.image)
+      if (selectedImage) {
         const formData = new FormData()
-        formData.append('file', values.image)
+        formData.append('file', selectedImage)
         formData.append('companyId', user.companyId)
         formData.append('type', 'profile')
 
@@ -112,16 +136,15 @@ export function ProfileForm({ user }: { user: any }) {
           body: formData
         })
 
-        console.log("Upload response status:", uploadRes.status)
         if (!uploadRes.ok) {
-          const errorText = await uploadRes.text()
-          console.error("Upload error:", errorText)
           throw new Error('Kunne ikke laste opp bilde')
         }
 
         const data = await uploadRes.json()
-        console.log("Upload response:", data)
-        imageUrl = data.url
+        imageUrl = data.url // Her får vi URL-en fra Google Storage
+
+        // Oppdater form state med den nye bilde-URL-en
+        form.setValue('image', imageUrl)
       }
 
       const response = await fetch("/api/user/profile", {
@@ -130,44 +153,34 @@ export function ProfileForm({ user }: { user: any }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: values.name,
-          email: values.email,
-          phone: values.phone || null,
-          image: imageUrl || null,
-          address: {
-            street: values.address.street || null,
-            postalCode: values.address.postalCode || null,
-            city: values.address.city || null
-          },
+          ...data,
           certifications: {
-            machineCards: values.machineCards,
-            driverLicenses: values.driverLicenses
+            machineCards: data.machineCards,
+            driverLicenses: data.driverLicenses
           }
         }),
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        console.error("Profile update error response:", error)
-        throw new Error(error.message || "Kunne ikke oppdatere profil")
+        throw new Error('Kunne ikke oppdatere profil')
       }
-
-      const data = await response.json()
-      console.log("Profile updated successfully:", data)
 
       toast({
         title: "Profil oppdatert",
-        description: "Din profilinformasjon har blitt oppdatert.",
+        description: "Profilinformasjonen din har blitt oppdatert.",
       })
 
+      // Tving en refresh for å vise det nye bildet
       router.refresh()
     } catch (error) {
       console.error("Profile update error:", error)
       toast({
         title: "Feil",
-        description: error instanceof Error ? error.message : "Kunne ikke oppdatere profil. Prøv igjen senere.",
+        description: error instanceof Error ? error.message : "Kunne ikke oppdatere profil",
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -188,7 +201,10 @@ export function ProfileForm({ user }: { user: any }) {
                   <FormControl>
                     <ImageUpload
                       value={typeof field.value === 'string' ? field.value : undefined}
-                      onChange={(file) => field.onChange(file || '')}
+                      onChange={(file) => {
+                        setSelectedImage(file || null)
+                        field.onChange(file || '')
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -326,7 +342,9 @@ export function ProfileForm({ user }: { user: any }) {
                 </div>
               </div>
             </div>
-            <Button type="submit">Lagre endringer</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Lagrer..." : "Lagre endringer"}
+            </Button>
           </form>
         </Form>
       </CardContent>

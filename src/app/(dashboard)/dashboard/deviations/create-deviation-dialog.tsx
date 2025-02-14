@@ -47,7 +47,7 @@ const formSchema = z.object({
   location: z.string().optional(),
   dueDate: z.string().optional(),
   image: z.any().optional(),
-  equipmentId: z.string().optional(),
+  equipmentId: z.string().optional().nullable(),
   maintenanceRequired: z.boolean().default(false)
 })
 
@@ -96,7 +96,8 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
 
       const formattedValues = {
         ...values,
-        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null
+        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
+        equipmentId: values.equipmentId || null
       }
 
       formData.append('status', DEVIATION_STATUS.OPEN)

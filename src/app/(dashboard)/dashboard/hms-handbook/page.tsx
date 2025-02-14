@@ -9,6 +9,8 @@ import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { toast } from "react-hot-toast"
 import { CreateVersionButton } from "./create-version-button"
+import { ChevronLeft } from "lucide-react"
+import Link from "next/link"
 
 async function getHandbook(companyId: string) {
   const [published, draft] = await Promise.all([
@@ -182,39 +184,39 @@ export default async function HMSHandbookPage() {
   })
 
   return (
-    <Tabs defaultValue="handbook" className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <TabsList>
-          <TabsTrigger value="handbook">HMS-håndbok</TabsTrigger>
-          <TabsTrigger value="changes">HMS-endringer</TabsTrigger>
-        </TabsList>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+        >
+          <Link href="/dashboard/hms-handbook">
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Tilbake til HMS-håndbok
+          </Link>
+        </Button>
       </div>
 
-      <TabsContent value="handbook">
-        {handbook ? (
-          <>
-            <HMSHandbookClient handbook={handbook as unknown as HMSHandbook} />
-            {handbook.status === 'ACTIVE' && (
-              <CreateVersionButton 
-                version={handbook.version} 
-                companyId={handbook.companyId}
-              />
-            )}
-          </>
-        ) : (
-          <div className="text-center py-12">
-            <GenerateHandbookDialog templates={templates} />
-            <p className="text-muted-foreground mt-4">
-              Du har ikke generert en HMS-håndbok ennå.
-              Bruk knappen over for å komme i gang.
-            </p>
-          </div>
-        )}
-      </TabsContent>
-
-      <TabsContent value="changes">
-        <HMSChangesOverview />
-      </TabsContent>
-    </Tabs>
+      {handbook ? (
+        <>
+          <HMSHandbookClient handbook={handbook as unknown as HMSHandbook} />
+          {handbook.status === 'ACTIVE' && (
+            <CreateVersionButton 
+              version={handbook.version} 
+              companyId={handbook.companyId}
+            />
+          )}
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <GenerateHandbookDialog templates={templates} />
+          <p className="text-muted-foreground mt-4">
+            Du har ikke generert en HMS-håndbok ennå.
+            Bruk knappen over for å komme i gang.
+          </p>
+        </div>
+      )}
+    </div>
   )
 } 

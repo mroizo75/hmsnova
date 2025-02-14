@@ -40,42 +40,50 @@ const DRIVER_LICENSES = [
   { value: "CE", label: "CE - Lastebil med tilhenger" },
 ]
 
+// Legg til denne typen øverst i filen
+type Certifications = {
+  machineCards: string[];
+  driverLicenses: string[];
+};
+
 interface EmployeeDetailsProps {
   employee: {
-    id: string
-    name: string | null
-    email: string
-    role: string
-    phone: string | null
-    image: string | null
+    id: string;
+    name: string | null;
+    email: string;
+    role: string;
+    phone: string | null;
+    image: string | null;
     address: {
-      street?: string
-      postalCode?: string
-      city?: string
-    } | null
-    metadata: {
-      certifications?: {
-        machineCards: string[]
-        driverLicenses: string[]
-      }
-    }
-    createdAt: Date
-  }
-  open: boolean
-  onOpenChange: (open: boolean) => void
+      street?: string;
+      postalCode?: string;
+      city?: string;
+    } | null;
+    certifications: {
+      machineCards: string[];
+      driverLicenses: string[];
+    };
+    createdAt: Date;
+  };
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function EmployeeDetailsDialog({ 
-  employee, 
-  open, 
-  onOpenChange 
-}: EmployeeDetailsProps) {
-  const certifications = employee.metadata?.certifications
+export function EmployeeDetailsDialog({ employee, open, onOpenChange }: EmployeeDetailsProps) {
+  const certifications = employee.certifications || { machineCards: [], driverLicenses: [] }
+  const machineCards = certifications.machineCards || []
+  const driverLicenses = certifications.driverLicenses || []
+  
+  const hasCertifications = machineCards.length > 0 || driverLicenses.length > 0
 
   // Hjelpefunksjon for å finne label fra verdi
   const getLabel = (value: string, options: typeof MACHINE_CARDS) => {
-    return options.find(opt => opt.value === value)?.label || value
+    return options.find(opt => opt.value === value)?.label || value;
   }
+
+  // Debug logging
+  console.log("Employee data:", employee);
+  console.log("Certifications:", employee.certifications);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -135,45 +143,38 @@ export function EmployeeDetailsDialog({
                   </div>
 
                   {/* Sertifiseringer */}
-                  {certifications && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Award className="h-5 w-5 text-muted-foreground" />
-                        <h3 className="font-semibold">Sertifiseringer</h3>
-                      </div>
-                      <div className="grid gap-2">
-                        {certifications.machineCards?.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-4">
-                              <Award className="h-5 w-5 text-muted-foreground" />
-                              <h3 className="font-semibold">Maskinførerkort</h3>
-                            </div>
-                            <div className="grid gap-2">
-                              {certifications.machineCards.map((card) => (
-                                <div key={card} className="flex items-center gap-2">
-                                  <span>{getLabel(card, MACHINE_CARDS)}</span>
-                                </div>
-                              ))}
-                            </div>
+                  {hasCertifications && (
+                    <div className="mt-6">
+                      <h3 className="font-semibold mb-4">
+                        <Award className="h-4 w-4 inline-block mr-2" />
+                        Sertifiseringer
+                      </h3>
+                      
+                      {machineCards.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium mb-2">Maskinførerkort</h4>
+                          <div className="grid grid-cols-1 gap-2">
+                            {machineCards.map((card) => (
+                              <div key={card} className="flex items-center gap-2 text-sm">
+                                <span>{getLabel(card, MACHINE_CARDS)}</span>
+                              </div>
+                            ))}
                           </div>
-                        )}
+                        </div>
+                      )}
 
-                        {certifications.driverLicenses?.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-4">
-                              <Award className="h-5 w-5 text-muted-foreground" />
-                              <h3 className="font-semibold">Førerkort</h3>
-                            </div>
-                            <div className="grid gap-2">
-                              {certifications.driverLicenses.map((license) => (
-                                <div key={license} className="flex items-center gap-2">
-                                  <span>{getLabel(license, DRIVER_LICENSES)}</span>
-                                </div>
-                              ))}
-                            </div>
+                      {driverLicenses.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium mb-2">Førerkort</h4>
+                          <div className="grid grid-cols-1 gap-2">
+                            {driverLicenses.map((license) => (
+                              <div key={license} className="flex items-center gap-2 text-sm">
+                                <span>{getLabel(license, DRIVER_LICENSES)}</span>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

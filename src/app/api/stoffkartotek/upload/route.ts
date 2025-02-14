@@ -20,10 +20,10 @@ export async function POST(request: NextRequest) {
     // Generer en unik filsti i bucket
     const timestamp = Date.now()
     const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-    const path = `datablader/${session.user.companyId}/${timestamp}-${safeFileName}`
+    const path = `companies/${session.user.companyId}/datablader/${timestamp}-${safeFileName}`
 
     try {
-      const url = await uploadToStorage(file, path)
+      const url = await uploadToStorage(file, path, session.user.companyId)
       
       return NextResponse.json({ url })
     } catch (error) {

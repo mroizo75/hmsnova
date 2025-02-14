@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
+import { useForm, useFieldArray } from "react-hook-form"
 import * as z from "zod"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { NotificationType } from "@prisma/client"
 import { Checkbox } from "@/components/ui/checkbox"
 import { MalVelger } from "./mal-velger"
+import { Plus, Trash } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const formSchema = z.object({
   tittel: z.string().min(1, "Tittel er påkrevd"),
@@ -26,17 +28,27 @@ const formSchema = z.object({
   beskrivelse: z.string().min(1, "Beskrivelse er påkrevd"),
   startDato: z.string(),
   sluttDato: z.string(),
-  deltakere: z.string(),
-  identifiedRisks: z.string(),
-  riskMitigation: z.string(),
-  responsiblePerson: z.string(),
-  comments: z.string().optional(),
+  deltakere: z.string().min(1, "Deltakere er påkrevd"),
   produkter: z.array(z.object({
     id: z.string(),
     antall: z.string()
   })).optional(),
   lagreSomMal: z.boolean(),
   attachments: z.any().optional(),
+  risikoer: z.array(z.object({
+    aktivitet: z.string(),
+    fare: z.string(),
+    konsekvens: z.string(),
+    sannsynlighet: z.number().min(1).max(5),
+    alvorlighet: z.number().min(1).max(5),
+    risikoVerdi: z.number()
+  })),
+  tiltak: z.array(z.object({
+    beskrivelse: z.string(),
+    ansvarlig: z.string(),
+    status: z.string(),
+    frist: z.string().nullable()
+  }))
 })
 
 interface AddSJAModalProps {
@@ -69,109 +81,172 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
       startDato: new Date().toISOString().split('T')[0],
       sluttDato: new Date().toISOString().split('T')[0],
       deltakere: "",
-      identifiedRisks: "",
-      riskMitigation: "",
-      responsiblePerson: "",
-      comments: "",
       produkter: [],
-      lagreSomMal: false
+      lagreSomMal: false,
+      risikoer: [],
+      tiltak: []
     }
   })
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      // Først oppretter vi SJA med grunnleggende info
-      const sjaData = {
-        tittel: values.tittel,
-        arbeidssted: values.arbeidssted,
-        beskrivelse: values.beskrivelse,
-        deltakere: values.deltakere,
-        startDato: new Date(values.startDato).toISOString(),
-        sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
-        status: "UTKAST",
-        produkter: valgteProdukter.map(p => ({
-          create: {
-            produktId: p.produktId,
-            mengde: p.mengde
+      try {
+        console.log('=== STARTER SJA OPPRETTELSE ===')
+        console.log('Form verdier:', values)
+        console.log('Antall bilder:', bilder.length)
+
+        // Last opp bilder først
+        let bildeUrls: string[] = []
+        if (bilder.length > 0) {
+          console.log('Starter bilde-opplasting...')
+          const formData = new FormData()
+          bilder.forEach((bilde) => {
+            formData.append('files', bilde)
+            console.log('Legger til bilde:', bilde.name)
+          })
+
+          // Først oppretter vi SJA uten bilder
+          console.log('Oppretter SJA...')
+          const sjaResponse = await fetch('/api/sja', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              tittel: values.tittel,
+              arbeidssted: values.arbeidssted,
+              beskrivelse: values.beskrivelse,
+              startDato: new Date(values.startDato).toISOString(),
+              sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
+              status: "UTKAST",
+              deltakere: values.deltakere,
+              produkter: valgteProdukter.length > 0 ? {
+                create: valgteProdukter.map(p => ({
+                  produktId: p.produktId,
+                  mengde: p.mengde
+                }))
+              } : undefined,
+              risikoer: {
+                create: values.risikoer?.map(r => ({
+                  aktivitet: r.aktivitet,
+                  fare: r.fare,
+                  konsekvens: r.konsekvens || '',
+                  sannsynlighet: r.sannsynlighet,
+                  alvorlighet: r.alvorlighet,
+                  risikoVerdi: r.risikoVerdi
+                })) || []
+              },
+              tiltak: {
+                create: values.tiltak?.map(t => ({
+                  beskrivelse: t.beskrivelse,
+                  ansvarlig: t.ansvarlig,
+                  status: t.status,
+                  frist: t.frist
+                })) || []
+              }
+            })
+          })
+
+          console.log('SJA respons status:', sjaResponse.status)
+          if (!sjaResponse.ok) {
+            const errorData = await sjaResponse.json()
+            console.error('SJA feilmelding:', errorData)
+            throw new Error('Kunne ikke opprette SJA')
           }
-        })),
-        risikoer: {
-          create: values.identifiedRisks.split('\n')
-            .filter(Boolean)
-            .map(risiko => ({
-              aktivitet: risiko,
-              fare: risiko,
-              konsekvens: "Må vurderes",
-              sannsynlighet: 3,
-              alvorlighet: 3,
-              risikoVerdi: 9
-            }))
-        },
-        tiltak: {
-          create: values.riskMitigation.split('\n')
-            .filter(Boolean)
-            .map(tiltak => ({
-              beskrivelse: tiltak,
-              ansvarlig: values.responsiblePerson,
-              status: "PLANLAGT",
-              frist: null
-            }))
+
+          const sja = await sjaResponse.json()
+          console.log('SJA opprettet:', sja)
+
+          // Så laster vi opp bildene til den opprettede SJA-en
+          console.log('Laster opp bilder til SJA:', sja.id)
+          const bildeUrl = `/api/sja/${encodeURIComponent(sja.id)}/bilder`
+          console.log('Bruker bilde-URL:', bildeUrl)
+          
+          const bildeResponse = await fetch(bildeUrl, {
+            method: 'POST',
+            body: formData
+          })
+
+          console.log('Bilde respons status:', bildeResponse.status)
+          if (!bildeResponse.ok) {
+            const errorData = await bildeResponse.json()
+            console.error('Bilde feilmelding:', errorData)
+            throw new Error('Kunne ikke laste opp bilder')
+          }
+
+          bildeUrls = await bildeResponse.json()
+          console.log('Bilder lastet opp:', bildeUrls)
+          return sja
         }
-      }
 
-      const response = await fetch('/api/sja', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sjaData)
-      })
-
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.error || 'Kunne ikke opprette SJA')
-      }
-
-      // Håndter bilder separat
-      if (bilder.length > 0) {
-        const formData = new FormData()
-        bilder.forEach(file => {
-          formData.append('files', file)
-        })
-
-        await fetch(`/api/sja/${data.id}/bilder`, {
+        // Hvis ingen bilder, opprett bare SJA
+        console.log('Ingen bilder å laste opp, oppretter bare SJA')
+        const response = await fetch('/api/sja', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tittel: values.tittel,
+            arbeidssted: values.arbeidssted,
+            beskrivelse: values.beskrivelse,
+            startDato: new Date(values.startDato).toISOString(),
+            sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
+            status: "UTKAST",
+            deltakere: values.deltakere,
+            produkter: valgteProdukter.length > 0 ? {
+              create: valgteProdukter.map(p => ({
+                produktId: p.produktId,
+                mengde: p.mengde
+              }))
+            } : undefined,
+            risikoer: {
+              create: values.risikoer?.map(r => ({
+                aktivitet: r.aktivitet,
+                fare: r.fare,
+                konsekvens: r.konsekvens || '',
+                sannsynlighet: r.sannsynlighet,
+                alvorlighet: r.alvorlighet,
+                risikoVerdi: r.risikoVerdi
+              })) || []
+            },
+            tiltak: {
+              create: values.tiltak?.map(t => ({
+                beskrivelse: t.beskrivelse,
+                ansvarlig: t.ansvarlig,
+                status: t.status,
+                frist: t.frist
+              })) || []
+            }
+          })
         })
-      }
 
-      return data
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error('SJA feilmelding:', errorData)
+          throw new Error('Kunne ikke opprette SJA')
+        }
+
+        const sja = await response.json()
+        console.log('SJA opprettet uten bilder:', sja)
+        return sja
+
+      } catch (error) {
+        console.error('Feil ved opprettelse av SJA:', error)
+        throw error
+      }
     },
     onSuccess: (data) => {
-      console.log('=== MUTATION SUCCESS ===')
-      console.log('Full success data:', data)
-      
-      if (!data || !data.data) {
-        console.error('Ugyldig respons data:', data)
-        toast.error('Uventet respons fra server')
-        return
-      }
-      
-      // Lukk modal og reset form
+      console.log('SJA opprettet vellykket:', data)
+      toast.success('SJA opprettet')
       onOpenChange(false)
       form.reset()
       setBilder([])
       setValgteProdukter([])
-
-      toast.success('SJA opprettet')
-
-      // Kjør onAdd callback med den nye dataen
-      if (onAdd) {
-        onAdd(data.data)
-      }
+      if (onAdd) onAdd(data)
     },
     onError: (error) => {
-      console.error('=== MUTATION ERROR ===')
-      console.error('Full error:', error)
-      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack available')
+      console.error('Feil ved oppretting av SJA:', error)
       toast.error('Kunne ikke opprette SJA')
     }
   })
@@ -232,16 +307,24 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
       beskrivelse: mal.beskrivelse,
       arbeidssted: mal.arbeidssted,
       deltakere: mal.deltakere,
-      responsiblePerson: mal.ansvarlig,
-      identifiedRisks: mal.arbeidsoppgaver,
-      riskMitigation: mal.tiltak.map((t: any) => t.beskrivelse).join('\n'),
       startDato: new Date().toISOString().split('T')[0],
       sluttDato: new Date().toISOString().split('T')[0],
-      comments: "",
       produkter: [],
-      lagreSomMal: false
+      lagreSomMal: false,
+      risikoer: [],
+      tiltak: []
     })
   }
+
+  const { fields: risikoFields, append: appendRisiko, remove: removeRisiko } = useFieldArray({
+    control: form.control,
+    name: "risikoer"
+  })
+
+  const { fields: tiltakFields, append: appendTiltak, remove: removeTiltak } = useFieldArray({
+    control: form.control,
+    name: "tiltak"
+  })
 
   return (
     <>
@@ -261,7 +344,7 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                     name="tittel"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Jobbtittel</FormLabel>
+                        <FormLabel>Tittel</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -274,7 +357,7 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                     name="arbeidssted"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Jobblokasjon</FormLabel>
+                        <FormLabel>Arbeidssted</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -284,8 +367,8 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                   />
                 </div>
 
-                {/* Andre rad med dato */}
-                <div className="grid grid-cols-1 gap-4">
+                {/* Datoer side ved side */}
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="startDato"
@@ -293,11 +376,7 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                       <FormItem>
                         <FormLabel>Startdato</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="date" 
-                            {...field} 
-                            value={field.value || ''}
-                          />
+                          <Input type="date" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -308,13 +387,9 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                     name="sluttDato"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Slutt dato</FormLabel>
+                        <FormLabel>Sluttdato</FormLabel>
                         <FormControl>
-                            <Input 
-                              type="date" 
-                              {...field} 
-                              value={field.value || ''}
-                            />
+                          <Input type="date" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -344,7 +419,7 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                     name="beskrivelse"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Jobbeskrivelse</FormLabel>
+                        <FormLabel>Beskrivelse</FormLabel>
                         <FormControl>
                           <Textarea {...field} className="min-h-[100px]" />
                         </FormControl>
@@ -352,83 +427,7 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="identifiedRisks"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Identifiserte risikoer</FormLabel>
-                        <FormDescription>
-                          Skriv én risiko per linje. Hver risiko vil matches med tilsvarende tiltak på samme linje.
-                        </FormDescription>
-                        <FormControl>
-                          <Textarea 
-                            {...field} 
-                            className="min-h-[100px]"
-                            placeholder="F.eks:
-1. Fall fra høyde
-2. Elektrisk støt
-3. Tunge løft"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="riskMitigation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tiltak for å redusere risiko</FormLabel>
-                        <FormDescription>
-                          Skriv ett tiltak per linje. Hvert tiltak må samsvare med risikoen på samme linjenummer.
-                        </FormDescription>
-                        <FormControl>
-                          <Textarea 
-                            {...field} 
-                            className="min-h-[100px]"
-                            placeholder="F.eks:
-1. Bruk av fallsikring og sikker stige
-2. Strømutkobling og bruk av verneutstyr
-3. Bruk av løfteutstyr og riktig løfteteknikk"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
-
-                {/* Nederste rad med ansvarlig person */}
-                <FormField
-                  control={form.control}
-                  name="responsiblePerson"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ansvarlig person</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Kommentarer */}
-                <FormField
-                  control={form.control}
-                  name="comments"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Kommentarer</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} className="min-h-[80px]" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 {/* Bildeopplasting */}
                 <div className="space-y-4">
@@ -526,6 +525,201 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                       })}
                     </div>
                   </div>
+                </div>
+
+                {/* Risikoer */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Risikoer</FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => appendRisiko({ 
+                        aktivitet: "", 
+                        fare: "", 
+                        konsekvens: "",
+                        sannsynlighet: 1,
+                        alvorlighet: 1,
+                        risikoVerdi: 1
+                      })}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Legg til risiko
+                    </Button>
+                  </div>
+                  
+                  {risikoFields.map((field: any, index: number) => (
+                    <div key={field.id} className="border p-4 rounded-lg space-y-4">
+                      <div className="flex justify-between">
+                        <h4>Risiko {index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeRisiko(index)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`risikoer.${index}.aktivitet`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Aktivitet</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`risikoer.${index}.fare`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fare</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`risikoer.${index}.sannsynlighet`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sannsynlighet (1-5)</FormLabel>
+                              <Select 
+                                onValueChange={(value) => field.onChange(parseInt(value))}
+                                value={field.value.toString()}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1,2,3,4,5].map(num => (
+                                    <SelectItem key={num} value={num.toString()}>
+                                      {num}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`risikoer.${index}.alvorlighet`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Alvorlighet (1-5)</FormLabel>
+                              <Select 
+                                onValueChange={(value) => field.onChange(parseInt(value))}
+                                value={field.value.toString()}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1,2,3,4,5].map(num => (
+                                    <SelectItem key={num} value={num.toString()}>
+                                      {num}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tiltak */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Tiltak</FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => appendTiltak({ 
+                        beskrivelse: "", 
+                        ansvarlig: "", 
+                        status: "PLANLAGT",
+                        frist: null 
+                      })}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Legg til tiltak
+                    </Button>
+                  </div>
+                  
+                  {tiltakFields.map((field: any, index: number) => (
+                    <div key={field.id} className="border p-4 rounded-lg space-y-4">
+                      <div className="flex justify-between">
+                        <h4>Tiltak {index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTiltak(index)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      <FormField
+                        control={form.control}
+                        name={`tiltak.${index}.beskrivelse`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Beskrivelse</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name={`tiltak.${index}.ansvarlig`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Ansvarlig</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`tiltak.${index}.frist`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Frist</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} value={field.value || ""} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Mal-checkbox */}

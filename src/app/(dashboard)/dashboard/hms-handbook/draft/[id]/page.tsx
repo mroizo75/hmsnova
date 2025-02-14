@@ -120,7 +120,8 @@ export default async function HMSHandbookDraftPage({ params }: { params: { id: s
 
   const processedDraft = {
     ...draft,
-    sections: draft.sections.map(processSection)
+    sections: draft.sections.map(processSection),
+    status: draft.status as 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
   }
 
   console.log('Processed draft:', JSON.stringify(processedDraft, null, 2))

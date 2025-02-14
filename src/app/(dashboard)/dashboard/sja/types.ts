@@ -1,7 +1,8 @@
-import { SJA, User, Company, Risiko, Tiltak, SJAProdukt, SJAVedlegg, SJABilde } from "@prisma/client"
+import { SJA, User, Company, Risiko, Tiltak, SJAProdukt, SJAVedlegg, SJABilde, SJAGodkjenning, Address } from "@prisma/client"
 import { ReactNode } from "react"
 
 export interface RisikoWithRelations extends Risiko {
+  [x: string]: any
   id: string
   aktivitet: string
   fare: string
@@ -19,40 +20,43 @@ export interface TiltakWithRelations extends Tiltak {
   frist: Date | null
   status: string
   sjaId: string
+  risikoId: string
 }
 
-export interface SJAWithRelations extends Partial<SJA> {
-  success: any
-  data: any
-  risikoer: RisikoWithRelations[]
-  tiltak: TiltakWithRelations[]
-  produkter: Array<{
-    mengde: string
+export interface SJABildeWithRelations extends SJABilde {
+  id: string
+  url: string
+  beskrivelse: string | null
+  sjaId: string
+  lastetOppAvId: string
+  lastetOppDato: Date
+}
+
+export interface SJAWithRelations {
+  id: string
+  tittel: string
+  arbeidssted: string
+  startDato: Date
+  sluttDato?: Date
+  status: string
+  createdAt: Date
+  updatedAt: Date
+  company: (Company & {
+    address: Address | null
+  }) | null
+  opprettetAv: Pick<User, "name" | "email" | "role"> | null
+  risikoer: Risiko[]
+  tiltak: Tiltak[]
+  produkter: (SJAProdukt & {
     produkt: {
       produktnavn: string
-      produsent: string
-      fareSymboler: string[]
+      produsent: string | null
     }
-  }>
-  godkjenninger: Array<{
-    id: string
-    godkjentAv: {
-      name: string | null
-      email: string
-    }
-  }>
-  opprettetAv: {
-    name: string | null
-    email: string
-  }
-  company: {
-    name: string
-    orgNumber: string
-  }
-  vedlegg?: Array<{
-    id: string
-    navn: string
-  }>
+  })[]
+  bilder: SJABilde[]
+  godkjenninger: (SJAGodkjenning & {
+    godkjentAv: Pick<User, "name" | "email">
+  })[]
 }
 
 export interface RisikoFormData {

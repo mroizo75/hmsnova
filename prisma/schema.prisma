@@ -58,7 +58,7 @@ model User {
 
   SafetyRoundFinding SafetyRoundFinding[] @relation("FindingStatusUpdatedBy")
 
-  certifications Json? @default("{}")  // Vil inneholde { machineCards: [], driverLicenses: [] }
+  certifications Json? @default("{\"machineCards\": [], \"driverLicenses\": []}")
 
   HMSHandbook HMSHandbook[]
 
@@ -489,6 +489,82 @@ enum FareSymbol {
   AKUTT_GIFTIG
 }
 
+// Oppdater PPESymbol enum med alle ISO 7010 M-symboler
+enum PPESymbol {
+  M001_GENERAL_MANDATORY
+  M002_READ_INSTRUCTIONS
+  M003_WEAR_EAR_PROTECTION
+  M004_WEAR_EYE_PROTECTION
+  M005_CONNECT_EARTH_TERMINAL
+  M006_DISCONNECT_MAINS
+  M007_WEAR_OPAQUE_EYE_PROTECTION
+  M008_WEAR_FOOT_PROTECTION
+  M009_WEAR_PROTECTIVE_GLOVES
+  M010_WEAR_PROTECTIVE_CLOTHING
+  M011_WASH_HANDS
+  M012_USE_HANDRAIL
+  M013_WEAR_FACE_SHIELD
+  M014_WEAR_HEAD_PROTECTION
+  M015_WEAR_HIGH_VISIBILITY
+  M016_WEAR_MASK
+  M017_WEAR_RESPIRATORY_PROTECTION
+  M018_WEAR_SAFETY_HARNESS
+  M019_WEAR_WELDING_MASK
+  M020_WEAR_SAFETY_BELTS
+  M021_DISCONNECT_BEFORE_MAINTENANCE
+  M022_USE_BARRIER_CREAM
+  M023_USE_FOOTBRIDGE
+  M024_USE_WALKWAY
+  M025_PROTECT_INFANTS_EYES
+  M026_USE_PROTECTIVE_APRON
+  M027_INSTALL_GUARD
+  M028_KEEP_LOCKED
+  M029_SOUND_HORN
+  M030_PLACE_TRASH_IN_BIN
+  M031_USE_TABLE_SAW_GUARD
+  M032_USE_ANTISTATIC_FOOTWEAR
+  M033_LOWER_SKI_RESTRAINT
+  M034_RAISE_SKI_RESTRAINT
+  M035_EXIT_TOWPATH
+  M036_KEEP_SKI_TIPS_UP
+  M037_SECURE_LIFEBOAT_HATCH
+  M038_START_LIFEBOAT_MOTOR
+  M039_LOWER_LIFEBOAT
+  M040_LOWER_LIFEBOAT_TO_WATER
+  M041_LOWER_RESCUE_BOAT
+  M042_RELEASE_LIFEBOAT_HOOKS
+  M043_START_WATER_SPRAY
+  M044_START_AIR_SUPPLY
+  M045_RELEASE_GRIPES
+  M046_SECURE_GAS_CYLINDERS
+  M047_USE_BREATHING_EQUIPMENT
+  M048_USE_GAS_DETECTOR
+  M049_USE_SPORTS_PROTECTION
+  M050_EXIT_SLED_LEFT
+  M051_EXIT_SLED_RIGHT
+  M052_KEEP_SLED_DISTANCE
+  M053_WEAR_LIFEJACKET
+  M054_SUPERVISE_CHILDREN
+  M055_KEEP_FROM_CHILDREN
+  M056_VENTILATE_BEFORE_ENTERING
+  M057_ENSURE_VENTILATION
+  M058_ENTRY_WITH_SUPERVISOR
+  M059_WEAR_LAB_COAT
+  M060_HOLD_TROLLEY_HANDLE
+  M061_DISINFECT_HANDS
+  M062_DISINFECT_SURFACE
+}
+
+// Legg til ny junction-tabell
+model PPESymbolMapping {
+  id               String        @id @default(cuid())
+  symbol           PPESymbol
+  stoffkartotek    Stoffkartotek @relation(fields: [stoffkartotekId], references: [id], onDelete: Cascade)
+  stoffkartotekId  String
+
+  @@index([stoffkartotekId])
+}
+
 model Stoffkartotek {
   id            String      @id @default(cuid())
   produktnavn   String
@@ -503,6 +579,7 @@ model Stoffkartotek {
   opprettetAv   User?       @relation("StoffkartotekCreator", fields: [opprettetAvId], references: [id])
   opprettetAvId String?
   fareSymboler  FareSymbolMapping[]
+  ppeSymboler   PPESymbolMapping[]  // Endret til relation istedenfor JSON
 
   @@index([companyId])
   SJAProdukt SJAProdukt[]
@@ -590,6 +667,7 @@ model Risiko {
   risikoVerdi Int
   sjaId       String
   sja         SJA       @relation(fields: [sjaId], references: [id], onDelete: Cascade)
+  tiltak      Tiltak[]  // Legg til denne
 
   @@index([sjaId])
 }
@@ -602,8 +680,11 @@ model Tiltak {
   status      String
   sjaId       String
   sja         SJA       @relation(fields: [sjaId], references: [id], onDelete: Cascade)
+  risikoId    String?   // Gjør denne valgfri med ?
+  risiko      Risiko?   @relation(fields: [risikoId], references: [id], onDelete: Cascade) // Gjør denne valgfri med ?
 
   @@index([sjaId])
+  @@index([risikoId])
 }
 
 model SJAGodkjenning {
@@ -668,7 +749,6 @@ model SJAMal {
   
   // Grunnleggende informasjon
   tittel        String
-  prosjektNavn  String
   arbeidssted   String
   
   // Deltakere og ansvarlige

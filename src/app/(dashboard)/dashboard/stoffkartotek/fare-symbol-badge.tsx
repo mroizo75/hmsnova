@@ -63,15 +63,11 @@ export function FareSymbolBadge({ symbol, showLabel = false, selected = false }:
   if (!config) return null
 
   return (
-    <div 
-      className={cn(
-        "inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium transition-colors",
-        selected ? "bg-secondary/20" : "bg-gray-100 hover:bg-gray-200",
-        "cursor-pointer"
-      )}
-      title={config.label}
-    >
-      <div className="relative w-4 h-4">
+    <div className={cn(
+      "flex items-center gap-2",
+      selected && "text-primary"
+    )}>
+      <div className="relative w-8 h-8">
         <Image
           src={config.image}
           alt={config.label}
@@ -79,7 +75,9 @@ export function FareSymbolBadge({ symbol, showLabel = false, selected = false }:
           className="object-contain"
         />
       </div>
-      {showLabel && <span>{config.label}</span>}
+      {showLabel && (
+        <span className="text-sm">{config.label}</span>
+      )}
     </div>
   )
 } 

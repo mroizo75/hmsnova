@@ -17,13 +17,13 @@ import Link from "next/link"
 import { statusLabels } from "@/lib/constants/sja"
 import { toast } from "react-hot-toast"
 import { SJAPDFDocument } from "./sja-pdf"
-import { pdf } from "@react-pdf/renderer"
+import { generatePDF } from "./pdf-utils"
+import { format } from "date-fns"
 
 interface ColumnsProps {
   onEdit: (sja: SJAWithRelations) => void
   onBehandle: (sja: SJAWithRelations) => void
   onSlett: (sja: SJAWithRelations) => void
-  onGeneratePDF: (sja: SJAWithRelations) => void
   isGeneratingPDF: boolean
 }
 
@@ -31,7 +31,6 @@ export const columns = ({
   onEdit, 
   onBehandle, 
   onSlett, 
-  onGeneratePDF,
   isGeneratingPDF 
 }: ColumnsProps): ColumnDef<SJAWithRelations>[] => [
   {
@@ -50,7 +49,28 @@ export const columns = ({
   {
     accessorKey: "startDato",
     header: "Startdato",
-    cell: ({ row }) => formatDate(row.getValue("startDato"))
+    cell: ({ row }) => {
+      const date = row.getValue("startDato")
+      try {
+        return format(new Date(date as string), 'dd.MM.yyyy')
+      } catch (error) {
+        console.error('Ugyldig startdato:', error)
+        return "-"
+      }
+    }
+  },
+  {
+    accessorKey: "opprettetDato",
+    header: "Opprettet",
+    cell: ({ row }) => {
+      const date = row.getValue("opprettetDato")
+      try {
+        return format(new Date(date as string), 'dd.MM.yyyy HH:mm')
+      } catch (error) {
+        console.error('Ugyldig opprettelsesdato:', error)
+        return "-"
+      }
+    }
   },
   {
     accessorKey: "produkter",
@@ -102,43 +122,58 @@ export const columns = ({
           >
             <Trash2 className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={async () => {
-              try {
-                // Hent full SJA data med alle relasjoner
-                const response = await fetch(`/api/sja/${sja.id}`)
-                if (!response.ok) throw new Error('Kunne ikke hente SJA data')
-                const fullSjaData = await response.json()
-                
-                // Valider nødvendige felter
-                if (!fullSjaData || !fullSjaData.tittel) {
-                  throw new Error('Mangler nødvendig SJA-data')
-                }
-
-                // Forbered data for PDF
-                const pdfData = {
-                  ...fullSjaData,
-                  produkter: fullSjaData.produkter || [],
-                  godkjenninger: fullSjaData.godkjenninger || [],
-                  company: fullSjaData.company || { name: '', orgNumber: '' }
-                }
-                
-                // Generer PDF med forberedt data
-                const blob = await pdf(<SJAPDFDocument sja={pdfData} />).toBlob()
-                const url = URL.createObjectURL(blob)
-                window.open(url)
-              } catch (error) {
-                console.error('Feil ved generering av PDF:', error)
-                toast.error('Kunne ikke generere PDF: ' + (error instanceof Error ? error.message : 'Ukjent feil'))
-              }
-            }}
-            disabled={isGeneratingPDF}
-            title="Generer PDF"
-          >
-            <FileDown className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={isGeneratingPDF}
+                title="Last ned PDF"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={async () => {
+                  try {
+                    toast.loading('Genererer PDF...')
+                    
+                    const response = await fetch(`/api/sja/${sja.id}/pdf`, {
+                      headers: {
+                        'Accept': 'application/pdf'
+                      }
+                    })
+                    
+                    if (!response.ok) {
+                      throw new Error('Kunne ikke generere PDF')
+                    }
+                    
+                    // Last ned PDF
+                    const blob = await response.blob()
+                    const url = window.URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `SJA-${sja.id}.pdf`
+                    document.body.appendChild(a)
+                    a.click()
+                    window.URL.revokeObjectURL(url)
+                    document.body.removeChild(a)
+                    
+                    toast.dismiss()
+                    toast.success('PDF generert')
+                  } catch (error) {
+                    console.error('Feil ved generering av PDF:', error)
+                    toast.dismiss()
+                    toast.error('Kunne ikke generere PDF')
+                  }
+                }}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                <span>Last ned PDF</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )
     }
