@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth/auth-options"
+import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
 
 // GET /api/equipment - Hent alt utstyr med filtrering
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const hasDeviations = searchParams.get('hasDeviations') === 'true'
 
     // Bygg opp where-betingelser
-    const where = {
+    let where: any = {
       companyId: session.user.companyId,
       AND: [] as any[]
     }
@@ -75,9 +75,11 @@ export async function GET(req: Request) {
       })
     }
 
-    // Hvis ingen AND-betingelser, fjern AND-arrayet
+    // Hvis ingen AND-betingelser, lag nytt where-objekt uten AND
     if (where.AND.length === 0) {
-      delete where.AND
+      where = {
+        companyId: session.user.companyId
+      }
     }
 
     // Hent sorteringsparametere
@@ -131,7 +133,7 @@ export async function POST(req: Request) {
       data: {
         ...data,
         status: 'ACTIVE',
-        companyId: session.user.companyId!
+        companyId: session.user.companyId
       },
       include: {
         deviations: true,
@@ -142,6 +144,6 @@ export async function POST(req: Request) {
     return NextResponse.json(equipment)
   } catch (error) {
     console.error('Error creating equipment:', error)
-    return new NextResponse("Internal Server Error", { status: 500 })
+    return new NextResponse("Internal error", { status: 500 })
   }
 } 

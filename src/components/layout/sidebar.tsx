@@ -3,11 +3,11 @@
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import Link from "next/link"
-import { SidebarNav } from "./sidebar-nav"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 import { useState } from "react"
+import { SidebarClient } from "./sidebar-client"
 
 interface SidebarProps {
   modules: {
@@ -41,7 +41,7 @@ export function Sidebar({ modules }: SidebarProps) {
         </Link>
       </div>
       <nav className="flex flex-1">
-        <SidebarNav modules={modules} />
+        <SidebarClient modules={modules} />
       </nav>
     </div>
   )

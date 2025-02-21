@@ -63,6 +63,8 @@ model User {
   HMSHandbook HMSHandbook[]
 
   EquipmentInspection EquipmentInspection[] @relation("Inspections")
+
+  DocumentVersion DocumentVersion[]
 }
 
 model Company {
@@ -113,6 +115,8 @@ model Company {
   Equipment Equipment[]
 
   EquipmentInspection EquipmentInspection[]
+
+  Category Category[]
 }
 
 model Address {
@@ -409,22 +413,55 @@ model EmailQueue {
 }
 
 model Document {
-  id        String   @id @default(cuid())
-  name      String
-  type      String
-  url       String
-  metadata  Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relasjoner
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  company   Company  @relation(fields: [companyId], references: [id])
-  companyId String
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  company     Company  @relation(fields: [companyId], references: [id])
+  companyId   String
+  category    Category @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  versions    DocumentVersion[]
 
   @@index([userId])
   @@index([companyId])
+  @@index([categoryId])
+}
+
+// Ny modell for dokumentkategorier
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  documents   Document[]
+  company     Company    @relation(fields: [companyId], references: [id])
+  companyId   String
+
+  @@unique([name, companyId])  // Legg til denne
+  @@index([companyId])
+}
+
+// Ny modell for dokumentversjoner
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  version     Int
+  fileName    String
+  fileSize    Int
+  fileUrl     String
+  createdAt   DateTime @default(now())
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId  String
+  uploadedBy  User     @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+
+  @@index([documentId])
+  @@index([uploadedById])
 }
 
 enum Role {

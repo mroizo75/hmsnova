@@ -185,18 +185,6 @@ export default async function HMSHandbookPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          asChild
-        >
-          <Link href="/dashboard/hms-handbook">
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Tilbake til HMS-håndbok
-          </Link>
-        </Button>
-      </div>
 
       {handbook ? (
         <>

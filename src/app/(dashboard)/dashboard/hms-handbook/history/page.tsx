@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
-import { ChevronRight, ArrowLeftRight } from "lucide-react"
+import { ChevronRight, ArrowLeftRight, ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { prisma } from "@/lib/prisma"
@@ -125,6 +125,18 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+      <Button
+          variant="ghost"
+          size="sm"
+          asChild
+        >
+          <Link href="/dashboard/hms-handbook">
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Tilbake til HMS-håndbok
+          </Link>
+        </Button>
+      </div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Versjonshistorikk</h1>
         <Button 

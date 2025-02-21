@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const currentHandbook = await prisma.hMSHandbook.findFirst({
       where: {
         companyId,
-        version: fromVersion  // Bruk versjonsnummeret direkte
+        version: fromVersion
       },
       include: {
         sections: {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // Opprett ny kladd
+    // Opprett ny kladd med SAMME versjonsnummer
     const draft = await prisma.hMSHandbook.create({
       data: {
         title: currentHandbook.title,
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
           connect: { id: session.user.id }
         },
         status: 'DRAFT',
-        version: fromVersion + 1,
+        version: fromVersion,  // Behold samme versjonsnummer for utkast
         sections: {
           create: currentHandbook.sections.map(section => ({
             title: section.title,

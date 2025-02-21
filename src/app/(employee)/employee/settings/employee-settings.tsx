@@ -20,6 +20,7 @@ import { toast } from "sonner"
 import { Loader2, User, Lock, Phone, MapPin, ArrowLeft, Settings, FileText, AlertTriangle, TestTube } from "lucide-react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
+import { MultiSelect } from "@/components/ui/multi-select"
 
 const profileFormSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
@@ -29,6 +30,10 @@ const profileFormSchema = z.object({
     street: z.string().min(2, "Gatenavn må være minst 2 tegn"),
     postalCode: z.string().min(4, "Postnummer må være 4 siffer"),
     city: z.string().min(2, "Poststed må være minst 2 tegn")
+  }),
+  certifications: z.object({
+    machineCards: z.array(z.string()),
+    driverLicenses: z.array(z.string())
   })
 })
 
@@ -40,6 +45,39 @@ const passwordFormSchema = z.object({
   message: "Passordene må være like",
   path: ["confirmPassword"],
 })
+
+interface Option {
+  value: string
+  label: string
+}
+
+const MACHINE_CARDS: Option[] = [
+  { value: "T1", label: "T1 - Masseforflytningsmaskiner" },
+  { value: "T2", label: "T2 - Lastetruck" },
+  { value: "T3", label: "T3 - Teleskoptruck" },
+  { value: "T4", label: "T4 - Personløfter" },
+  { value: "T5", label: "T5 - Bro- og traverskran" },
+  { value: "T6", label: "T6 - Tårnkran" },
+  { value: "T7", label: "T7 - Portalkran" },
+  { value: "T8", label: "T8 - Mobilkran" }
+]
+
+const DRIVER_LICENSES: Option[] = [
+  { value: "AM", label: "AM - Moped" },
+  { value: "A1", label: "A1 - Lett motorsykkel" },
+  { value: "A2", label: "A2 - Mellomtung motorsykkel" },
+  { value: "A", label: "A - Tung motorsykkel" },
+  { value: "B", label: "B - Personbil" },
+  { value: "BE", label: "BE - Personbil med tilhenger" },
+  { value: "C1", label: "C1 - Lett lastebil" },
+  { value: "C1E", label: "C1E - Lett lastebil med tilhenger" },
+  { value: "C", label: "C - Lastebil" },
+  { value: "CE", label: "CE - Lastebil med tilhenger" },
+  { value: "D1", label: "D1 - Minibuss" },
+  { value: "D1E", label: "D1E - Minibuss med tilhenger" },
+  { value: "D", label: "D - Buss" },
+  { value: "DE", label: "DE - Buss med tilhenger" }
+]
 
 export function EmployeeSettings() {
   const { data: session, update } = useSession()
@@ -55,6 +93,10 @@ export function EmployeeSettings() {
         street: "", 
         postalCode: "", 
         city: "" 
+      },
+      certifications: session?.user?.certifications || {
+        machineCards: [],
+        driverLicenses: []
       }
     }
   })
@@ -62,6 +104,9 @@ export function EmployeeSettings() {
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
     resolver: zodResolver(passwordFormSchema)
   })
+
+  const machineCardOptions = MACHINE_CARDS
+  const driverLicenseOptions = DRIVER_LICENSES
 
   const onProfileSubmit = async (data: z.infer<typeof profileFormSchema>) => {
     setIsLoading(true)
@@ -231,6 +276,46 @@ export function EmployeeSettings() {
                         />
                       </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <FormField
+                      control={profileForm.control}
+                      name="certifications.machineCards"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Maskinførerbevis</FormLabel>
+                          <FormControl>
+                            <MultiSelect
+                              options={machineCardOptions}
+                              selected={field.value}
+                              onChange={field.onChange}
+                              placeholder="Velg maskinførerbevis..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={profileForm.control}
+                      name="certifications.driverLicenses"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Førerkort</FormLabel>
+                          <FormControl>
+                            <MultiSelect
+                              options={driverLicenseOptions}
+                              selected={field.value}
+                              onChange={field.onChange}
+                              placeholder="Velg førerkort..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
                   <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">

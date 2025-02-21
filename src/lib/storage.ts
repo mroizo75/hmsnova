@@ -39,7 +39,7 @@ export async function getSignedUrl(filePath: string) {
 export async function uploadToStorage(file: File, path: string, companyId: string) {
   try {
     // Strukturer filbanen med companyId
-    const fullPath = `companies/${companyId}/deviations/${path}`
+    const fullPath = `companies/${companyId}/${path}`
     console.log('Uploading file to path:', fullPath)
     
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -55,7 +55,6 @@ export async function uploadToStorage(file: File, path: string, companyId: strin
     return new Promise<string>((resolve, reject) => {
       blobStream.on('error', reject)
       blobStream.on('finish', async () => {
-        // Generer full URL
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fullPath}`
         resolve(publicUrl)
       })

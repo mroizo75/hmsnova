@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -28,34 +28,47 @@ import { ImageUpload } from "@/components/ui/image-upload"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import { typeLabels, categoryOptions, DEVIATION_STATUS } from "@/lib/constants/deviations"
+import { DeviationType } from "@prisma/client"
 
-const deviationFormSchema = z.object({
-  title: z.string().min(5, "Tittel må være minst 5 tegn"),
-  description: z.string().min(10, "Beskrivelse må være minst 10 tegn"),
-  type: z.enum(["NEAR_MISS", "INCIDENT", "ACCIDENT", "IMPROVEMENT", "OBSERVATION"]),
+const formSchema = z.object({
+  title: z.string().min(2, "Tittel må være minst 2 tegn"),
+  description: z.string().min(5, "Beskrivelse må være minst 5 tegn"),
+  type: z.nativeEnum(DeviationType),
   category: z.string().min(1, "Velg kategori"),
   severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
   location: z.string().optional(),
-  dueDate: z.string().optional().nullable(),
-  image: z.any().optional()
+  dueDate: z.string().optional(),
+  image: z.any().optional(),
+  equipmentId: z.string().optional().nullable(),
+  maintenanceRequired: z.boolean().default(false)
 })
 
 export function NewDeviationForm() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [equipment, setEquipment] = useState<any[]>([])
 
-  const form = useForm<z.infer<typeof deviationFormSchema>>({
-    resolver: zodResolver(deviationFormSchema),
+  useEffect(() => {
+    fetch('/api/equipment')
+      .then(res => res.json())
+      .then(data => setEquipment(data))
+      .catch(err => console.error('Feil ved henting av utstyr:', err))
+  }, [])
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
-      type: "NEAR_MISS",
+      type: "OBSERVATION" as DeviationType,
       category: "",
       severity: "LOW",
       location: "",
-      dueDate: null,
-      image: undefined
+      dueDate: "",
+      image: undefined,
+      equipmentId: "",
+      maintenanceRequired: false
     }
   })
 
@@ -65,18 +78,21 @@ export function NewDeviationForm() {
     }
   }
 
-  async function onSubmit(values: z.infer<typeof deviationFormSchema>) {
-    setIsSubmitting(true)
-    
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      setIsSubmitting(true)
       const formData = new FormData()
 
-      // Bruk norsk status
-      formData.append('status', DEVIATION_STATUS.OPEN) // AAPEN
+      const formattedValues = {
+        ...values,
+        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
+        equipmentId: values.equipmentId || null,
+        status: DEVIATION_STATUS.OPEN
+      }
 
-      Object.entries(values).forEach(([key, value]) => {
+      Object.entries(formattedValues).forEach(([key, value]) => {
         if (value !== null && value !== undefined && key !== 'image') {
-          formData.append(key, value)
+          formData.append(key, value.toString())
         }
       })
 
@@ -89,18 +105,26 @@ export function NewDeviationForm() {
         body: formData
       })
 
-      const data = await response.json()
+      const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Kunne ikke opprette avvik')
+        if (response.status === 400 && result.details) {
+          result.details.forEach((error: any) => {
+            toast.error(`${error.path.join('.')}: ${error.message}`)
+          })
+          return
+        }
+        throw new Error(result.error || 'Kunne ikke opprette avvik')
       }
 
-      toast.success('Avvik er meldt inn')
+      toast.success('Avvik opprettet')
       router.push('/employee-dashboard')
-
     } catch (error) {
-      console.error('Error:', error)
-      toast.error(error instanceof Error ? error.message : 'Kunne ikke opprette avvik')
+      if (error instanceof Error) {
+        toast.error(error.message)
+      } else {
+        toast.error('Kunne ikke opprette avvik')
+      }
     } finally {
       setIsSubmitting(false)
     }

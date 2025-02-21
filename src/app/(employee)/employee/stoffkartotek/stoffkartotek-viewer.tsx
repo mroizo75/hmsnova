@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, FileText } from "lucide-react"
 import { FareSymbolBadge } from "@/app/(dashboard)/dashboard/stoffkartotek/fare-symbol-badge"
-import type { FareSymbol } from "@prisma/client"
+import { PPESymbolBadge } from "@/app/(dashboard)/dashboard/stoffkartotek/ppe-symbol-badge"
+import type { FareSymbol, PPESymbol } from "@prisma/client"
 
 interface Produkt {
   id: string
   produktnavn: string
   fareSymboler: Array<{ symbol: FareSymbol }>
+  ppeSymboler: Array<{ symbol: PPESymbol }>
   databladUrl?: string | null
   beskrivelse?: string | null
 }
@@ -68,15 +70,35 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
                     </p>
                   )}
                   
+                  {/* Faresymboler */}
                   {produkt.fareSymboler.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {produkt.fareSymboler.map((symbol, index) => (
-                        <FareSymbolBadge 
-                          key={`${produkt.id}-${index}`}
-                          symbol={symbol.symbol}
-                          showLabel
-                        />
-                      ))}
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Faresymboler:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {produkt.fareSymboler.map((symbol, index) => (
+                          <FareSymbolBadge 
+                            key={`${produkt.id}-fare-${index}`}
+                            symbol={symbol.symbol}
+                            showLabel
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PPE Symboler */}
+                  {produkt.ppeSymboler.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Påkrevd verneutstyr:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {produkt.ppeSymboler.map((symbol, index) => (
+                          <PPESymbolBadge 
+                            key={`${produkt.id}-ppe-${index}`}
+                            symbol={symbol.symbol}
+                            showLabel
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

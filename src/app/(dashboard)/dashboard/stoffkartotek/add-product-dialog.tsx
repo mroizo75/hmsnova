@@ -232,10 +232,10 @@ export function AddStoffkartotekModal({
                     type="button"
                     onClick={() => toggleSymbol(symbol)}
                     className={cn(
-                      "flex items-center justify-start w-full p-2 rounded transition-colors",
+                      "flex items-center justify-start w-full p-2 rounded-lg transition-all",
                       selectedSymbols.includes(symbol)
-                        ? "bg-secondary/20 ring-2 ring-secondary"
-                        : "hover:bg-secondary/10"
+                        ? "bg-primary/10 ring-2 ring-primary shadow-sm"
+                        : "hover:bg-muted/60"
                     )}
                   >
                     <FareSymbolBadge 
@@ -263,10 +263,10 @@ export function AddStoffkartotekModal({
                         type="button"
                         onClick={() => togglePPE(symbol)}
                         className={cn(
-                          "flex items-center justify-start w-full p-2 rounded transition-colors",
+                          "flex items-center justify-start w-full p-2 rounded-lg transition-all",
                           selectedPPE.includes(symbol)
-                            ? "bg-secondary/20 ring-2 ring-secondary"
-                            : "hover:bg-secondary/10"
+                            ? "bg-primary/10 ring-2 ring-primary shadow-sm"
+                            : "hover:bg-muted/60"
                         )}
                       >
                         <PPESymbolBadge 

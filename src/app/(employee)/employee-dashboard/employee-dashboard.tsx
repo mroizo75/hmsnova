@@ -9,7 +9,8 @@ import {
   ChevronRight,
   LogOut,
   TestTube,
-  ClipboardCheck
+  ClipboardCheck,
+  FileBox
 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -21,6 +22,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { signOut } from "next-auth/react"
 import { useEffect, useState } from "react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { usePathname } from "next/navigation"
 
 interface Company {
   name: string
@@ -30,6 +38,7 @@ interface Company {
 export function EmployeeDashboard() {
   const { data: session } = useSession()
   const [company, setCompany] = useState<Company | null>(null)
+  const pathname = usePathname()
 
   const modules = [
     {
@@ -52,6 +61,13 @@ export function EmployeeDashboard() {
       icon: AlertTriangle,
       href: "/employee/deviations/new",
       color: "bg-orange-100 text-orange-600"
+    },
+    {
+      title: "Dokumenter",
+      description: "Se og last ned dokumenter",
+      icon: FileBox,
+      href: "/employee/documents",
+      color: "bg-indigo-100 text-indigo-600"
     },
     {
       title: "Stoffkartotek",
@@ -124,11 +140,17 @@ export function EmployeeDashboard() {
       {/* Main Content */}
       <div className="flex-1 p-4 space-y-4">
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Link href="/employee/deviations/new">
             <Card className="p-4 bg-orange-50 border-orange-100">
               <AlertTriangle className="w-6 h-6 text-orange-500 mb-2" />
               <p className="text-sm font-medium">Nytt avvik</p>
+            </Card>
+          </Link>
+          <Link href="/employee/documents">
+            <Card className="p-4 bg-indigo-50 border-indigo-100">
+              <FileBox className="w-6 h-6 text-indigo-500 mb-2" />
+              <p className="text-sm font-medium">Dokumenter</p>
             </Card>
           </Link>
           <Link href="/employee/safety-rounds">
@@ -163,13 +185,32 @@ export function EmployeeDashboard() {
       {/* Bottom Navigation */}
       <div className="sticky bottom-0 bg-white border-t px-4 py-2">
         <div className="flex justify-around">
-          {modules.map((module) => (
-            <Link key={module.title} href={module.href}>
-              <div className="flex flex-col items-center">
-                <module.icon className="w-6 h-6 text-gray-500" />
-                <span className="text-xs text-gray-600 mt-1">{module.title}</span>
-              </div>
-            </Link>
+          {[
+            { icon: BookOpen, title: "HMS Håndbok", href: "/employee/hms-handbook", color: "text-blue-600" },
+            { icon: FileText, title: "SJA", href: "/employee/sja", color: "text-green-600" },
+            { icon: AlertTriangle, title: "Avvik", href: "/employee/deviations", color: "text-orange-600" },
+            { icon: FileBox, title: "Dokumenter", href: "/employee/documents", color: "text-indigo-600" },
+            { icon: TestTube, title: "Stoffkartotek", href: "/employee/stoffkartotek", color: "text-purple-600" },
+            { icon: ClipboardCheck, title: "Vernerunder", href: "/employee/safety-rounds", color: "text-teal-600" }
+          ].map((item) => (
+            <TooltipProvider key={item.href}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href={item.href}>
+                    <div className="p-2">
+                      <item.icon 
+                        className={`w-6 h-6 ${
+                          pathname.startsWith(item.href) ? item.color : "text-gray-500"
+                        }`} 
+                      />
+                    </div>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{item.title}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ))}
         </div>
       </div>

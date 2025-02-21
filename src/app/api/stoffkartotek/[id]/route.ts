@@ -77,7 +77,7 @@ export async function PUT(
     const { id } = await context.params
     const data = await req.json()
 
-    const product = await prisma.stoffkartotek.update({
+    const updated = await prisma.stoffkartotek.update({
       where: {
         id: id
       },
@@ -90,16 +90,23 @@ export async function PUT(
         fareSymboler: {
           deleteMany: {},
           create: data.fareSymboler.map((symbol: string) => ({
-            symbol: symbol
+            symbol
+          }))
+        },
+        ppeSymboler: {
+          deleteMany: {},
+          create: data.ppeSymboler.map((symbol: string) => ({
+            symbol
           }))
         }
       },
       include: {
-        fareSymboler: true
+        fareSymboler: true,
+        ppeSymboler: true
       }
     })
 
-    return NextResponse.json(product)
+    return NextResponse.json(updated)
   } catch (error) {
     console.error("Error updating product:", error)
     return new Response("Could not update product", { status: 500 })

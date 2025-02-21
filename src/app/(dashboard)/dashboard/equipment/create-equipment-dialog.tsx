@@ -73,7 +73,10 @@ export function CreateEquipmentDialog({ open, onOpenChange, onSuccess }: Props) 
       const response = await fetch('/api/equipment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          // companyId vil bli håndtert på server-siden via session
+        }),
       })
 
       if (!response.ok) throw new Error('Kunne ikke opprette utstyr')

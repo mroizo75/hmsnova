@@ -1,20 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import prisma from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
-import { 
-  Users, 
-  AlertTriangle, 
-  FileCheck2, 
-  ClipboardCheck, 
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  TrendingUp
-} from "lucide-react"
-import { formatDate } from "@/lib/utils/date"
-import Link from "next/link"
 import { DashboardUpdates } from "@/components/dashboard/dashboard-updates"
+import { StatsCards } from "@/components/dashboard/stats/stats-cards"
+import { DeviationStats } from "@/components/dashboard/stats/deviation-stats"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { formatDistanceToNow } from "date-fns"
+import { nb } from "date-fns/locale"
+import { AlertTriangle, FileCheck2, Clock, User, TrendingUp, TrendingDown, ArrowRight, BarChart2 } from "lucide-react"
+import { SJAStatus, Status } from "@prisma/client"
+import { cn } from "@/lib/utils"
+import { LineChart, Line, ResponsiveContainer } from "recharts"
 
 // Definer status enum
 const DeviationStatus = {
@@ -40,10 +38,9 @@ async function getCompanyStats(userId: string) {
       },
       deviations: {
         where: {
-          OR: [
-            { status: 'AAPEN' },
-            { status: 'PAAGAAR' }
-          ]
+          status: {
+            not: 'LUKKET'  // Hent alle som ikke er lukket for StatsCards
+          }
         },
         orderBy: { createdAt: 'desc' },
         take: 3,
@@ -54,7 +51,7 @@ async function getCompanyStats(userId: string) {
           createdAt: true,
           assignedTo: true,
           severity: true,
-          measures: true
+          description: true
         }
       },
       riskAssessments: {
@@ -184,207 +181,378 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return null
 
-  const stats = await getCompanyStats(session.user.id)
-  const deviationStats = await getDeviationStats(stats.id)
-  const hmsStats = await getHMSStats(stats.id)
+  // Hent bedriftens ID fra brukerens sesjon
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { companyId: true }
+  })
+
+  if (!user?.companyId) return null
+
+  // Hent statistikk for bedriften
+  const stats = await prisma.company.findUnique({
+    where: { id: user.companyId },
+    select: {
+      users: true,
+      deviations: {
+        where: {
+          status: {
+            notIn: [Status.CLOSED, Status.LUKKET]  // Ekskluder begge "lukket" statuser
+          }
+        },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          createdAt: true,
+          assignedTo: true,
+          severity: true,
+          description: true
+        }
+      },
+      riskAssessments: true,
+      SJA: true
+    }
+  })
+
+  // Konverter stats til riktig format hvis det finnes
+  const formattedStats = stats ? {
+    users: stats.users,
+    deviations: stats.deviations,
+    riskAssessments: stats.riskAssessments,
+    SJA: stats.SJA
+  } : null
+
+  // Hent avviksstatistikk
+  const deviationStats = await prisma.deviation.groupBy({
+    by: ['status'],
+    where: { 
+      companyId: user.companyId,
+      status: {
+        in: [
+          Status.OPEN, Status.AAPEN,
+          Status.IN_PROGRESS, Status.PAAGAAR,
+          Status.CLOSED, Status.LUKKET
+        ]
+      }
+    },
+    _count: true
+  })
+
+  // Konverter til formatet som komponenten forventer
+  const formattedDeviationStats = deviationStats.map(stat => ({
+    status: stat.status,
+    _count: stat._count
+  }))
+
+  // Hent tiltak-statistikk
+  const measureStats = await prisma.measure.findMany({
+    where: { 
+      hazard: {
+        riskAssessment: {
+          companyId: user.companyId
+        }
+      },
+      createdAt: {
+        gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      }
+    },
+    select: {
+      status: true,
+      priority: true,
+      createdAt: true,
+      completedAt: true
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  // Hent de siste avvikene og SJA'ene
+  const [recentDeviations, recentSJAs] = await Promise.all([
+    prisma.deviation.findMany({
+      where: { 
+        companyId: user.companyId,
+        status: {
+          in: [
+            Status.OPEN, Status.AAPEN,
+            Status.IN_PROGRESS, Status.PAAGAAR
+          ]
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        createdAt: true,
+        assignedTo: true,
+        severity: true,
+        description: true
+      }
+    }),
+    prisma.sJA.findMany({
+      where: {
+        companyId: user.companyId
+      },
+      include: {
+        risikoer: {
+          select: {
+            risikoVerdi: true,
+            sannsynlighet: true,
+            alvorlighet: true
+          }
+        },
+        opprettetAv: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { opprettetDato: 'desc' },
+      take: 3
+    })
+  ])
+
+  // Hent både RiskAssessment og SJA risikoer
+  const [riskAssessments, sjaRisks] = await Promise.all([
+    prisma.hazard.findMany({
+      where: {
+        riskAssessment: {
+          companyId: user.companyId
+        }
+      },
+      select: {
+        riskLevel: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.sJA.findMany({
+      where: {
+        companyId: user.companyId
+      },
+      include: {  // Bruk include istedenfor select for relasjoner
+        risikoer: {  // liten r
+          select: {
+            risikoVerdi: true,
+            sannsynlighet: true,
+            alvorlighet: true
+          }
+        }
+      },
+      orderBy: { opprettetDato: 'desc' }
+    })
+  ])
+
+  // Kombiner og sorter alle risikoer etter dato
+  const allRisks = [
+    ...riskAssessments.map(r => ({ 
+      score: r.riskLevel,
+      date: r.createdAt 
+    })),
+    ...sjaRisks.flatMap(sja => 
+      sja.risikoer.map(r => ({  // liten r
+        score: r.risikoVerdi,
+        date: sja.opprettetDato
+      }))
+    )
+  ].sort((a, b) => b.date.getTime() - a.date.getTime())
+
+  // Beregn trend
+  const currentAvg = allRisks.slice(0, 5).reduce((acc, r) => acc + r.score, 0) / 5
+  const previousAvg = allRisks.slice(5, 10).reduce((acc, r) => acc + r.score, 0) / 5
+  const trend = currentAvg - previousAvg
 
   return (
     <div className="space-y-8">
       <DashboardUpdates />
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Sist oppdatert: {formatDate(new Date())}
-        </p>
-      </div>
+      <StatsCards stats={formattedStats} />
       
-      {/* Hovedstatistikk */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ansatte</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?._count.users ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Aktive brukere i systemet
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Åpne avvik</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{deviationStats?.OPEN ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Avvik som krever oppfølging
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Risikovurderinger</CardTitle>
-            <FileCheck2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?._count.riskAssessments ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Totalt antall risikovurderinger
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dokumenter</CardTitle>
-            <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?._count.documents ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Aktive dokumenter i systemet
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Avviksstatistikk */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>Avviksstatus</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center space-x-4">
-                <AlertCircle className="h-8 w-8 text-red-500" />
-                <div>
-                  <p className="text-sm font-medium">Åpne</p>
-                  <p className="text-2xl font-bold">{deviationStats?.OPEN ?? 0}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <Clock className="h-8 w-8 text-yellow-500" />
-                <div>
-                  <p className="text-sm font-medium">Under arbeid</p>
-                  <p className="text-2xl font-bold">{deviationStats?.IN_PROGRESS ?? 0}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <CheckCircle2 className="h-8 w-8 text-green-500" />
-                <div>
-                  <p className="text-sm font-medium">Lukket</p>
-                  <p className="text-2xl font-bold">{deviationStats?.CLOSED ?? 0}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <TrendingUp className="h-8 w-8 text-blue-500" />
-                <div>
-                  <p className="text-sm font-medium">Totalt</p>
-                  <p className="text-2xl font-bold">{stats?._count.deviations ?? 0}</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Siste avvik */}
-        <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>Siste avvik</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {stats?.deviations.length === 0 ? (
-                <p className="text-muted-foreground text-center">Ingen aktive avvik</p>
-              ) : (
-                stats?.deviations.map(deviation => (
-                  <Link 
-                    href={`/dashboard/deviations/${deviation.id}`}
-                    key={deviation.id}
-                    className="block hover:bg-muted/50 p-2 rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{deviation.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(deviation.createdAt)}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {deviation.assignedTo && (
-                          <span className="text-sm text-muted-foreground">
-                            {deviation.assignedTo}
-                          </span>
-                        )}
-                        <div className={`w-2 h-2 rounded-full ${
-                          deviation.status === 'AAPEN' 
-                            ? 'bg-red-500' 
-                            : 'bg-yellow-500'
-                        }`} />
-                      </div>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Avviksstatus */}
+      <DeviationStats stats={formattedDeviationStats} />
 
       {/* Siste aktiviteter */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle>Siste risikovurderinger</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Siste avvik</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stats?.riskAssessments.map(assessment => (
-                <div key={assessment.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{assessment.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(assessment.createdAt)}
-                    </p>
+              {recentDeviations.map(deviation => (
+                <Link 
+                  key={deviation.id}
+                  href={`/dashboard/deviations/${deviation.id}`}
+                  className="block hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          deviation.severity === 'HIGH' ? 'destructive' : 
+                          deviation.severity === 'MEDIUM' ? 'warning' : 
+                          'secondary'
+                        }>
+                          {deviation.severity}
+                        </Badge>
+                        <p className="font-medium">{deviation.title}</p>
+                      </div>
+                      <Badge variant={
+                        deviation.status === Status.OPEN ? 'destructive' : 
+                        deviation.status === Status.IN_PROGRESS ? 'secondary' : 
+                        'outline'
+                      }>
+                        {deviation.status === Status.OPEN ? 'Åpen' : 
+                         deviation.status === Status.IN_PROGRESS ? 'Under arbeid' : 
+                         'Lukket'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {formatDistanceToNow(deviation.createdAt, { addSuffix: true, locale: nb })}
+                      </div>
+                      {deviation.assignedTo && (
+                        <div className="flex items-center gap-1">
+                          <User className="h-4 w-4" />
+                          Tildelt
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>HMS-status</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Siste SJA</CardTitle>
+            <FileCheck2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Avvik lukket siste 30 dager</span>
-                <span className="font-medium">{hmsStats.closedDeviations}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Gjennomsnittlig behandlingstid</span>
-                <span className="font-medium">{hmsStats.avgProcessingTime} dager</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Aktive tiltak</span>
-                <span className="font-medium">{hmsStats.activeMeasures}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">HMS-dokumenter oppdatert</span>
-                <span className="font-medium">{hmsStats.docsUpdatedPercent}%</span>
-              </div>
+              {recentSJAs.map(sja => (
+                <Link 
+                  key={sja.id}
+                  href={`/dashboard/sja/${sja.id}`}
+                  className="block hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">{sja.tittel}</p>
+                      <Badge variant={
+                        sja.status === SJAStatus.GODKJENT ? 'default' : 
+                        sja.status === SJAStatus.UTKAST ? 'secondary' : 
+                        'outline'
+                      }>
+                        {sja.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {formatDistanceToNow(sja.opprettetDato, { addSuffix: true, locale: nb })}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <User className="h-4 w-4" />
+                        {sja.opprettetAv.name || sja.opprettetAv.email}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Tiltak-trend*/}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Risiko-trend</CardTitle>
+          <BarChart2 className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Høyeste risikofaktor</p>
+                <h2 className="text-2xl font-bold">
+                  {Math.max(...allRisks.map(r => r.score))}
+                </h2>
+              </div>
+              <div className={cn(
+                "flex items-center rounded-full px-2 py-1",
+                trend > 0 ? "bg-red-100 text-red-700" : 
+                trend < 0 ? "bg-green-100 text-green-700" : 
+                "bg-yellow-100 text-yellow-700"
+              )}>
+                {trend > 0 ? (
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                ) : trend < 0 ? (
+                  <TrendingDown className="h-4 w-4 mr-1" />
+                ) : (
+                  <ArrowRight className="h-4 w-4 mr-1" />
+                )}
+                <span className="text-sm font-medium">
+                  {Math.abs(trend).toFixed(1)} poeng {trend > 0 ? 'økning' : trend < 0 ? 'reduksjon' : 'uendret'}
+                </span>
+              </div>
+            </div>
+
+            {/* Mini-graf som viser trend */}
+            <div className="h-16 relative">
+              <div 
+                className="absolute inset-0 flex items-end"
+                style={{
+                  background: `linear-gradient(to right, ${
+                    trend > 0 ? '#ef4444' : 
+                    trend < 0 ? '#22c55e' : 
+                    '#eab308'
+                  }22, transparent)`
+                }}
+              >
+                {allRisks.slice(0, 10).map((risk, i) => (
+                  <div
+                    key={i}
+                    className="flex-1"
+                    style={{
+                      height: `${(risk.score / Math.max(...allRisks.map(r => r.score))) * 100}%`,
+                      background: trend > 0 ? '#ef4444' : trend < 0 ? '#22c55e' : '#eab308',
+                      opacity: 0.5 + (i / 20)
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Høy risiko</p>
+                <p className="font-medium">
+                  {allRisks.filter(r => r.score > 12).length}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Middels</p>
+                <p className="font-medium">
+                  {allRisks.filter(r => r.score >= 6 && r.score <= 12).length}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Lav</p>
+                <p className="font-medium">
+                  {allRisks.filter(r => r.score < 6).length}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 } 

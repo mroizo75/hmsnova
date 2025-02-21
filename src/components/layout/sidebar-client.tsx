@@ -16,7 +16,8 @@ import {
   TestTube,
   Shield,
   ClipboardList,
-  Wrench
+  Wrench,
+  FileBox
 } from "lucide-react"
 import Image from "next/image"
 import { LucideIcon } from "lucide-react"
@@ -34,6 +35,7 @@ interface NavigationItem {
   href: string
   icon: LucideIcon
   children?: NavigationItem[]
+  requiresModule?: boolean
 }
 
 // Definer modul-mapping for navigasjon
@@ -55,7 +57,8 @@ const baseNavigation: NavigationItem[] = [
   {
     name: 'Dashboard',
     href: '/dashboard',
-    icon: LayoutDashboard
+    icon: LayoutDashboard,
+    requiresModule: false
   },
   {
     name: 'Ansatte',
@@ -88,6 +91,12 @@ const baseNavigation: NavigationItem[] = [
     icon: AlertTriangle
   },
   {
+    name: 'Dokumenter',
+    href: '/dashboard/documents',
+    icon: FileBox,
+    requiresModule: false
+  },
+  {
     name: 'Utstyr',
     href: '/dashboard/equipment',
     icon: Wrench,
@@ -117,15 +126,27 @@ const bottomNavigation: NavigationItem[] = [
 
 export function SidebarClient({ modules }: SidebarClientProps) {
   const pathname = usePathname()
-  const hasActiveModule = (key: string) => modules.some(m => m.key === key && m.isActive)
+
+  // Hjelpefunksjon for å sjekke om en modul er aktiv
+  const hasActiveModule = (key: string) => {
+    return modules.some(m => m.key === key && m.isActive)
+  }
 
   // Kombiner base-navigasjon med aktive modul-baserte elementer
   const mainNavigation = [
-    ...baseNavigation,
+    // Alltid vis disse elementene
+    ...baseNavigation.filter(item => 
+      // Filtrer ikke ut dokumenter og andre basis-elementer
+      item.href === '/dashboard/documents' || 
+      !item.requiresModule
+    ),
+    // Legg til modul-baserte elementer hvis de er aktive
     ...Object.entries(moduleBasedNavigation)
       .filter(([key]) => hasActiveModule(key))
       .map(([_, item]) => item)
   ]
+
+  console.log('mainNavigation:', mainNavigation)
 
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-72 lg:flex-col">

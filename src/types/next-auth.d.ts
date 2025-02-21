@@ -1,4 +1,5 @@
 import "next-auth"
+import { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
   interface User {
@@ -13,9 +14,14 @@ declare module "next-auth" {
       postalCode: string
       city: string
     } | null
+    isSystemAdmin: boolean
+    certifications?: {
+      machineCards: string[]
+      driverLicenses: string[]
+    }
   }
 
   interface Session {
-    user: User
+    user: User & DefaultSession["user"]
   }
 } 

@@ -2,13 +2,10 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { redirect } from "next/navigation"
+import { DocumentList } from "./document-list"
+import { UploadDocumentDialog } from "./upload-document-dialog"
 
-interface PageProps {
-  params: Promise<{}>
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}
-
-export default async function DocumentsPage({ params, searchParams }: PageProps) {
+export default async function DocumentsPage() {
   const session = await getServerSession(authOptions)
   if (!session?.user) {
     redirect('/login')
@@ -16,38 +13,35 @@ export default async function DocumentsPage({ params, searchParams }: PageProps)
 
   const documents = await prisma.document.findMany({
     where: {
-      OR: [
-        { companyId: session.user.companyId },
-        { userId: session.user.id }
-      ]
+      companyId: session.user.companyId
     },
     include: {
-      company: true,
       user: {
         select: {
           name: true,
           email: true
         }
+      },
+      category: true,
+      versions: {
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 1
       }
     },
     orderBy: {
-      createdAt: 'desc'
+      updatedAt: 'desc'
     }
   })
 
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6">Dokumenter</h1>
-      <div className="grid gap-4">
-        {documents.map(doc => (
-          <div key={doc.id} className="border p-4 rounded-lg">
-            <h2 className="font-semibold">{doc.name}</h2>
-            <p className="text-sm text-muted-foreground">
-              Lastet opp av: {doc.user.name || doc.user.email}
-            </p>
-          </div>
-        ))}
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Dokumenter</h1>
+        <UploadDocumentDialog />
       </div>
+      <DocumentList documents={documents} />
     </div>
   )
 } 

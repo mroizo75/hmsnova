@@ -1,11 +1,10 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { redirect } from "next/navigation"
-import { SJAClient } from "./sja-client"
-import { EmployeePageLayout } from "@/components/layout/employee-page-layout"
 import { BookOpen, FileText, AlertTriangle, Settings, Home } from "lucide-react"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
+import { MobileSJAForm } from "./mobile-sja-form"
 
 export default async function SJAPage() {
   const session = await getServerSession(authOptions)
@@ -67,7 +66,7 @@ export default async function SJAPage() {
 
       {/* Main Content */}
       <div className="flex-1 p-4">
-        <SJAClient />
+        <MobileSJAForm />
       </div>
 
       {/* Bottom Navigation */}

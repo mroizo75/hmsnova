@@ -4,17 +4,15 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/db"
 import { Prisma } from "@prisma/client"
 
-export async function PATCH(req: Request) {
+export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const body = await req.json()
-    const { name, email, phone, address, image, certifications } = body
-
-    console.log("Saving certifications:", certifications)
+    const body = await request.json()
+    const { name, email, phone, address, certifications } = body
 
     const updatedUser = await prisma.user.update({
       where: {
@@ -24,22 +22,14 @@ export async function PATCH(req: Request) {
         name,
         email,
         phone,
-        image,
         address,
-        certifications // Dette er JSON-feltet
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        image: true,
-        address: true,
-        certifications: true
+        certifications: {
+          machineCards: certifications.machineCards,
+          driverLicenses: certifications.driverLicenses
+        }
       }
     })
 
-    console.log("Updated user:", updatedUser)
     return NextResponse.json(updatedUser)
   } catch (error) {
     console.error("Profile update error:", error)
