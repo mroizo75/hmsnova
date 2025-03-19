@@ -181,39 +181,6 @@ export function EmployeeDashboard() {
           ))}
         </div>
       </div>
-
-      {/* Bottom Navigation */}
-      <div className="sticky bottom-0 bg-white border-t px-4 py-2">
-        <div className="flex justify-around">
-          {[
-            { icon: BookOpen, title: "HMS Håndbok", href: "/employee/hms-handbook", color: "text-blue-600" },
-            { icon: FileText, title: "SJA", href: "/employee/sja", color: "text-green-600" },
-            { icon: AlertTriangle, title: "Avvik", href: "/employee/deviations", color: "text-orange-600" },
-            { icon: FileBox, title: "Dokumenter", href: "/employee/documents", color: "text-indigo-600" },
-            { icon: TestTube, title: "Stoffkartotek", href: "/employee/stoffkartotek", color: "text-purple-600" },
-            { icon: ClipboardCheck, title: "Vernerunder", href: "/employee/safety-rounds", color: "text-teal-600" }
-          ].map((item) => (
-            <TooltipProvider key={item.href}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link href={item.href}>
-                    <div className="p-2">
-                      <item.icon 
-                        className={`w-6 h-6 ${
-                          pathname.startsWith(item.href) ? item.color : "text-gray-500"
-                        }`} 
-                      />
-                    </div>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{item.title}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ))}
-        </div>
-      </div>
     </div>
   )
 } 

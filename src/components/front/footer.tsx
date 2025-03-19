@@ -1,75 +1,151 @@
+"use client"
+
 import Link from "next/link"
+import Image from "next/image"
 import { ContactModal } from "@/components/contact-modal"
- 
-const FooterItem = ({ text, link }: { text: string; link: string }) => {
-return (
-    <li>
-        <Link href={link}>
-            { text }
-        </Link>
-    </li>
-)
-}
- 
-const footerItems = [
-{
-    id: 1,
-    text: "Term of services",
-    link: "#"
-},
-{
-    id: 2,
-    text: "KKS AS",
-    link: "#"
-},
-{
-    id: 3,
-    text: "Kontakt oss",
-    link: "#"
-},
-]
- 
- 
-const FooterBlock = () => {
-return (
-    <footer className="pt-6">
-        <div className="px-2 sm:px-0">
-            <div className="mx-auto w-full max-w-6xl bg-[#17304F] dark:bg-blue-950 p-5 sm:p-10 py-10 sm:py-14 md:py-16 rounded-3xl relative overflow-hidden">
-                <div className="relative flex flex-col items-center text-center">
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl text-white font-bold max-w-4xl"> Ta neste steg i dag. </h1>
-                    <p className="text-base text-gray-300 max-w-2xl mt-10"> Er din bedrift klar for en smartere HMS-løsning?Med HMS Nova kan du trygt og enkelt oppfylle HMS-kravene, redusere risiko og spare tid. Ikke vent – ta steget mot en tryggere og mer effektiv fremtid.
-                     </p>
-                    <div className="flex justify-center mt-10">
-                        <ContactModal defaultMessage="Jeg ønsker mer informasjon om HMS Nova">
-                            <Link href="#" className="gap-x-3 font-display bg-white text-gray-900 hover:bg-gray-100/90 px-8 h-12 rounded-full flex items-center">
-                                Ta kontakt
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                                    <path fillRule="evenodd" d="M2 10a.75.75 0 01.75-.75h12.59l-2.1-1.95a.75.75 0 111.02-1.1l3.5 3.25a.75.75 0 010 1.1l-3.5 3.25a.75.75 0 11-1.02-1.1l2.1-1.95H2.75A.75.75 0 012 10z" clipRule="evenodd" />
-                                </svg>
-                            </Link>
-                        </ContactModal>
-                    </div>
-                </div>
+import { BookingModal } from "@/components/booking-modal"
+import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone } from "lucide-react"
+
+export default function Footer() {
+  const currentYear = new Date().getFullYear()
+  
+  return (
+    <footer className="bg-[#17304F] text-white relative overflow-hidden">
+      {/* Bakgrunnselement */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -right-40 -top-40 w-[400px] h-[400px] bg-[#2C435F] rounded-full opacity-20"></div>
+        <div className="absolute left-0 top-1/2 w-[600px] h-[600px] bg-[#2C435F] rounded-full opacity-10"></div>
+      </div>
+      
+      <div className="container mx-auto px-4 pt-16 pb-8 max-w-7xl relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center gap-2">
+              <Image src="/HMSNova-white.svg" alt="HMSNova Logo" width={200} height={200} className="h-20 w-auto" />
             </div>
-        </div>
-        <div className="bg-gray-200 dark:bg-gray-900 pt-60 -mt-48 px-4 sm:px-10 md:px-12 lg:px-8">
-            <div className="w-full max-w-7xl mx-auto flex flex-col sm:flex-row sm:justify-between items-center gap-y-5 py-3 border-t border-t-gray-300 dark:border-t-gray-700">
-                <p className="text-gray-700 dark:text-gray-300">
-                    ©  2025 KKS AS. Allrights reserved
-                </p>
-                <nav>
-                    <ul className="flex items-center gap-x-5 text-gray-800 dark:text-gray-200">
-                        {
-                            footerItems.map(footerItem=>(
-                                <FooterItem key={footerItem.id} {...footerItem}/>
-                            ))
-                        }
-                    </ul>
-                </nav>
+            <p className="text-white/80 max-w-xs">
+              Vi gjør HMS-arbeid enkelt og effektivt for norske bedrifter med vår innovative og brukervennlige plattform.
+            </p>
+            <div className="flex gap-4">
+              <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer" 
+                className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors duration-300">
+                <Facebook className="h-5 w-5" />
+              </a>
+              <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" 
+                className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors duration-300">
+                <Instagram className="h-5 w-5" />
+              </a>
+              <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer" 
+                className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors duration-300">
+                <Linkedin className="h-5 w-5" />
+              </a>
             </div>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-6">Våre tjenester</h3>
+            <ul className="space-y-4">
+              <li>
+                <Link href="/hms-handbok" className="text-white/70 hover:text-white transition-colors duration-200">HMS-håndbok</Link>
+              </li>
+              <li>
+                <Link href="/avvikshandtering" className="text-white/70 hover:text-white transition-colors duration-200">Avvikshåndtering</Link>
+              </li>
+              <li>
+                <Link href="/risikovurdering" className="text-white/70 hover:text-white transition-colors duration-200">Risikovurdering</Link>
+              </li>
+              <li>
+                <Link href="/vernerunde" className="text-white/70 hover:text-white transition-colors duration-200">Vernerunder</Link>
+              </li>
+              <li>
+                <Link href="/stoffkartotek" className="text-white/70 hover:text-white transition-colors duration-200">Stoffkartotek</Link>
+              </li>
+              <li>
+                <Link href="/sikkerjobbanalyse" className="text-white/70 hover:text-white transition-colors duration-200">Sikker Jobb Analyse</Link>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-6">Om oss</h3>
+            <ul className="space-y-4">
+              <li>
+                <Link href="/omoss" className="text-white/70 hover:text-white transition-colors duration-200">Vår historie</Link>
+              </li>
+              <li>
+                <Link href="/team" className="text-white/70 hover:text-white transition-colors duration-200">Team</Link>
+              </li>
+              <li>
+                <Link href="/karriere" className="text-white/70 hover:text-white transition-colors duration-200">Karriere</Link>
+              </li>
+              <li>
+                <Link href="/personvern" className="text-white/70 hover:text-white transition-colors duration-200">Personvern</Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-white/70 hover:text-white transition-colors duration-200">Vilkår</Link>
+              </li>
+              <li>
+                <Link href="/cookies" className="text-white/70 hover:text-white transition-colors duration-200">Cookies</Link>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-6">Kontakt oss</h3>
+            <ul className="space-y-4">
+              <li className="flex items-start gap-3">
+                <Phone className="h-5 w-5 text-white/80 mt-1 flex-shrink-0" />
+                <a href="tel:+4799112916" className="text-white/70 hover:text-white transition-colors duration-200">
+                  +47 99 11 29 16
+                </a>
+              </li>
+              <li className="flex items-start gap-3">
+                <Mail className="h-5 w-5 text-white/80 mt-1 flex-shrink-0" />
+                <a href="mailto:kenneth@kksas.no" className="text-white/70 hover:text-white transition-colors duration-200">
+                  kenneth@kksas.no
+                </a>
+              </li>
+              <li className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-white/80 mt-1 flex-shrink-0" />
+                <span className="text-white/70">
+                  Peckels Gate 12B, 3616 Kongsberg
+                </span>
+              </li>
+            </ul>
+            
+            <div className="mt-6 flex flex-col sm:flex-row gap-4">
+              <ContactModal>
+                <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors duration-300">
+                  Kontakt oss
+                </button>
+              </ContactModal>
+              
+              <BookingModal>
+                <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors duration-300">
+                  Book demo
+                </button>
+              </BookingModal>
+            </div>
+          </div>
         </div>
+        
+        <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row justify-between gap-4">
+          <p className="text-white/60 text-sm">
+            © {currentYear} KKS AS. Alle rettigheter forbeholdt.
+          </p>
+          <div className="flex gap-6">
+            <Link href="/personvern" className="text-white/60 hover:text-white text-sm transition-colors duration-200">
+              Personvern
+            </Link>
+            <Link href="/terms" className="text-white/60 hover:text-white text-sm transition-colors duration-200">
+              Vilkår
+            </Link>
+            <Link href="/cookies" className="text-white/60 hover:text-white text-sm transition-colors duration-200">
+              Cookies
+            </Link>
+          </div>
+        </div>
+      </div>
     </footer>
-)
+  )
 }
- 
-export default FooterBlock

@@ -12,6 +12,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -31,8 +32,10 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
-import { useState } from "react"
+import { CloudSun, Plus } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { WeatherMiniPreview } from "./weather-mini-preview"
 
 const formSchema = z.object({
   description: z.string().min(5, "Beskrivelse må være minst 5 tegn"),
@@ -40,17 +43,25 @@ const formSchema = z.object({
   probability: z.string().min(1, "Velg sannsynlighet"),
   severity: z.string().min(1, "Velg alvorlighetsgrad"),
   existingMeasures: z.string().optional(),
+  includeWeatherRisk: z.boolean().default(false),
+  weatherRiskNotes: z.string().optional(),
 })
 
 interface AddHazardDialogProps {
   assessmentId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  location?: { 
+    latitude: number | null
+    longitude: number | null
+    name?: string | null
+  } | null;
 }
 
-export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardDialogProps) {
+export function AddHazardDialog({ assessmentId, open, onOpenChange, location }: AddHazardDialogProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showWeatherPreview, setShowWeatherPreview] = useState(false)
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,12 +71,82 @@ export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardD
       probability: "",
       severity: "",
       existingMeasures: "",
+      includeWeatherRisk: false,
+      weatherRiskNotes: "",
     },
   })
+
+  // Reset skjemaet når dialogen åpnes
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        description: "",
+        consequence: "",
+        probability: "",
+        severity: "",
+        existingMeasures: "",
+        includeWeatherRisk: false,
+        weatherRiskNotes: "",
+      })
+      setShowWeatherPreview(false)
+    }
+  }, [open, form])
+
+  // Vis værprognoser når brukeren velger å inkludere værvurdering
+  useEffect(() => {
+    const includeWeather = form.watch("includeWeatherRisk");
+    console.log("[AddHazard] includeWeatherRisk endret til:", includeWeather);
+    console.log("[AddHazard] Location info:", location ? 
+      `latitude: ${location.latitude}, longitude: ${location.longitude}` : 
+      "Ingen lokasjon tilgjengelig");
+    setShowWeatherPreview(includeWeather);
+  }, [form.watch("includeWeatherRisk"), location]);
+
+  // Legg til loggføring for å se hva som sendes inn
+  useEffect(() => {
+    // Logg location-info når komponenten monteres
+    console.log("[AddHazard] Location ved oppstart:", location);
+    if (location) {
+      console.log("[AddHazard] Location properties:", {
+        latitude: typeof location.latitude,
+        longitude: typeof location.longitude,
+        name: typeof location.name,
+        nameValue: location.name
+      });
+    }
+  }, [location]);
+
+  // Mer robust sjekk for gyldig lokasjon med riktig geografisk område
+  const hasValidLocation = (() => {
+    // Hvis location er null eller undefined, er det ikke gyldig
+    if (!location) return false;
+    
+    // Sjekk om latitude og longitude finnes
+    const hasLatitude = location.latitude !== null && location.latitude !== undefined;
+    const hasLongitude = location.longitude !== null && location.longitude !== undefined;
+    
+    if (!hasLatitude || !hasLongitude) return false;
+    
+    // Konverter til tall
+    const latNum = Number(location.latitude);
+    const lonNum = Number(location.longitude);
+    
+    // Sjekk om tallene er gyldige og innenfor gyldig geografisk område
+    return !isNaN(latNum) && !isNaN(lonNum) && 
+           latNum >= -90 && latNum <= 90 && 
+           lonNum >= -180 && lonNum <= 180;
+  })();
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsSubmitting(true)
+      console.log("Sender data:", {
+        ...values,
+        probability: parseInt(values.probability),
+        severity: parseInt(values.severity),
+        hasLocation: hasValidLocation
+      })
+      
       const response = await fetch(`/api/risk-assessments/${assessmentId}/hazards`, {
         method: 'POST',
         headers: {
@@ -80,19 +161,22 @@ export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardD
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message)
+        console.error("Feil ved API-kall:", error);
+        throw new Error(error.message || "Feil ved registrering av fare")
       }
 
-      toast.success("Fare lagt til")
+      toast.success("Fare lagt til", {
+        description: "Faren ble registrert i risikovurderingen"
+      })
+      
       form.reset()
       onOpenChange(false)
       router.refresh()
     } catch (error) {
-      toast.error(
-        error instanceof Error 
-          ? error.message 
-          : "Kunne ikke legge til fare"
-      )
+      console.error("Feil i onSubmit:", error);
+      toast.error("Feil ved registrering", {
+        description: error instanceof Error ? error.message : "Kunne ikke legge til fare"
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -106,7 +190,7 @@ export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardD
           Legg til fare
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[625px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Legg til ny fare</DialogTitle>
           <DialogDescription>
@@ -165,7 +249,7 @@ export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardD
                           <SelectValue placeholder="Velg sannsynlighet" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent position="popper" className="z-[1000]">
                         <SelectItem value="1">1. Svært lite sannsynlig</SelectItem>
                         <SelectItem value="2">2. Lite sannsynlig</SelectItem>
                         <SelectItem value="3">3. Sannsynlig</SelectItem>
@@ -192,7 +276,7 @@ export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardD
                           <SelectValue placeholder="Velg alvorlighetsgrad" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent position="popper" className="z-[1000]">
                         <SelectItem value="1">1. Ubetydelig</SelectItem>
                         <SelectItem value="2">2. Lav</SelectItem>
                         <SelectItem value="3">3. Moderat</SelectItem>
@@ -205,6 +289,73 @@ export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardD
                 )}
               />
             </div>
+            
+            {/* Værrisiko seksjon */}
+            <div className="border rounded-md p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <CloudSun className="h-5 w-5 text-blue-500" />
+                <h3 className="text-lg font-medium">Værforhold</h3>
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="includeWeatherRisk"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox 
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={!hasValidLocation}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Inkluder værforhold i risikovurderingen</FormLabel>
+                      <FormDescription>
+                        {hasValidLocation 
+                          ? "Værforhold kan påvirke risikoen ved arbeidet" 
+                          : "Du må legge til lokasjon i risikovurderingen for å vurdere værrisiko"}
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              
+              {showWeatherPreview && hasValidLocation && (
+                <FormField
+                  control={form.control}
+                  name="weatherRiskNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <CloudSun className="h-4 w-4" />
+                        Vurdering av værforhold
+                      </FormLabel>
+                      <div className="mb-3">
+                        <WeatherMiniPreview 
+                          latitude={Number(location!.latitude)} 
+                          longitude={Number(location!.longitude)} 
+                          id={assessmentId} 
+                          locationName={location?.name || "Valgt lokasjon"}
+                        />
+                      </div>
+                      <FormControl>
+                        <Textarea 
+                          {...field} 
+                          placeholder="Legg til notater om hvordan værforholdene påvirker risikoen..." 
+                          rows={2}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Inkluder spesifikke værforhold som kan påvirke risikoen
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+            
             <FormField
               control={form.control}
               name="existingMeasures"
@@ -222,7 +373,7 @@ export function AddHazardDialog({ assessmentId, open, onOpenChange }: AddHazardD
                 </FormItem>
               )}
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Lagrer..." : "Legg til fare"}
               </Button>

@@ -46,44 +46,7 @@ export default async function EmployeeDocumentsPage() {
     }
   })
 
-  const modules = [
-    {
-      title: "Hjem",
-      icon: Home,
-      href: "/employee-dashboard",
-      color: "text-gray-600"
-    },
-    {
-      title: "HMS Håndbok",
-      icon: BookOpen,
-      href: "/employee/hms-handbook",
-      color: "text-blue-600"
-    },
-    {
-      title: "SJA",
-      icon: FileText,
-      href: "/employee/sja",
-      color: "text-green-600"
-    },
-    {
-      title: "Avvik",
-      icon: AlertTriangle,
-      href: "/employee/deviations",
-      color: "text-orange-600"
-    },
-    {
-      title: "Dokumenter",
-      icon: FileBox,
-      href: "/employee/documents",
-      color: "text-purple-600"
-    },
-    {
-      title: "Innstillinger",
-      icon: Settings,
-      href: "/employee/settings",
-      color: "text-gray-600"
-    }
-  ]
+
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -114,31 +77,6 @@ export default async function EmployeeDocumentsPage() {
         <EmployeeDocumentList documents={documents} />
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="sticky bottom-0 bg-white border-t px-4 py-2">
-        <div className="flex justify-around">
-          {modules.map((module) => (
-            <Link key={module.title} href={module.href}>
-              <div className="flex flex-col items-center">
-                <module.icon 
-                  className={`w-6 h-6 ${
-                    module.href === "/employee/documents"
-                      ? module.color
-                      : "text-gray-500"
-                  }`} 
-                />
-                <span className={`text-xs mt-1 ${
-                  module.href === "/employee/documents"
-                    ? module.color
-                    : "text-gray-600"
-                }`}>
-                  {module.title}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   )
 } 

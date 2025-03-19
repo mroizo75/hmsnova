@@ -8,6 +8,10 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Await params for å sikre at det er lastet før vi bruker egenskapene
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams.id;
+    
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return new NextResponse("Unauthorized", { status: 401 })
@@ -17,7 +21,7 @@ export async function PATCH(
     const { status, comment } = body
 
     const deviation = await prisma.deviation.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: { measures: true }
     })
 
@@ -27,7 +31,7 @@ export async function PATCH(
 
     // Oppdater avviket
     const updatedDeviation = await prisma.deviation.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         status,
         ...(status === 'LUKKET' && { closedAt: new Date() }),

@@ -11,6 +11,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/use-toast"
@@ -24,9 +25,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Label } from "@/components/ui/label"
+import { useSettings } from "@/hooks/use-settings"
+import { useToast } from "@/components/ui/use-toast"
 
 const settingsFormSchema = z.object({
   theme: z.enum(["light", "dark", "system"]),
+  colorMode: z.enum(["default", "protanopia", "deuteranopia", "tritanopia", "highContrast"]),
   emailNotifications: z.boolean(),
   pushNotifications: z.boolean(),
   dailyDigest: z.boolean(),
@@ -35,34 +42,63 @@ const settingsFormSchema = z.object({
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>
 
-export function SettingsForm({ settings }: { settings: any }) {
+type ColorMode = 'default' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'highContrast';
+type Theme = 'light' | 'dark';
+
+interface SettingsFormProps {
+  settings: {
+    id: string;
+    userId: string;
+    emailNotifications: boolean;
+    pushNotifications: boolean;
+    dailyDigest: boolean;
+    weeklyDigest: boolean;
+    colorMode: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+}
+
+export function SettingsForm({ settings }: SettingsFormProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
+  const { settings: currentSettings, updateSettings } = useSettings()
+  const { toast } = useToast()
+  const [colorMode, setColorMode] = useState<ColorMode>(currentSettings.colorMode)
+  const [isLoading, setIsLoading] = useState(false)
   
-  const form = useForm<SettingsFormValues>({
+  useEffect(() => {
+    // Oppdater HTML-elementet med riktig tema
+    document.documentElement.classList.remove('dark', 'light')
+    document.documentElement.classList.add(theme || 'light')
+
+    // Oppdater HTML-elementet med riktig fargeblindhetsmodus
+    document.documentElement.classList.remove('protanopia', 'deuteranopia', 'tritanopia', 'highContrast')
+    if (colorMode !== 'default') {
+      document.documentElement.classList.add(colorMode)
+    }
+  }, [theme, colorMode])
+
+  const form = useForm<z.infer<typeof settingsFormSchema>>({
     resolver: zodResolver(settingsFormSchema),
     defaultValues: {
       theme: (theme as "light" | "dark" | "system") || "system",
-      emailNotifications: settings?.emailNotifications ?? true,
-      pushNotifications: settings?.pushNotifications ?? true,
-      dailyDigest: settings?.dailyDigest ?? false,
-      weeklyDigest: settings?.weeklyDigest ?? true,
+      colorMode: currentSettings.colorMode as "default" | "protanopia" | "deuteranopia" | "tritanopia" | "highContrast",
+      emailNotifications: true,
+      pushNotifications: true,
+      dailyDigest: true,
+      weeklyDigest: true,
     },
   })
 
-  async function onSubmit(values: SettingsFormValues) {
+  const onSubmit = async (data: z.infer<typeof settingsFormSchema>) => {
     try {
-      setTheme(values.theme)
+      setIsLoading(true)
       
-      const response = await fetch("/api/user/settings", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
+      await updateSettings({
+        theme: data.theme as "light" | "dark",
+        colorMode: data.colorMode,
       })
-
-      if (!response.ok) throw new Error("Kunne ikke oppdatere innstillinger")
 
       toast({
         title: "Innstillinger oppdatert",
@@ -76,11 +112,41 @@ export function SettingsForm({ settings }: { settings: any }) {
         description: "Kunne ikke oppdatere innstillinger. Prøv igjen senere.",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleThemeChange = (value: Theme) => {
+    setTheme(value)
+  }
+
+  const handleColorModeChange = (value: ColorMode) => {
+    form.setValue('colorMode', value)
+    setColorMode(value)
+  }
+
+  const handleSave = async () => {
+    try {
+      await updateSettings({
+        theme: theme as "light" | "dark",
+        colorMode,
+      })
+      toast({
+        title: "Innstillinger lagret",
+        description: "Dine innstillinger er nå oppdatert.",
+      })
+    } catch (error) {
+      toast({
+        title: "Feil",
+        description: "Kunne ikke lagre innstillingene. Prøv igjen senere.",
+        variant: "destructive",
+      })
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full rounded-lg p-4">
       <Card>
         <CardHeader>
           <CardTitle>Utseende</CardTitle>
@@ -88,34 +154,37 @@ export function SettingsForm({ settings }: { settings: any }) {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="theme"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tema</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Velg tema" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="light">Lyst</SelectItem>
-                        <SelectItem value="dark">Mørkt</SelectItem>
-                        <SelectItem value="system">System</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Velg hvilket tema du ønsker å bruke i applikasjonen.
-                    </FormDescription>
-                  </FormItem>
-                )}
-              />
-              <Button type="submit">Lagre tema</Button>
+              <div className="space-y-2">
+                <Label htmlFor="theme">Tema</Label>
+                <Select value={theme} onValueChange={handleThemeChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Velg tema" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Lys</SelectItem>
+                    <SelectItem value="dark">Mørk</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="colorMode">Fargeblindhetsmodus</Label>
+                <Select value={colorMode} onValueChange={handleColorModeChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Velg fargeblindhetsmodus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Standard</SelectItem>
+                    <SelectItem value="protanopia">Protanopia</SelectItem>
+                    <SelectItem value="deuteranopia">Deuteranopia</SelectItem>
+                    <SelectItem value="tritanopia">Tritanopia</SelectItem>
+                    <SelectItem value="highContrast">Høykontrast</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Lagre utseende
+              </Button>
             </form>
           </Form>
         </CardContent>
@@ -143,6 +212,7 @@ export function SettingsForm({ settings }: { settings: any }) {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={isLoading}
                       />
                     </FormControl>
                   </FormItem>
@@ -163,6 +233,7 @@ export function SettingsForm({ settings }: { settings: any }) {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={isLoading}
                       />
                     </FormControl>
                   </FormItem>
@@ -183,6 +254,7 @@ export function SettingsForm({ settings }: { settings: any }) {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={isLoading}
                       />
                     </FormControl>
                   </FormItem>
@@ -203,16 +275,22 @@ export function SettingsForm({ settings }: { settings: any }) {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={isLoading}
                       />
                     </FormControl>
                   </FormItem>
                 )}
               />
-              <Button type="submit">Lagre varsler</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Lagre varsler
+              </Button>
             </form>
           </Form>
         </CardContent>
       </Card>
+
+      <Button onClick={handleSave}>Lagre innstillinger</Button>
     </div>
   )
 } 

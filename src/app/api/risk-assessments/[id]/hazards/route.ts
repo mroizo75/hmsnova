@@ -2,6 +2,7 @@ import prisma from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import { NextResponse } from "next/server"
+import { serialize } from "@/lib/utils/serializers"
 
 interface RouteParams {
   params: Promise<{
@@ -27,8 +28,19 @@ export async function POST(
       consequence, 
       probability, 
       severity, 
-      existingMeasures 
+      existingMeasures,
+      includeWeatherRisk,
+      weatherRiskNotes
     } = await req.json()
+
+    // Verifiser nødvendige data
+    if (!description || !consequence || !probability || !severity) {
+      console.error("Manglende påkrevde felt", { description, consequence, probability, severity })
+      return NextResponse.json(
+        { message: "Manglende påkrevde felt" },
+        { status: 400 }
+      )
+    }
 
     // Await params for å få tilgang til id
     const { id } = await params
@@ -49,6 +61,7 @@ export async function POST(
     })
 
     if (!assessment) {
+      console.error("Risikovurdering ikke funnet eller ingen tilgang", { assessmentId: id, userId: session.user.id })
       return NextResponse.json(
         { message: "Risikovurdering ikke funnet eller ingen tilgang" },
         { status: 404 }
@@ -57,6 +70,18 @@ export async function POST(
 
     // Beregn risikonivå (probability * severity)
     const riskLevel = probability * severity
+
+    // Juster metadata for å inkludere værrisiko hvis valgt
+    const metadata = includeWeatherRisk 
+      ? { 
+          weatherRisk: { 
+            included: true, 
+            notes: weatherRiskNotes || "" 
+          } 
+        }
+      : {}
+
+    console.log("Oppretter fare med metadata:", metadata)
 
     // Opprett ny fare
     const hazard = await db.hazard.create({
@@ -67,9 +92,13 @@ export async function POST(
         severity,
         riskLevel,
         existingMeasures,
-        riskAssessmentId: assessment.id
+        riskAssessmentId: assessment.id,
+        // Lagre metadata med værrisikoinformasjon
+        metadata: metadata
       }
     })
+
+    console.log("Fare opprettet:", hazard.id, "for risikovurdering:", assessment.id)
 
     // Oppdater sist endret på risikovurderingen
     await db.riskAssessment.update({
@@ -80,7 +109,7 @@ export async function POST(
       }
     })
 
-    return NextResponse.json(hazard)
+    return NextResponse.json(serialize(hazard))
   } catch (error) {
     console.error("Error creating hazard:", error)
     return NextResponse.json(

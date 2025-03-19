@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { validateCompany, type ParsedCompanyData } from "@/lib/services/brreg-service"
 import Link from "next/link"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import Image from "next/image"
 import {
@@ -35,6 +35,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ContractModal } from "@/components/contract-modal"
+import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
 interface FormData {
   orgNumber: string;
@@ -53,9 +55,7 @@ interface FormData {
   password: string;
   confirmPassword: string;
   subscriptionPlan: string;
-  employeeCount: number;
-  storageSize: string;
-  includeVernerunde: string;
+  employeeCount: string;
 }
 
 const formSchema = z.object({
@@ -74,22 +74,27 @@ const formSchema = z.object({
   email: z.string().email("Ugyldig e-post"),
   password: z.string().min(8, "Passord må være minst 8 tegn"),
   confirmPassword: z.string().min(8, "Bekreft passord må være minst 8 tegn"),
-  subscriptionPlan: z.enum(["STANDARD", "STANDARD_PLUS", "PREMIUM"]),
+  subscriptionPlan: z.enum(["STANDARD", "PREMIUM"]),
   employeeCount: z.string().min(1, "Antall ansatte må være minst 1"),
-  storageSize: z.enum(["1GB", "5GB", "20GB", "100GB"]),
-  includeVernerunde: z.enum(["no", "yes"]),
 })
 
 type EmployeeRange = "1-5" | "5-10" | "10-30"
-type StorageSize = "1GB" | "5GB" | "20GB" | "100GB"
+// Standardverdi for lagring
+const defaultStorageSize = "5GB"
 
-const basePrices = {
-  STANDARD: { monthly: 699, yearly: 8388 },
-  STANDARD_PLUS: { monthly: 1699, yearly: 20388 },
-  PREMIUM: { monthly: 2290, yearly: 27480 }
+// Originale priser
+const originalPrices = {
+  STANDARD: { monthly: 899, yearly: 899 * 12 - 899 }, // 1 måned gratis ved årsavtale
+  PREMIUM: { monthly: 1299, yearly: 1299 * 12 - 1299 } // 1 måned gratis ved årsavtale
 }
 
-const storagePricing: Record<StorageSize, number> = {
+// Kampanjepriser
+const basePrices = {
+  STANDARD: { monthly: 699, yearly: 699 * 12 - 699 }, // 1 måned gratis ved årsavtale
+  PREMIUM: { monthly: 1099, yearly: 1099 * 12 - 1099 } // 1 måned gratis ved årsavtale
+}
+
+const storagePricing: Record<string, number> = {
   "1GB": 0,
   "5GB": 199,
   "20GB": 399,
@@ -108,13 +113,17 @@ const calculatePrice = (plan: string, employees: string) => {
   return basePrice + employeePrice
 }
 
-export default function RegisterPage() {
+function RegisterFormInner() {
+  const searchParams = useSearchParams()
+  
+  // Hent pakkevalg fra URL-parametere
+  const planParam = searchParams.get('plan') as "STANDARD" | "PREMIUM" | null
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      subscriptionPlan: "STANDARD",
+      subscriptionPlan: (planParam || "STANDARD") as "STANDARD" | "PREMIUM",
       employeeCount: "1-5",
-      storageSize: "5GB",
       orgNumber: '',
       companyName: '',
       organizationType: '',
@@ -129,10 +138,17 @@ export default function RegisterPage() {
         streetNo: '',
         postalCode: '',
         city: '',
-      },
-      includeVernerunde: "no",
+      }
     }
   })
+  
+  // Oppdater feltene når URL-parametere endrer seg
+  useEffect(() => {
+    if (planParam && (planParam === "STANDARD" || planParam === "PREMIUM")) {
+      form.setValue('subscriptionPlan', planParam);
+    }
+  }, [planParam, form]);
+  
   const [companyData, setCompanyData] = useState<ParsedCompanyData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isValidating, setIsValidating] = useState(false)
@@ -200,8 +216,7 @@ export default function RegisterPage() {
         },
         subscriptionPlan: form.getValues('subscriptionPlan'),
         employeeCount: form.getValues('employeeCount'),
-        storageSize: form.getValues('storageSize'),
-        includeVernerunde: form.getValues('includeVernerunde'),
+        storageSize: defaultStorageSize
       }
 
       console.log('Sending registration data:', {
@@ -239,126 +254,101 @@ export default function RegisterPage() {
   const SubscriptionSection = () => {
     const plan = form.watch("subscriptionPlan")
     const employees = form.watch("employeeCount")
-    const storage = form.watch("storageSize")
-    const vernerunde = form.watch("includeVernerunde")
-
+    
+    const totalPrice = calculatePrice(plan, employees)
     const basePrice = basePrices[plan as keyof typeof basePrices].monthly
     const employeePrice = employeePricing[employees as EmployeeRange] || 0
-    const storagePrice = storagePricing[storage] || 0
-    const vernerundePrice = vernerunde === "yes" ? 416 : 0
-    const monthlyPrice = basePrice + employeePrice + storagePrice + vernerundePrice
-
+    
     return (
-      <div className="space-y-6 bg-gray-50 p-6 rounded-lg">
-        <FormField
-          control={form.control}
-          name="subscriptionPlan"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Velg pakke</FormLabel>
-              <Select onValueChange={(value) => {
-                field.onChange(value)
-                if (value === "PREMIUM") {
-                  form.setValue("includeVernerunde", "no")
-                }
-              }} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Velg pakke" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="STANDARD">Standard ({basePrices.STANDARD.monthly},-)</SelectItem>
-                  <SelectItem value="STANDARD_PLUS">Standard+ ({basePrices.STANDARD_PLUS.monthly},-)</SelectItem>
-                  <SelectItem value="PREMIUM">Premium (inkl. vernerunde) ({basePrices.PREMIUM.monthly},-)</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-          )}
-        />
-
-        {(plan === "STANDARD" || plan === "STANDARD_PLUS") && (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Velg abonnement</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="includeVernerunde"
+            name="subscriptionPlan"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Vernerunde-modul (+416 kr/mnd)</FormLabel>
+                <FormLabel>Abonnementspakke</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Velg alternativ" />
+                    <SelectTrigger>
+                      <SelectValue placeholder="Velg pakke" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="no">Nei</SelectItem>
-                    <SelectItem value="yes">Ja (+5000 kr/år)</SelectItem>
+                    <SelectItem value="STANDARD">Standard ({formatPrice(699)},-/mnd)</SelectItem>
+                    <SelectItem value="PREMIUM">Premium ({formatPrice(1099)},-/mnd)</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-sm text-gray-500 mt-1">
-                  Inkluderer én årlig vernerunde. Reise og kost kommer i tillegg.
-                </p>
+                <FormMessage />
               </FormItem>
             )}
           />
+          
+          <FormField
+            control={form.control}
+            name="employeeCount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Antall ansatte</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Velg antall" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="1-5">1-5 ansatte (inkludert)</SelectItem>
+                    <SelectItem value="5-10">5-10 ansatte (+299,-/mnd)</SelectItem>
+                    <SelectItem value="10-30">10-30 ansatte (+599,-/mnd)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
+        {plan === "PREMIUM" && (
+          <div className="bg-green-50 p-4 rounded-md border border-green-200 mt-4">
+            <p className="text-green-700 font-medium">Premium-pakken inkluderer:</p>
+            <ul className="list-disc pl-5 mt-2 text-green-700 text-sm space-y-1">
+              <li>Alt fra Standard-pakken</li>
+              <li>Vernerunder med automatisk læsning</li>
+              <li>Avansert HMS-dashboard</li>
+              <li>Sikker Jobb Analyse (SJA)</li>
+              <li>Utvidet rapportering og statistikk</li>
+              <li>Prioritert kundestøtte</li>
+            </ul>
+          </div>
         )}
-
-        <FormField
-          control={form.control}
-          name="employeeCount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Antall ansatte</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Velg antall" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="1-5">1-5 ansatte</SelectItem>
-                  <SelectItem value="5-10">5-10 ansatte (+299,- /mnd)</SelectItem>
-                  <SelectItem value="10-30">10-30 ansatte (+599,- /mnd)</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="storageSize"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Lagringskapasitet</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Velg lagring" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="1GB">1GB (inkludert)</SelectItem>
-                  <SelectItem value="5GB">5GB (+199,- /mnd)</SelectItem>
-                  <SelectItem value="20GB">20GB (+399,- /mnd)</SelectItem>
-                  <SelectItem value="100GB">100GB (+699,- /mnd)</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-          )}
-        />
-
-        <div className="text-center pt-4">
-          <p className="text-2xl font-bold text-gray-900">
-            {monthlyPrice},-
-            <span className="text-base font-normal"> per måned</span>
-          </p>
-          <p className="text-sm text-gray-600">
-            {monthlyPrice * 12},- per år
-          </p>
+        
+        <div className="bg-gray-50 p-4 rounded-md border border-gray-200 mt-4">
+          <p className="font-medium">Månedlig kostnad:</p>
+          <div className="space-y-2 mt-2">
+            <div className="flex justify-between">
+              <span>Basispris ({plan === "STANDARD" ? "Standard" : "Premium"}):</span>
+              <span>{basePrice},-</span>
+            </div>
+            {employeePrice > 0 && (
+              <div className="flex justify-between">
+                <span>Tillegg for {employees} ansatte:</span>
+                <span>{employeePrice},-</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold pt-2 border-t border-gray-300">
+              <span>Totalt per måned:</span>
+              <span>{totalPrice},-</span>
+            </div>
+          </div>
         </div>
       </div>
     )
+  }
+
+  // Hjelpefunksjon for å formatere pris
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('nb-NO', { style: 'currency', currency: 'NOK', maximumFractionDigits: 0 }).format(price).replace(/\s/g, '');
   }
 
   return (
@@ -496,5 +486,13 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Laster registrering...</div>}>
+      <RegisterFormInner />
+    </Suspense>
   )
 } 

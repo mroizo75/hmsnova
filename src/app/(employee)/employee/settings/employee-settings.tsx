@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -34,7 +34,13 @@ const profileFormSchema = z.object({
   certifications: z.object({
     machineCards: z.array(z.string()),
     driverLicenses: z.array(z.string())
-  })
+  }),
+  competencies: z.array(z.object({
+    name: z.string().min(1, "Kompetansenavn er påkrevd"),
+    description: z.string().optional(),
+    expiryDate: z.string().optional(),
+    certificateNumber: z.string().optional(),
+  })).default([])
 })
 
 const passwordFormSchema = z.object({
@@ -82,6 +88,22 @@ const DRIVER_LICENSES: Option[] = [
 export function EmployeeSettings() {
   const { data: session, update } = useSession()
   const [isLoading, setIsLoading] = useState(false)
+  const [hasCompetencyModule, setHasCompetencyModule] = useState(false)
+
+  useEffect(() => {
+    const checkCompetencyModule = async () => {
+      try {
+        const response = await fetch('/api/company/modules')
+        if (response.ok) {
+          const data = await response.json()
+          setHasCompetencyModule(data.modules.some((module: any) => module.key === 'COMPETENCY' && module.isActive))
+        }
+      } catch (error) {
+        console.error('Kunne ikke sjekke kompetansemodul:', error)
+      }
+    }
+    checkCompetencyModule()
+  }, [])
 
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
@@ -97,7 +119,8 @@ export function EmployeeSettings() {
       certifications: session?.user?.certifications || {
         machineCards: [],
         driverLicenses: []
-      }
+      },
+      competencies: session?.user?.competencies || []
     }
   })
 
@@ -168,7 +191,7 @@ export function EmployeeSettings() {
       {/* Main Content */}
       <div className="flex-1 p-4">
         <Tabs defaultValue="profile" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profil</span>
@@ -177,6 +200,12 @@ export function EmployeeSettings() {
               <Lock className="h-4 w-4" />
               <span className="hidden sm:inline">Sikkerhet</span>
             </TabsTrigger>
+            {hasCompetencyModule && (
+              <TabsTrigger value="competency" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Kompetanse</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="profile">
@@ -279,18 +308,23 @@ export function EmployeeSettings() {
                   </div>
 
                   <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <FormLabel>Sertifiseringer</FormLabel>
+                    </div>
+
                     <FormField
                       control={profileForm.control}
                       name="certifications.machineCards"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Maskinførerbevis</FormLabel>
+                          <FormLabel>Maskinførerkort</FormLabel>
                           <FormControl>
                             <MultiSelect
                               options={machineCardOptions}
                               selected={field.value}
                               onChange={field.onChange}
-                              placeholder="Velg maskinførerbevis..."
+                              placeholder="Velg maskinførerkort..."
                             />
                           </FormControl>
                           <FormMessage />
@@ -318,9 +352,15 @@ export function EmployeeSettings() {
                     />
                   </div>
 
-                  <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Lagre endringer
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Lagrer...
+                      </>
+                    ) : (
+                      "Lagre endringer"
+                    )}
                   </Button>
                 </form>
               </Form>
@@ -373,46 +413,123 @@ export function EmployeeSettings() {
                     )}
                   />
 
-                  <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Oppdater passord
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Lagrer...
+                      </>
+                    ) : (
+                      "Oppdater passord"
+                    )}
                   </Button>
                 </form>
               </Form>
             </Card>
           </TabsContent>
+
+          {hasCompetencyModule && (
+            <TabsContent value="competency">
+              <Card className="p-4 md:p-6">
+                <Form {...profileForm}>
+                  <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                    <FormField
+                      control={profileForm.control}
+                      name="competencies"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Dine kompetanser</FormLabel>
+                          <FormControl>
+                            <div className="space-y-4">
+                              {field.value.map((competency, index) => (
+                                <div key={index} className="flex items-start space-x-4 p-4 border rounded-lg">
+                                  <div className="flex-1 space-y-4">
+                                    <Input
+                                      placeholder="Kompetansenavn"
+                                      value={competency.name}
+                                      onChange={(e) => {
+                                        const newCompetencies = [...field.value];
+                                        newCompetencies[index] = { ...competency, name: e.target.value };
+                                        field.onChange(newCompetencies);
+                                      }}
+                                    />
+                                    <Input
+                                      placeholder="Beskrivelse (valgfritt)"
+                                      value={competency.description || ""}
+                                      onChange={(e) => {
+                                        const newCompetencies = [...field.value];
+                                        newCompetencies[index] = { ...competency, description: e.target.value };
+                                        field.onChange(newCompetencies);
+                                      }}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <Input
+                                        type="date"
+                                        placeholder="Utløpsdato (valgfritt)"
+                                        value={competency.expiryDate || ""}
+                                        onChange={(e) => {
+                                          const newCompetencies = [...field.value];
+                                          newCompetencies[index] = { ...competency, expiryDate: e.target.value };
+                                          field.onChange(newCompetencies);
+                                        }}
+                                      />
+                                      <Input
+                                        placeholder="Sertifikatnummer (valgfritt)"
+                                        value={competency.certificateNumber || ""}
+                                        onChange={(e) => {
+                                          const newCompetencies = [...field.value];
+                                          newCompetencies[index] = { ...competency, certificateNumber: e.target.value };
+                                          field.onChange(newCompetencies);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => {
+                                      const newCompetencies = field.value.filter((_, i) => i !== index);
+                                      field.onChange(newCompetencies);
+                                    }}
+                                  >
+                                    Fjern
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  field.onChange([...field.value, { name: "", description: "", expiryDate: "", certificateNumber: "" }]);
+                                }}
+                              >
+                                Legg til kompetanse
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" disabled={isLoading}>
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Lagrer...
+                        </>
+                      ) : (
+                        "Lagre kompetanse"
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="sticky bottom-0 bg-white border-t px-4 py-2">
-        <div className="flex justify-around">
-          <Link href="/employee/hms-handbook">
-            <div className="flex flex-col items-center">
-              <FileText className="w-6 h-6 text-gray-500" />
-              <span className="text-xs text-gray-600 mt-1">HMS</span>
-            </div>
-          </Link>
-          <Link href="/employee/sja">
-            <div className="flex flex-col items-center">
-              <FileText className="w-6 h-6 text-gray-500" />
-              <span className="text-xs text-gray-600 mt-1">SJA</span>
-            </div>
-          </Link>
-          <Link href="/employee/deviations/new">
-            <div className="flex flex-col items-center">
-              <AlertTriangle className="w-6 h-6 text-gray-500" />
-              <span className="text-xs text-gray-600 mt-1">Avvik</span>
-            </div>
-          </Link>
-          <Link href="/employee/stoffkartotek">
-            <div className="flex flex-col items-center">
-              <TestTube className="w-6 h-6 text-gray-500" />
-              <span className="text-xs text-gray-600 mt-1">Stoffkartotek</span>
-            </div>
-          </Link>
-        </div>
-      </div>
     </div>
   )
 } 

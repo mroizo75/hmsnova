@@ -105,10 +105,15 @@ export async function POST(req: Request) {
       // Generer buffer
       const buffer = await workbook.xlsx.writeBuffer()
 
-      return new Response(buffer, {
+      // Opprett filnavn
+      const filename = `hms-rapport-${format(new Date(), 'yyyy-MM-dd', { locale: nb })}.xlsx`
+
+      // Bruk NextResponse.json med headers-parameteren for å unngå dynamisk server-bruk
+      return new NextResponse(buffer, {
+        status: 200,
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': `attachment; filename="hms-rapport-${format(new Date(), 'yyyy-MM-dd', { locale: nb })}.xlsx"`
+          'Content-Disposition': `attachment; filename="${filename}"`
         }
       })
     }

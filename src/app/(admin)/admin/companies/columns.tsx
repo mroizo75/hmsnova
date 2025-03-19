@@ -3,6 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils/date"
+import { Check, X } from "lucide-react"
 
 export interface Company {
   id: string
@@ -21,6 +22,7 @@ export interface Company {
   subscriptionPlan: string
   employeeCount: number
   storageLimit: number
+  includeVernerunde: boolean
 }
 
 export const columns: ColumnDef<Company>[] = [
@@ -82,14 +84,38 @@ export const columns: ColumnDef<Company>[] = [
         <div className="flex items-center">
           <Badge variant={
             plan === "PREMIUM" ? "default" : 
-            plan === "STANDARD" ? "secondary" : 
-            "outline"
+            "secondary"
           }>
-            {plan}
+            {plan === "PREMIUM" ? "Premium" : "Standard"}
           </Badge>
         </div>
       )
     },
+  },
+  {
+    id: "bht",
+    header: "BHT",
+    cell: ({ row }) => {
+      // Sjekk om det eksisterer en BHT-modul
+      const modules = row.original.modules || [];
+      const hasBHT = modules.some(module => 
+        module.key?.includes('BHT_') && module.isActive
+      );
+      
+      return hasBHT ? 
+        <span className="text-green-600"><Check size={18} /></span> : 
+        <span className="text-gray-400"><X size={18} /></span>;
+    }
+  },
+  {
+    accessorKey: "includeVernerunde",
+    header: "Vernerunde",
+    cell: ({ row }) => {
+      const hasVernerunde = row.getValue("includeVernerunde") as boolean;
+      return hasVernerunde ? 
+        <span className="text-green-600"><Check size={18} /></span> : 
+        <span className="text-gray-400"><X size={18} /></span>;
+    }
   },
   {
     accessorKey: "employeeCount",

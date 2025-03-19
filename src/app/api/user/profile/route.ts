@@ -54,7 +54,8 @@ export async function GET(req: Request) {
         image: true,
         address: true,
         certifications: true,
-        companyId: true
+        companyId: true,
+        competencies: true
       }
     })
 
@@ -66,5 +67,71 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error("Profile fetch error:", error)
     return new NextResponse("Internal error", { status: 500 })
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return new NextResponse("Uautentisert", { status: 401 })
+    }
+
+    const body = await req.json()
+    const { name, email, phone, address, image, certifications, competencies } = body
+
+    // Oppdater brukerinformasjon
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: session.user.id,
+      },
+      data: {
+        name,
+        email,
+        phone,
+        address,
+        image,
+        certifications,
+      },
+      include: {
+        competencies: true
+      }
+    })
+
+    // Håndter kompetanse
+    if (competencies) {
+      // Slett eksisterende kompetanse
+      await prisma.competency.deleteMany({
+        where: {
+          userId: session.user.id,
+        },
+      })
+
+      // Opprett nye kompetanser
+      await prisma.competency.createMany({
+        data: competencies.map((comp: any) => ({
+          name: comp.name,
+          description: comp.description,
+          expiryDate: comp.expiryDate ? new Date(comp.expiryDate) : null,
+          certificateNumber: comp.certificateNumber,
+          userId: session.user.id,
+        })),
+      })
+
+      // Hent oppdatert bruker med kompetanse
+      const userWithCompetencies = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        include: {
+          competencies: true
+        }
+      })
+
+      return NextResponse.json(userWithCompetencies)
+    }
+
+    return NextResponse.json(updatedUser)
+  } catch (error) {
+    console.error("[PROFILE_PATCH]", error)
+    return new NextResponse("Intern feil", { status: 500 })
   }
 } 

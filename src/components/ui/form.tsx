@@ -44,15 +44,30 @@ const FormField = <
 const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext)
   const itemContext = React.useContext(FormItemContext)
-  const { getFieldState, formState } = useFormContext()
-
-  const fieldState = getFieldState(fieldContext.name, formState)
-
+  
   if (!fieldContext) {
     throw new Error("useFormField should be used within <FormField>")
   }
 
-  const { id } = itemContext
+  // Sjekk om vi er innenfor en form-kontekst først
+  const formContext = useFormContext();
+  
+  if (!formContext) {
+    // Returner dummy-verdier hvis vi ikke har en formkontekst
+    // Dette kan skje hvis komponenten brukes utenfor en <Form>
+    return {
+      id: itemContext?.id || "",
+      name: fieldContext.name,
+      formItemId: itemContext?.id ? `${itemContext.id}-form-item` : "",
+      formDescriptionId: itemContext?.id ? `${itemContext.id}-form-item-description` : "",
+      formMessageId: itemContext?.id ? `${itemContext.id}-form-item-message` : "",
+    }
+  }
+  
+  const { getFieldState, formState } = formContext
+  const fieldState = getFieldState(fieldContext.name, formState)
+
+  const { id } = itemContext || { id: "" } // Sikre at vi har en id selv om itemContext mangler
 
   return {
     id,

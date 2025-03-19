@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { useState } from "react"
+import { Loader2 } from "lucide-react"
 
 const profileFormSchema = z.object({
   name: z.string().min(2, {
@@ -37,7 +38,13 @@ const profileFormSchema = z.object({
   }),
   image: z.union([z.string(), z.instanceof(File)]).optional(),
   machineCards: z.array(z.string()).default([]),
-  driverLicenses: z.array(z.string()).default([])
+  driverLicenses: z.array(z.string()).default([]),
+  competencies: z.array(z.object({
+    name: z.string().min(1, "Kompetansenavn er påkrevd"),
+    description: z.string().optional(),
+    expiryDate: z.string().optional(),
+    certificateNumber: z.string().optional(),
+  })).default([])
 })
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
@@ -80,7 +87,9 @@ interface ProfileFormProps {
     image: string | null
     address: any
     certifications: any
-    companyId: string  // Nå er dette garantert å være her
+    competencies: any
+    companyId: string
+    hasCompetencyModule: boolean
   }
 }
 
@@ -115,7 +124,8 @@ export function ProfileForm({ user }: ProfileFormProps) {
       },
       image: user.image || "",
       machineCards: user.certifications?.machineCards || [],
-      driverLicenses: user.certifications?.driverLicenses || []
+      driverLicenses: user.certifications?.driverLicenses || [],
+      competencies: user.competencies || []
     },
   })
 
@@ -185,169 +195,288 @@ export function ProfileForm({ user }: ProfileFormProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Profilinformasjon</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="image"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Profilbilde</FormLabel>
-                  <FormControl>
-                    <ImageUpload
-                      value={typeof field.value === 'string' ? field.value : undefined}
-                      onChange={(file) => {
-                        setSelectedImage(file || null)
-                        field.onChange(file || '')
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid gap-4 md:grid-cols-2">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Profilinformasjon</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="name"
+                name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Navn</FormLabel>
+                    <FormLabel>Profilbilde</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ditt navn" {...field} />
+                      <ImageUpload
+                        value={typeof field.value === 'string' ? field.value : undefined}
+                        onChange={(file) => {
+                          setSelectedImage(file || null)
+                          field.onChange(file || '')
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>E-post</FormLabel>
-                    <FormControl>
-                      <Input placeholder="din.epost@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Telefonnummer</FormLabel>
-                  <FormControl>
-                    <Input placeholder="12345678" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Adresse</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="address.street"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Gateadresse</FormLabel>
+                      <FormLabel>Navn</FormLabel>
                       <FormControl>
-                        <Input placeholder="Gatenavn 123" {...field} />
+                        <Input placeholder="Ditt navn" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="grid gap-4 grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>E-post</FormLabel>
+                      <FormControl>
+                        <Input placeholder="din.epost@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefon</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+47 123 45 678" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Adresse</h3>
+                <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     control={form.control}
-                    name="address.postalCode"
+                    name="address.street"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Postnummer</FormLabel>
+                        <FormLabel>Gateadresse</FormLabel>
                         <FormControl>
-                          <Input placeholder="0000" {...field} />
+                          <Input placeholder="Gateadresse" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="address.city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Poststed</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Oslo" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="address.postalCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Postnummer</FormLabel>
+                          <FormControl>
+                            <Input placeholder="1234" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="address.city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>By</FormLabel>
+                          <FormControl>
+                            <Input placeholder="By" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium">Sertifiseringer</h3>
-                <div className="grid gap-4 mt-4">
-                  <FormField
-                    control={form.control}
-                    name="machineCards"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Maskinførerkort</FormLabel>
-                        <FormControl>
-                          <MultiSelect
-                            options={MACHINE_CARDS}
-                            selected={field.value}
-                            onChange={field.onChange}
-                            placeholder="Velg maskinførerkort..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="driverLicenses"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Førerkort</FormLabel>
-                        <FormControl>
-                          <MultiSelect
-                            options={DRIVER_LICENSES}
-                            selected={field.value}
-                            onChange={field.onChange}
-                            placeholder="Velg førerkort..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium">Sertifiseringer</h3>
+                  <div className="grid gap-4 mt-4">
+                    <FormField
+                      control={form.control}
+                      name="machineCards"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Maskinførerkort</FormLabel>
+                          <FormControl>
+                            <MultiSelect
+                              options={MACHINE_CARDS}
+                              selected={field.value}
+                              onChange={field.onChange}
+                              placeholder="Velg maskinførerkort..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="driverLicenses"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Førerkort</FormLabel>
+                          <FormControl>
+                            <MultiSelect
+                              options={DRIVER_LICENSES}
+                              selected={field.value}
+                              onChange={field.onChange}
+                              placeholder="Velg førerkort..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Lagrer..." : "Lagre endringer"}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Lagre endringer"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {user.hasCompetencyModule && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Kompetanse</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">Kompetanse</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentCompetencies = form.getValues("competencies")
+                        form.setValue("competencies", [
+                          ...currentCompetencies,
+                          { name: "", description: "", expiryDate: "", certificateNumber: "" }
+                        ])
+                      }}
+                    >
+                      Legg til kompetanse
+                    </Button>
+                  </div>
+
+                  {form.watch("competencies").map((_, index) => (
+                    <div key={index} className="space-y-4 p-4 border rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-medium">Kompetanse {index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const currentCompetencies = form.getValues("competencies")
+                            form.setValue(
+                              "competencies",
+                              currentCompetencies.filter((_, i) => i !== index)
+                            )
+                          }}
+                        >
+                          Fjern
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                          control={form.control}
+                          name={`competencies.${index}.name`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Navn</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Kompetansenavn" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`competencies.${index}.certificateNumber`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sertifikatnummer</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Sertifikatnummer" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`competencies.${index}.expiryDate`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Utløpsdato</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`competencies.${index}.description`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Beskrivelse</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Beskrivelse" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Lagre kompetanse
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 } 

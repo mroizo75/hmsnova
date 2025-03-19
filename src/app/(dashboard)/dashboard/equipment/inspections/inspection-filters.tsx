@@ -12,12 +12,13 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { useState, useEffect } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
 interface Props {
   onFiltersChange: (filters: any) => void
 }
 
-export function InspectionFilters({ onFiltersChange }: Props) {
+function InspectionFiltersInner({ onFiltersChange }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -121,5 +122,13 @@ export function InspectionFilters({ onFiltersChange }: Props) {
         </div>
       </div>
     </div>
+  )
+}
+
+export function InspectionFilters({ onFiltersChange }: Props) {
+  return (
+    <Suspense fallback={<div>Laster filtre...</div>}>
+      <InspectionFiltersInner onFiltersChange={onFiltersChange} />
+    </Suspense>
   )
 } 

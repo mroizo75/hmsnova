@@ -13,7 +13,12 @@ export default async function ProfilePage() {
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {
-      company: true
+      company: {
+        include: {
+          modules: true
+        }
+      },
+      Competency: true
     }
   })
 
@@ -21,6 +26,11 @@ export default async function ProfilePage() {
     console.error("User or company not found:", { userId: session.user.id })
     redirect('/login')
   }
+
+  // Sjekk om kompetansemodulen er aktiv
+  const hasCompetencyModule = user.company.modules.some(module => 
+    module.key === 'COMPETENCY' && module.isActive
+  )
 
   // Strukturer data riktig før vi sender til client
   const userData = {
@@ -31,7 +41,9 @@ export default async function ProfilePage() {
     image: user.image,
     address: user.address,
     certifications: user.certifications,
-    companyId: user.company.id // Dette må være definert
+    competencies: hasCompetencyModule ? user.Competency : [],
+    companyId: user.company.id,
+    hasCompetencyModule
   }
 
   console.log("Sending user data to client:", {

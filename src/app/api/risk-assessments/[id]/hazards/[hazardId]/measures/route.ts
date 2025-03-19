@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
+import { serialize } from "@/lib/utils/serializers"
 
 export async function POST(
   request: Request,
@@ -28,7 +29,7 @@ export async function POST(
       }
     })
 
-    return NextResponse.json(measure)
+    return NextResponse.json(serialize(measure))
   } catch (error) {
     console.error("[RISK_ASSESSMENT_MEASURES_POST]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -55,7 +56,7 @@ export async function GET(
       }
     })
 
-    return NextResponse.json(measures)
+    return NextResponse.json(serialize(measures))
   } catch (error) {
     console.error("[RISK_ASSESSMENT_MEASURES_GET]", error)
     return new NextResponse("Internal Error", { status: 500 })

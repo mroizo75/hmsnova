@@ -26,17 +26,28 @@ export default async function DashboardLayout({
     }
   })
 
+  // Hent brukerens innstillinger
+  const userSettings = await prisma.userSettings.findUnique({
+    where: {
+      userId: session.user.id
+    }
+  })
+
   return (
-    <div>
-      <Sidebar modules={modules} />
-      <div className="lg:pl-72">
-        <Header user={session.user as any} />
-        <main className="py-10">
-          <div className="px-4 sm:px-6 lg:px-8">
-            {children}
+    <html data-color-mode={userSettings?.colorMode || 'default'}>
+      <body>
+        <div className="min-h-screen bg-background">
+          <Sidebar modules={modules} />
+          <div className="lg:pl-72">
+            <Header user={session.user as any} />
+            <main className="py-10">
+              <div className="px-4 sm:px-6 lg:px-8">
+                {children}
+              </div>
+            </main>
           </div>
-        </main>
-      </div>
-    </div>
+        </div>
+      </body>
+    </html>
   )
 } 

@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "NodeNext"
+    }
+  },
+  "include": ["worker.ts", "src/**/*.ts"]
+} 

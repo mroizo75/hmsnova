@@ -13,7 +13,7 @@ export function DashboardUpdates() {
     if (!session?.user?.companyId) return
 
     const socket = io(`${window.location.protocol}//${window.location.hostname}:3001`, {
-      path: '/api/socketio',
+      path: '/socket.io',
       transports: ['websocket']
     })
 
@@ -28,6 +28,14 @@ export function DashboardUpdates() {
     socket.on('sja:created', () => {
       // Oppdater dashboard data
       router.refresh()
+    })
+
+    socket.on('connect', () => {
+      console.log('Tilkoblet Socket.io-server')
+    })
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket.io tilkoblingsfeil:', error.message)
     })
 
     return () => {

@@ -2,116 +2,118 @@ import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { ButtonProps, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 
-const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
-  <nav
-    role="navigation"
-    aria-label="pagination"
-    className={cn("mx-auto flex w-full justify-center", className)}
-    {...props}
-  />
-)
-Pagination.displayName = "Pagination"
+interface PaginationProps {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+  maxVisiblePages?: number
+}
 
-const PaginationContent = React.forwardRef<
-  HTMLUListElement,
-  React.ComponentProps<"ul">
->(({ className, ...props }, ref) => (
-  <ul
-    ref={ref}
-    className={cn("flex flex-row items-center gap-1", className)}
-    {...props}
-  />
-))
-PaginationContent.displayName = "PaginationContent"
+export function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  maxVisiblePages = 5,
+}: PaginationProps) {
+  if (totalPages <= 1) return null
 
-const PaginationItem = React.forwardRef<
-  HTMLLIElement,
-  React.ComponentProps<"li">
->(({ className, ...props }, ref) => (
-  <li ref={ref} className={cn("", className)} {...props} />
-))
-PaginationItem.displayName = "PaginationItem"
+  // Beregn hvilke sider som skal vises
+  const getVisiblePageNumbers = () => {
+    if (totalPages <= maxVisiblePages) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
 
-type PaginationLinkProps = {
-  isActive?: boolean
-} & Pick<ButtonProps, "size"> &
-  React.ComponentProps<"a">
+    const sidePageCount = Math.floor(maxVisiblePages / 2)
+    let startPage = Math.max(currentPage - sidePageCount, 1)
+    let endPage = Math.min(startPage + maxVisiblePages - 1, totalPages)
 
-const PaginationLink = ({
-  className,
-  isActive,
-  size = "icon",
-  ...props
-}: PaginationLinkProps) => (
-  <a
-    aria-current={isActive ? "page" : undefined}
-    className={cn(
-      buttonVariants({
-        variant: isActive ? "outline" : "ghost",
-        size,
-      }),
-      className
-    )}
-    {...props}
-  />
-)
-PaginationLink.displayName = "PaginationLink"
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(endPage - maxVisiblePages + 1, 1)
+    }
 
-const PaginationPrevious = ({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
-  <PaginationLink
-    aria-label="Go to previous page"
-    size="default"
-    className={cn("gap-1 pl-2.5", className)}
-    {...props}
-  >
-    <ChevronLeft className="h-4 w-4" />
-    <span>Previous</span>
-  </PaginationLink>
-)
-PaginationPrevious.displayName = "PaginationPrevious"
+    const pages = []
+    
+    // Alltid vis side 1
+    if (startPage > 1) {
+      pages.push(1)
+      
+      // Legg til ellipse hvis det er gap
+      if (startPage > 2) {
+        pages.push('ellipsis-start')
+      }
+    }
 
-const PaginationNext = ({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
-  <PaginationLink
-    aria-label="Go to next page"
-    size="default"
-    className={cn("gap-1 pr-2.5", className)}
-    {...props}
-  >
-    <span>Next</span>
-    <ChevronRight className="h-4 w-4" />
-  </PaginationLink>
-)
-PaginationNext.displayName = "PaginationNext"
+    // Legg til sider i midten
+    for (let i = startPage; i <= endPage; i++) {
+      if (i !== 1 && i !== totalPages) {
+        pages.push(i)
+      }
+    }
 
-const PaginationEllipsis = ({
-  className,
-  ...props
-}: React.ComponentProps<"span">) => (
-  <span
-    aria-hidden
-    className={cn("flex h-9 w-9 items-center justify-center", className)}
-    {...props}
-  >
-    <MoreHorizontal className="h-4 w-4" />
-    <span className="sr-only">More pages</span>
-  </span>
-)
-PaginationEllipsis.displayName = "PaginationEllipsis"
+    // Alltid vis siste side
+    if (endPage < totalPages) {
+      // Legg til ellipse hvis det er gap
+      if (endPage < totalPages - 1) {
+        pages.push('ellipsis-end')
+      }
+      
+      pages.push(totalPages)
+    }
 
-export {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
+    return pages
+  }
+
+  const visiblePageNumbers = getVisiblePageNumbers()
+
+  return (
+    <div className="flex items-center space-x-2">
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        disabled={currentPage === 1}
+      >
+        <ChevronLeft className="h-4 w-4" />
+        <span className="sr-only">Forrige side</span>
+      </Button>
+      
+      {visiblePageNumbers.map((page, index) => {
+        if (page === 'ellipsis-start' || page === 'ellipsis-end') {
+          return (
+            <Button 
+              key={`ellipsis-${index}`} 
+              variant="outline" 
+              size="icon" 
+              disabled
+            >
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Flere sider</span>
+            </Button>
+          )
+        }
+        
+        return (
+          <Button
+            key={page}
+            variant={currentPage === page ? "default" : "outline"}
+            onClick={() => onPageChange(page as number)}
+          >
+            {page}
+          </Button>
+        )
+      })}
+
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage === totalPages}
+      >
+        <ChevronRight className="h-4 w-4" />
+        <span className="sr-only">Neste side</span>
+      </Button>
+    </div>
+  )
 }

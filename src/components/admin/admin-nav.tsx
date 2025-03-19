@@ -13,7 +13,9 @@ import {
   LogOut,
   Settings,
   HardHat,
-  ClipboardCheck
+  ClipboardCheck,
+  Award,
+  Users2,
 } from "lucide-react"
 
 const routes = [
@@ -28,6 +30,12 @@ const routes = [
     icon: Building2,
     href: "/admin/companies",
     pattern: /^\/admin\/companies/
+  },
+  {
+    label: "CRM",
+    icon: Users2,
+    href: "/admin/crm",
+    pattern: /^\/admin\/crm/
   },
   {
     label: "HMS-maler",
@@ -46,6 +54,12 @@ const routes = [
     icon: ClipboardCheck,
     href: "/admin/safety-rounds/templates",
     pattern: /^\/admin\/safety-rounds\/templates/
+  },
+  {
+    label: "Kompetansestyring",
+    icon: Award,
+    href: "/admin/competence",
+    pattern: /^\/admin\/competence/
   },
   {
     label: "Brukere",

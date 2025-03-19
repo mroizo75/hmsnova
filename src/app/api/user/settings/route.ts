@@ -18,9 +18,19 @@ export async function PATCH(request: Request) {
       },
       create: {
         userId: session.user.id,
-        ...data
+        emailNotifications: data.emailNotifications ?? true,
+        pushNotifications: data.pushNotifications ?? true,
+        dailyDigest: data.dailyDigest ?? false,
+        weeklyDigest: data.weeklyDigest ?? true,
+        colorMode: data.colorMode ?? "default"
       },
-      update: data
+      update: {
+        emailNotifications: data.emailNotifications,
+        pushNotifications: data.pushNotifications,
+        dailyDigest: data.dailyDigest,
+        weeklyDigest: data.weeklyDigest,
+        colorMode: data.colorMode
+      }
     })
 
     return NextResponse.json(settings)

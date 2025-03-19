@@ -16,14 +16,14 @@ import { SJAStatus } from "@prisma/client"
 import Link from "next/link"
 import { statusLabels } from "@/lib/constants/sja"
 import { toast } from "react-hot-toast"
-import { SJAPDFDocument } from "./sja-pdf"
-import { generatePDF } from "./pdf-utils"
+import { generatePDF } from "./pdf-util"
 import { format } from "date-fns"
 
 interface ColumnsProps {
   onEdit: (sja: SJAWithRelations) => void
   onBehandle: (sja: SJAWithRelations) => void
   onSlett: (sja: SJAWithRelations) => void
+  onGeneratePDF: (sja: SJAWithRelations) => void
   isGeneratingPDF: boolean
 }
 
@@ -31,6 +31,7 @@ export const columns = ({
   onEdit, 
   onBehandle, 
   onSlett, 
+  onGeneratePDF, 
   isGeneratingPDF 
 }: ColumnsProps): ColumnDef<SJAWithRelations>[] => [
   {
@@ -139,10 +140,33 @@ export const columns = ({
                   try {
                     toast.loading('Genererer PDF...')
                     
-                    const response = await fetch(`/api/sja/${sja.id}/pdf`, {
+                    // Hent SJA med værdata først
+                    const sjaResponse = await fetch(`/api/sja/${sja.id}?t=${Date.now()}`, {
+                      method: 'GET',
                       headers: {
-                        'Accept': 'application/pdf'
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
                       }
+                    })
+                    
+                    if (!sjaResponse.ok) {
+                      throw new Error('Kunne ikke hente SJA-data')
+                    }
+                    
+                    const sjaData = await sjaResponse.json()
+                    
+                    // Generer PDF med værdata
+                    const response = await fetch(`/api/sja/${sja.id}/pdf-download`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/pdf'
+                      },
+                      body: JSON.stringify({
+                        imageUrls: [],
+                        attachmentUrls: [],
+                        sja: sjaData // Send med hele SJA-objektet som inkluderer værdata
+                      })
                     })
                     
                     if (!response.ok) {

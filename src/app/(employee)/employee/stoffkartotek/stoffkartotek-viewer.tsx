@@ -60,8 +60,8 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
         ) : (
           filteredProdukter.map((produkt) => (
             <Card key={produkt.id} className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div className="space-y-2 flex-1">
                   <h3 className="font-medium">{produkt.produktnavn}</h3>
                   
                   {produkt.beskrivelse && (
@@ -108,14 +108,14 @@ export function StoffkartotekViewer({ produkter }: StoffkartotekViewerProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="ml-4 whitespace-nowrap"
+                    className="w-full sm:w-auto"
                     asChild
                   >
                     <a 
                       href={getStorageUrl(produkt.databladUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2"
+                      className="flex items-center justify-center gap-2"
                     >
                       <FileText className="h-4 w-4" />
                       Sikkerhetsdatablad

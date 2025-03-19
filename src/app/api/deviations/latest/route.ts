@@ -2,39 +2,65 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 import { NextResponse } from "next/server"
+import logger from "@/lib/utils/logger"
+import { withTimeout } from "@/lib/utils/api-timeout"
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
+      logger.warn('Unauthorized access attempt for latest deviations', { 
+        context: 'deviations-api'
+      })
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
     }
-
-    const latestDeviations = await prisma.deviation.findMany({
-      where: {
-        companyId: session.user.companyId,
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 5,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        severity: true,
-        createdAt: true,
-        reportedBy: true
-      }
+    
+    logger.info('Fetching latest deviations', {
+      context: 'deviations-api',
+      data: { companyId: session.user.companyId }
     })
 
-    // Formater dataene for frontend
-    const formattedDeviations = await Promise.all(latestDeviations.map(async dev => {
-      const user = await prisma.user.findUnique({
-        where: { id: dev.reportedBy },
-        select: { name: true, email: true }
-      })
-      
+    // Søk etter avvik med én enkelt spørring
+    const latestDeviations = await withTimeout(
+      prisma.deviation.findMany({
+        where: {
+          companyId: session.user.companyId,
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          severity: true,
+          createdAt: true,
+          reportedBy: true
+        }
+      }),
+      5000,
+      'Henting av siste avvik tok for lang tid'
+    )
+
+    // Hent brukerinformasjon i én samlet spørring (løser N+1-problemet)
+    const userIds = [...new Set(latestDeviations.map(dev => dev.reportedBy))];
+    const users = await prisma.user.findMany({
+      where: {
+        id: {
+          in: userIds
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true
+      }
+    });
+
+    // Formater dataene med brukerdata fra samlet spørring
+    const formattedDeviations = latestDeviations.map(dev => {
+      const user = users.find(u => u.id === dev.reportedBy);
       return {
         id: dev.id,
         title: dev.title,
@@ -46,7 +72,12 @@ export async function GET() {
           email: user?.email ?? ''
         }
       }
-    }))
+    })
+    
+    logger.info('Successfully fetched latest deviations', {
+      context: 'deviations-api',
+      data: { count: formattedDeviations.length }
+    })
 
     return NextResponse.json(formattedDeviations, {
       headers: {
@@ -55,7 +86,12 @@ export async function GET() {
       }
     })
   } catch (error) {
-    console.error('Error fetching latest deviations:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('Error fetching latest deviations', {
+      context: 'deviations-api',
+      error: error instanceof Error ? error : new Error(errorMessage)
+    })
+    
     return NextResponse.json(
       { error: "Kunne ikke hente siste avvik" },
       { status: 500 }

@@ -15,12 +15,46 @@ import { useDropzone } from "react-dropzone"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Combobox } from "@/components/ui/combobox"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { NotificationType } from "@prisma/client"
 import { Checkbox } from "@/components/ui/checkbox"
 import { MalVelger } from "./mal-velger"
-import { Plus, Trash } from "lucide-react"
+import { Plus, Trash, CloudRain, Snowflake, Sun, Wind, AlertTriangle, RefreshCcw, ThermometerSun, Thermometer, MapPin } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent } from "@/components/ui/card"
+import { format, isSameDay, parseISO } from 'date-fns'
+import { nb } from 'date-fns/locale'
+import { LocationDialog } from './location-dialog'
+
+// Beskrivelse av sannsynlighetsskala
+const sannsynlighetSkala = [
+  { verdi: 1, tekst: "Usannsynlig" },
+  { verdi: 2, tekst: "Mindre sannsynlig" },
+  { verdi: 3, tekst: "Sannsynlig" },
+  { verdi: 4, tekst: "Meget sannsynlig" },
+  { verdi: 5, tekst: "Svært sannsynlig" }
+]
+
+// Beskrivelse av alvorlighetsskala
+const alvorlighetSkala = [
+  { verdi: 1, tekst: "Ubetydelig" },
+  { verdi: 2, tekst: "Mindre alvorlig" },
+  { verdi: 3, tekst: "Alvorlig" },
+  { verdi: 4, tekst: "Meget alvorlig" },
+  { verdi: 5, tekst: "Svært alvorlig" }
+]
+
+// Definerer typer for værdata
+interface DailyForecast {
+  date: Date;
+  day: string;
+  symbolCode: string;
+  maxTemp: number;
+  minTemp: number;
+  maxWind: number;
+  totalPrecipitation: number;
+  riskLevel: 'high' | 'medium' | 'low';
+}
 
 const formSchema = z.object({
   tittel: z.string().min(1, "Tittel er påkrevd"),
@@ -48,8 +82,117 @@ const formSchema = z.object({
     ansvarlig: z.string(),
     status: z.string(),
     frist: z.string().nullable()
-  }))
+  })),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  locationName: z.string().optional()
 })
+
+// Funksjon for å hente værdata
+async function fetchWeatherData(latitude: number, longitude: number) {
+  try {
+    // Sikre at vi har gyldige tall for koordinatene
+    if (isNaN(latitude) || isNaN(longitude)) {
+      throw new Error('Ugyldige koordinater');
+    }
+    
+    // Formater koordinater for å sikre gyldige verdier
+    const formattedLat = parseFloat(latitude.toString()).toFixed(4);
+    const formattedLon = parseFloat(longitude.toString()).toFixed(4);
+    
+    const url = `/api/weather?lat=${formattedLat}&lon=${formattedLon}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      next: { revalidate: 0 }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Værdata-feil: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Feil ved henting av værdata:', error);
+    throw error;
+  }
+}
+
+// Funksjon for å gruppere værdata etter dag
+function groupForecastsByDay(timeseries: any[]): DailyForecast[] {
+  if (!timeseries || !Array.isArray(timeseries)) return [];
+  
+  const dailyData: Map<string, any[]> = new Map();
+  
+  // Gruppere alle timeseries etter dato
+  timeseries.forEach(item => {
+    const date = parseISO(item.time);
+    const dateKey = format(date, 'yyyy-MM-dd');
+    
+    if (!dailyData.has(dateKey)) {
+      dailyData.set(dateKey, []);
+    }
+    
+    dailyData.get(dateKey)?.push(item);
+  });
+  
+  // Opprette daglige prognoser
+  const result: DailyForecast[] = [];
+  
+  dailyData.forEach((dayForecasts, dateKey) => {
+    // Finn temperaturer og vind
+    const temperatures = dayForecasts.map(f => f.data.instant.details.air_temperature);
+    const winds = dayForecasts.map(f => f.data.instant.details.wind_speed);
+    
+    // Finn nedbør (samlet for dagen)
+    let totalPrecipitation = 0;
+    dayForecasts.forEach(f => {
+      if (f.data.next_1_hours) {
+        totalPrecipitation += f.data.next_1_hours.details.precipitation_amount;
+      } else if (f.data.next_6_hours) {
+        totalPrecipitation += f.data.next_6_hours.details.precipitation_amount / 6; // Fordel over timer
+      }
+    });
+    
+    // Velg en representativ symbol kode for dagen (helst fra midt på dagen)
+    const afternoonForecast = dayForecasts.find(f => {
+      const hour = parseISO(f.time).getHours();
+      return hour >= 12 && hour <= 15;
+    });
+    
+    const symbolCode = afternoonForecast?.data.next_1_hours?.summary.symbol_code || 
+                       dayForecasts[0]?.data.next_1_hours?.summary.symbol_code ||
+                       'clearsky_day';
+    
+    const date = parseISO(dateKey);
+    const maxTemp = Math.max(...temperatures);
+    const minTemp = Math.min(...temperatures);
+    const maxWind = Math.max(...winds);
+    
+    // Vurder værrisiko
+    let riskLevel: 'high' | 'medium' | 'low' = 'low';
+    if (maxWind > 15 || totalPrecipitation > 5 || minTemp < -10 || maxTemp > 30) {
+      riskLevel = 'high';
+    } else if (maxWind > 8 || totalPrecipitation > 1 || minTemp < 0 || maxTemp > 25) {
+      riskLevel = 'medium';
+    }
+    
+    result.push({
+      date,
+      day: format(date, 'EE', { locale: nb }),
+      symbolCode,
+      maxTemp,
+      minTemp,
+      maxWind,
+      totalPrecipitation,
+      riskLevel
+    });
+  });
+  
+  // Sorter etter dato
+  return result.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
 
 interface AddSJAModalProps {
   open: boolean
@@ -71,6 +214,13 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
   const [isLoadingProdukter, setIsLoadingProdukter] = useState(false)
   const [valgteProdukter, setValgteProdukter] = useState<Array<{ produktId: string, mengde: string }>>([])
   const [maler, setMaler] = useState<any[]>([])
+  
+  // Værdata-relaterte states
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [locationName, setLocationName] = useState<string>('Arbeidssted')
+  const [includeWeather, setIncludeWeather] = useState<boolean>(false)
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -87,6 +237,64 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
       tiltak: []
     }
   })
+
+  const { control, reset } = form;
+  const { fields: risikoFields, append: appendRisiko, remove: removeRisiko } = useFieldArray({
+    control,
+    name: "risikoer",
+  });
+  
+  const { fields: tiltakFields, append: appendTiltak, remove: removeTiltak } = useFieldArray({
+    control,
+    name: "tiltak",
+  });
+  
+  // Effekt for å oppdatere risikoVerdi basert på sannsynlighet og alvorlighet
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      // Sjekk om endringen er relatert til sannsynlighet eller alvorlighet
+      if (name?.includes('risikoer') && (name?.includes('sannsynlighet') || name?.includes('alvorlighet'))) {
+        const risikoer = form.getValues('risikoer');
+        
+        if (risikoer) {
+          risikoer.forEach((risiko, index) => {
+            // Oppdater risikoVerdi for hver risiko
+            const risikoVerdi = (risiko.sannsynlighet || 1) * (risiko.alvorlighet || 1);
+            form.setValue(`risikoer.${index}.risikoVerdi`, risikoVerdi);
+          });
+        }
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Effekt for å sette koordinater basert på arbeidssted
+  useEffect(() => {
+    if (includeWeather) {
+      const arbeidssted = form.watch('arbeidssted');
+      if (arbeidssted) {
+        setLocationName(arbeidssted);
+      }
+    }
+  }, [form.watch('arbeidssted'), includeWeather]);
+
+  // Hent værdata hvis koordinater er tilgjengelige
+  const { 
+    data: weatherData, 
+    isLoading: isLoadingWeather, 
+    error: weatherError, 
+    refetch: refetchWeather 
+  } = useQuery({
+    queryKey: ['weather', latitude, longitude],
+    queryFn: () => latitude && longitude ? fetchWeatherData(latitude, longitude) : null,
+    enabled: !!latitude && !!longitude && includeWeather,
+    staleTime: 5 * 60 * 1000, // 5 minutter
+  });
+
+  // Behandle data til daglige prognoser
+  const dailyForecasts = weatherData && weatherData.properties?.timeseries ? 
+    groupForecastsByDay(weatherData.properties.timeseries.slice(0, 72)).slice(0, 3) : [];
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
@@ -120,6 +328,14 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
               sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
               status: "UTKAST",
               deltakere: values.deltakere,
+              latitude: includeWeather ? latitude : null,
+              longitude: includeWeather ? longitude : null,
+              locationName: includeWeather ? locationName : null,
+              weatherData: includeWeather && weatherData ? {
+                forecasts: dailyForecasts,
+                timestamp: new Date().toISOString(),
+                source: 'MET API'
+              } : null,
               produkter: valgteProdukter.length > 0 ? {
                 create: valgteProdukter.map(p => ({
                   produktId: p.produktId,
@@ -194,6 +410,14 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
             sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
             status: "UTKAST",
             deltakere: values.deltakere,
+            latitude: includeWeather ? latitude : null,
+            longitude: includeWeather ? longitude : null,
+            locationName: includeWeather ? locationName : null,
+            weatherData: includeWeather && weatherData ? {
+              forecasts: dailyForecasts,
+              timestamp: new Date().toISOString(),
+              source: 'MET API'
+            } : null,
             produkter: valgteProdukter.length > 0 ? {
               create: valgteProdukter.map(p => ({
                 produktId: p.produktId,
@@ -316,15 +540,74 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
     })
   }
 
-  const { fields: risikoFields, append: appendRisiko, remove: removeRisiko } = useFieldArray({
-    control: form.control,
-    name: "risikoer"
-  })
+  // Funksjoner for værdatavisning
+  function getWeatherIcon(symbolCode: string) {
+    if (symbolCode.includes('rain')) {
+      return <CloudRain className="h-5 w-5 text-blue-500" />
+    } else if (symbolCode.includes('snow')) {
+      return <Snowflake className="h-5 w-5 text-blue-200" />
+    } else if (symbolCode.includes('clear')) {
+      return <Sun className="h-5 w-5 text-yellow-500" />
+    } else if (symbolCode.includes('cloud')) {
+      return <CloudRain className="h-5 w-5 text-gray-500" strokeWidth={1} />
+    } else {
+      return <Sun className="h-5 w-5 text-yellow-500" />
+    }
+  }
 
-  const { fields: tiltakFields, append: appendTiltak, remove: removeTiltak } = useFieldArray({
-    control: form.control,
-    name: "tiltak"
-  })
+  function getRiskBadge(riskLevel: string) {
+    switch (riskLevel) {
+      case 'high':
+        return (
+          <Badge variant="destructive" className="flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            <span>Høy værrisiko</span>
+          </Badge>
+        )
+      case 'medium':
+        return (
+          <Badge variant="warning" className="flex items-center gap-1 bg-amber-500">
+            <AlertTriangle className="h-3 w-3" />
+            <span>Moderat værrisiko</span>
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="outline" className="text-green-600 border-green-600 flex items-center gap-1">
+            <span>Lav værrisiko</span>
+          </Badge>
+        )
+    }
+  }
+
+  // Bruk handleLocationUpdate for å håndtere lokasjonsoppdateringer fra LocationDialog
+  const handleLocationUpdate = (locationData: { latitude: number, longitude: number, name: string }) => {
+    console.log('handleLocationUpdate kalt med:', locationData);
+    
+    // Bruk setTimeout for å unngå setState under rendering
+    setTimeout(() => {
+      console.log('Oppdaterer lokasjon lokalt i skjemaet (ingen API-kall):', locationData);
+      
+      // Aktiver værdata-visning automatisk hvis ikke allerede aktivert
+      if (!includeWeather) {
+        setIncludeWeather(true);
+      }
+      
+      // Bare oppdater lokale state-verdier, ikke lagre SJA ennå
+      setLatitude(locationData.latitude);
+      setLongitude(locationData.longitude);
+      setLocationName(locationData.name || "Arbeidssted");
+      
+      // Oppdater værdata med de nye koordinatene - Ikke utfør API-kall før timer fires
+      if (locationData.latitude && locationData.longitude) {
+        // Bruk ytterligere setTimeout for å unngå kjeding av state-oppdateringer
+        setTimeout(() => {
+          console.log('Oppdaterer værdata med koordinater:', locationData.latitude, locationData.longitude);
+          refetchWeather();
+        }, 100);
+      }
+    }, 0);
+  };
 
   return (
     <>
@@ -336,7 +619,22 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
 
           <div className="flex-1 overflow-y-auto pr-6 -mr-6">
             <Form {...form}>
-              <form id="sja-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 m-2">
+              <form 
+                id="sja-form" 
+                onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
+                  // Kun kjør submit når den sendes eksplisitt via Lagre-knappen
+                  const submitter = (e.nativeEvent as any).submitter;
+                  if (submitter?.getAttribute('form-action') !== 'submit-sja') {
+                    e.preventDefault();
+                    console.log('Forhindret utilsiktet formsubmit fra:', submitter || 'ukjent kilde');
+                    return;
+                  }
+                  
+                  // Ellers, fortsett med normal submission
+                  form.handleSubmit(onSubmit)(e);
+                }} 
+                className="space-y-6 m-2"
+              >
                 {/* Øverste rad med grunnleggende informasjon */}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -512,7 +810,8 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.preventDefault()
                                 setValgteProdukter(prev => 
                                   prev.filter((_, i) => i !== index)
                                 )
@@ -527,6 +826,150 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                   </div>
                 </div>
 
+                {/* Værdata for arbeidsstedet */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <FormLabel>Lokasjon og værforhold</FormLabel>
+                    <Checkbox 
+                      id="include-weather" 
+                      checked={includeWeather}
+                      onCheckedChange={(checked) => setIncludeWeather(checked as boolean)}
+                    />
+                    <FormLabel htmlFor="include-weather" className="font-normal text-sm">
+                      Inkluder værdata i SJA
+                    </FormLabel>
+                  </div>
+                  
+                  {includeWeather && (
+                    <div className="border p-4 rounded-lg">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <h4 className="text-sm font-medium">Værvarsel - {locationName}</h4>
+                          <p className="text-xs text-gray-500">Vurder værets påvirkning på arbeidet</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setIsLocationDialogOpen(true)
+                            }}
+                            className="flex items-center gap-1"
+                          >
+                            <MapPin className="h-4 w-4" />
+                            {latitude && longitude ? "Endre lokasjon" : "Legg til lokasjon"}
+                          </Button>
+                          
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              refetchWeather();
+                            }}
+                            disabled={isLoadingWeather}
+                          >
+                            <RefreshCcw className="h-4 w-4 mr-1" />
+                            Oppdater
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {isLoadingWeather ? (
+                        <div className="text-center py-4">Laster værdata...</div>
+                      ) : weatherError ? (
+                        <div className="text-red-500 text-sm">
+                          Kunne ikke laste værdata. Vennligst prøv igjen.
+                        </div>
+                      ) : dailyForecasts.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {dailyForecasts.map((day, index) => (
+                            <Card key={index} className={`overflow-hidden border ${
+                              day.riskLevel === 'high' ? 'border-red-200 bg-red-50' : 
+                              day.riskLevel === 'medium' ? 'border-yellow-200 bg-yellow-50' : 
+                              'border-green-200 bg-green-50'
+                            }`}>
+                              <CardContent className="p-2">
+                                <div className="text-xs font-medium mb-1">
+                                  {format(day.date, 'EEE d.MMM', { locale: nb })}
+                                  {isSameDay(day.date, new Date()) && <span className="ml-1">(i dag)</span>}
+                                </div>
+                                <div className="flex justify-between items-center mb-1">
+                                  <div className="flex items-center gap-1">
+                                    {getWeatherIcon(day.symbolCode)}
+                                    <span className="text-sm">{day.maxTemp.toFixed(0)}°C</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Wind className="h-4 w-4 text-blue-500" />
+                                    <span className="text-sm">{day.maxWind.toFixed(1)} m/s</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs mb-1">
+                                  <CloudRain className="h-3 w-3" />
+                                  <span>{day.totalPrecipitation.toFixed(1)} mm</span>
+                                </div>
+                                <div>{getRiskBadge(day.riskLevel)}</div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : !latitude || !longitude ? (
+                        <div className="text-center py-4">
+                          <p>Legg til lokasjon for å se værvarsel.</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setIsLocationDialogOpen(true);
+                            }}
+                            className="mt-2 flex items-center gap-1"
+                          >
+                            <MapPin className="h-4 w-4" />
+                            Legg til lokasjon
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p>Ingen værdata tilgjengelig for denne lokasjonen.</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              refetchWeather();
+                            }}
+                            className="mt-2"
+                          >
+                            Prøv igjen
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Vis valgt lokasjon hvis tilgjengelig */}
+                      {latitude && longitude && (
+                        <div className="flex items-center gap-2 mt-4 p-2 bg-gray-50 rounded-md">
+                          <MapPin className="h-4 w-4 text-green-600 shrink-0" />
+                          <div className="text-sm flex-1">
+                            <span className="font-medium">{locationName}</span> 
+                            <span className="text-gray-500 ml-1">({latitude.toFixed(4)}, {longitude.toFixed(4)})</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="text-xs text-gray-500 mt-4">
+                        <p>Værdata er en viktig faktor ved risikovurdering og kan påvirke arbeidets utførelse og sikkerhet.</p>
+                        <p>Merk: Høye vindverdier eller betydelig nedbør kan utgjøre en sikkerhetsrisiko.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Risikoer */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -535,14 +978,19 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => appendRisiko({ 
-                        aktivitet: "", 
-                        fare: "", 
-                        konsekvens: "",
-                        sannsynlighet: 1,
-                        alvorlighet: 1,
-                        risikoVerdi: 1
-                      })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const initialSannsynlighet = 1;
+                        const initialAlvorlighet = 1;
+                        appendRisiko({ 
+                          aktivitet: "", 
+                          fare: "", 
+                          konsekvens: "",
+                          sannsynlighet: initialSannsynlighet,
+                          alvorlighet: initialAlvorlighet,
+                          risikoVerdi: initialSannsynlighet * initialAlvorlighet
+                        });
+                      }}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Legg til risiko
@@ -557,7 +1005,10 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeRisiko(index)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            removeRisiko(index);
+                          }}
                         >
                           <Trash className="h-4 w-4" />
                         </Button>
@@ -597,16 +1048,26 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                             <FormItem>
                               <FormLabel>Sannsynlighet (1-5)</FormLabel>
                               <Select 
-                                onValueChange={(value) => field.onChange(parseInt(value))}
+                                onValueChange={(value) => {
+                                  const newSannsynlighet = parseInt(value);
+                                  field.onChange(newSannsynlighet);
+                                  
+                                  // Oppdater risikoVerdi automatisk
+                                  const alvorlighet = form.getValues(`risikoer.${index}.alvorlighet`) || 1;
+                                  form.setValue(
+                                    `risikoer.${index}.risikoVerdi`, 
+                                    newSannsynlighet * alvorlighet
+                                  );
+                                }}
                                 value={field.value.toString()}
                               >
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {[1,2,3,4,5].map(num => (
-                                    <SelectItem key={num} value={num.toString()}>
-                                      {num}
+                                  {sannsynlighetSkala.map(item => (
+                                    <SelectItem key={item.verdi} value={item.verdi.toString()}>
+                                      {item.verdi} - {item.tekst}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -622,16 +1083,26 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                             <FormItem>
                               <FormLabel>Alvorlighet (1-5)</FormLabel>
                               <Select 
-                                onValueChange={(value) => field.onChange(parseInt(value))}
+                                onValueChange={(value) => {
+                                  const newAlvorlighet = parseInt(value);
+                                  field.onChange(newAlvorlighet);
+                                  
+                                  // Oppdater risikoVerdi automatisk
+                                  const sannsynlighet = form.getValues(`risikoer.${index}.sannsynlighet`) || 1;
+                                  form.setValue(
+                                    `risikoer.${index}.risikoVerdi`, 
+                                    sannsynlighet * newAlvorlighet
+                                  );
+                                }}
                                 value={field.value.toString()}
                               >
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {[1,2,3,4,5].map(num => (
-                                    <SelectItem key={num} value={num.toString()}>
-                                      {num}
+                                  {alvorlighetSkala.map(item => (
+                                    <SelectItem key={item.verdi} value={item.verdi.toString()}>
+                                      {item.verdi} - {item.tekst}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -652,12 +1123,15 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => appendTiltak({ 
-                        beskrivelse: "", 
-                        ansvarlig: "", 
-                        status: "PLANLAGT",
-                        frist: null 
-                      })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        appendTiltak({ 
+                          beskrivelse: "", 
+                          ansvarlig: "", 
+                          status: "PLANLAGT",
+                          frist: null 
+                        });
+                      }}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Legg til tiltak
@@ -672,7 +1146,10 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeTiltak(index)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            removeTiltak(index);
+                          }}
                         >
                           <Trash className="h-4 w-4" />
                         </Button>
@@ -761,6 +1238,7 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
               </Button>
               <Button 
                 type="submit" 
+                form-action="submit-sja"
                 form="sja-form" 
                 disabled={isPending}
               >
@@ -770,6 +1248,28 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* LocationDialog for å søke og velge lokasjon */}
+      <LocationDialog
+        sjaId="new" // Siden dette er en ny SJA, bruker vi "new" som ID
+        location={latitude && longitude ? { latitude, longitude, name: locationName } : null}
+        open={isLocationDialogOpen}
+        onOpenChange={(open) => {
+          // Forsikre om at vi ikke oppdaterer unødvendig når dialogen lukkes
+          if (open === false) {
+            console.log('Lukker lokasjonsdialog uten å kjøre API-kall');
+          }
+          setIsLocationDialogOpen(open);
+        }}
+        onUpdate={async () => {
+          // Denne skal aldri kalles for nye SJA-er, men vi inkluderer den for typesjekking
+          console.log('onUpdate kalt for ny SJA - dette skal aldri skje');
+          return new Promise<void>((resolve) => {
+            resolve();
+          });
+        }}
+        onLocationSelect={handleLocationUpdate}
+      />
     </>
   )
 } 

@@ -39,6 +39,11 @@ const MODULE_CONFIG = {
     label: "HMS Rådgivning",
     description: "Tilgang til HMS-rådgivning og support",
     isDefault: false
+  },
+  COMPETENCE: {
+    label: "Kompetansestyring",
+    description: "System for registrering og oppfølging av kompetanse, kurs og sertifiseringer",
+    isDefault: false
   }
 } as const
 

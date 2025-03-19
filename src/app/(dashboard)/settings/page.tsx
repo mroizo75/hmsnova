@@ -20,13 +20,16 @@ export default async function SettingsPage() {
       emailNotifications: true,
       pushNotifications: true,
       dailyDigest: false,
-      weeklyDigest: true
+      weeklyDigest: true,
+      colorMode: "default",
+      competenceReminders: true,
+      competenceExpiryNotifications: true
     },
     update: {}
   })
 
   return (
-    <div className="container space-y-6">
+    <div className="container space-y-6 rounded-lg p-4">
       <div>
         <h1 className="text-3xl font-bold">Innstillinger</h1>
         <p className="text-muted-foreground">Administrer dine personlige innstillinger</p>

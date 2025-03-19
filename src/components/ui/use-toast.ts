@@ -11,9 +11,10 @@ interface ToastStore {
   toasts: Toast[]
   addToast: (toast: Toast) => void
   dismissToast: (id: string) => void
+  toast: (toast: Toast) => void
 }
 
-const useToast = create<ToastStore>((set) => ({
+const useToast = create<ToastStore>((set, get) => ({
   toasts: [],
   addToast: (toast) => 
     set((state) => ({
@@ -23,6 +24,7 @@ const useToast = create<ToastStore>((set) => ({
     set((state) => ({
       toasts: state.toasts.filter((toast) => toast.id !== id),
     })),
+  toast: (toast) => get().addToast(toast),
 }))
 
 function toast(props: Toast) {

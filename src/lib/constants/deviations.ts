@@ -3,7 +3,8 @@ export const typeLabels: Record<string, string> = {
   INCIDENT: "Hendelse",
   ACCIDENT: "Ulykke",
   IMPROVEMENT: "Forbedringsforslag",
-  OBSERVATION: "Observasjon"
+  OBSERVATION: "Observasjon",
+  UNWANTED_EVENT: "Uønsket hendelse"
 }
 
 export const severityLabels: Record<string, string> = {
@@ -38,7 +39,13 @@ export const categoryOptions = [
   { value: "HMS", label: "HMS" },
   { value: "KVALITET", label: "Kvalitet" },
   { value: "MILJØ", label: "Miljø" },
-  { value: "SIKKERHET", label: "Sikkerhet" }
+  { value: "SIKKERHET", label: "Sikkerhet" },
+  { value: "PROSESS", label: "Prosess" },
+  { value: "UTSTYR", label: "Utstyr" },
+  { value: "DOKUMENTASJON", label: "Dokumentasjon" },
+  { value: "KOMPETANSE", label: "Kompetanse" },
+  { value: "LEVERANDØR", label: "Leverandør" },
+  { value: "ANNET", label: "Annet" }
 ]
 
 export const severityColors: Record<string, string> = {

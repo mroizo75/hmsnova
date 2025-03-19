@@ -7,6 +7,12 @@ import { Suspense } from "react"
 import { HMSChangesSection } from "./hms-changes-section"
 import type { Hazard, RiskAssessment } from "@prisma/client"
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
+import { RiskMatrix } from "./risk-matrix"
+
+// Metadata konfigurering for å hindre caching
+export const dynamic = 'force-dynamic'; // Forhindre statisk generering
+export const revalidate = 0; // Revalider ved hver forespørsel
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -14,7 +20,7 @@ interface PageProps {
 }
 
 // Type for RiskAssessmentClient
-type RiskAssessmentWithHazards = RiskAssessment & {
+type RiskAssessmentWithHazards = Omit<RiskAssessment, 'location'> & {
   hazards: Array<Hazard & {
     measures: Array<{
       id: string
@@ -43,7 +49,13 @@ type RiskAssessmentWithHazards = RiskAssessment & {
         implementedAt: Date | null
       }
     }>
+    metadata?: any
   }>
+  location?: {
+    latitude: number | null
+    longitude: number | null
+    name?: string | null
+  } | null
 }
 
 // Type for HMSChangesSection
@@ -82,16 +94,97 @@ type RiskAssessmentWithHMSChanges = RiskAssessment & {
   }>
 }
 
-export default async function RiskAssessmentPage(props: PageProps) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return notFound()
+// Hjelpefunksjon for å konvertere Prisma-objekter til rene JavaScript-objekter
+function toPlainObject(obj: any): any {
+  // Hvis objektet er null eller undefined, returner det som det er
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  // Hvis objektet ikke er et objekt (primitive verdier), returner det som det er
+  if (typeof obj !== 'object') {
+    return obj;
+  }
+  
+  // Hvis objektet er en Date, konverter til ISO-streng
+  if (obj instanceof Date) {
+    return obj.toISOString();
+  }
+  
+  // Hvis objektet er et array, konverter hvert element
+  if (Array.isArray(obj)) {
+    return obj.map(item => toPlainObject(item));
+  }
+  
+  // Sjekk om objektet har et toJSON-metode (f.eks. Decimal fra Prisma)
+  if (typeof obj.toJSON === 'function') {
+    return obj.toJSON();
+  }
+  
+  // For BigInt, konverter til string
+  if (typeof obj === 'bigint') {
+    return obj.toString();
+  }
+  
+  // For vanlige objekter, konverter hver egenskap - bruk vanlig objekt istedenfor Object.create(null)
+  // Object.create(null) skaper objekter uten prototype som Next.js ikke kan serialisere
+  const plainObj: Record<string, any> = {};
+  
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      try {
+        plainObj[key] = toPlainObject(obj[key]);
+      } catch (error) {
+        console.error(`Kunne ikke konvertere felt '${key}':`, error);
+        plainObj[key] = null; // Bruk null som fallback
+      }
+    }
+  }
+  
+  // Ekstra validering for location-objektet
+  if ('location' in plainObj && plainObj.location !== null && typeof plainObj.location === 'object') {
+    plainObj.location = {
+      latitude: plainObj.location.latitude !== null && plainObj.location.latitude !== undefined
+        ? Number(plainObj.location.latitude)
+        : null,
+      longitude: plainObj.location.longitude !== null && plainObj.location.longitude !== undefined
+        ? Number(plainObj.location.longitude)
+        : null,
+      name: plainObj.location.name || null
+    };
+  }
+  
+  return plainObj;
+}
 
-  // Await både params og searchParams
-  const { id } = await props.params
-  const searchParamsResolved = await props.searchParams
-  const db = await prisma
-
+// En hjelpefunksjon for å sikre at objektet er 100% serialiserbart for React Server Components
+function ensureSerializable<T>(obj: T): T {
+  // Bruk JSON.parse(JSON.stringify()) for å sikre full serialiserbarhet
+  // Dette vil fjerne alle funksjoner, symboler, og andre ikke-serialiserbare verdier
   try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch (error) {
+    console.error('Feil ved serialisering av objekt:', error);
+    throw new Error('Objektet kunne ikke serialiseres');
+  }
+}
+
+export default async function RiskAssessmentPage(props: PageProps) {
+  // Wrapper alt i en try-catch for å fange alle mulige feil
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) return notFound()
+
+    // Await både params og searchParams
+    const { id } = await props.params
+    const searchParamsResolved = await props.searchParams
+    const db = await prisma
+    
+    // Legg til en timestamp for å forhindre caching
+    const timestamp = Date.now();
+    console.log(`Laster risikovurdering (${id}) med timestamp: ${timestamp}`);
+
+    // Henter risikovurderingen med inkluderte relasjoner
     const assessment = await db.riskAssessment.findFirst({
       where: {
         id,
@@ -130,11 +223,144 @@ export default async function RiskAssessmentPage(props: PageProps) {
       return notFound()
     }
 
+    // Legg til debug-utskrift for å vise type av location for debugging
+    console.log('Location type:', typeof assessment.location);
+    if (assessment.location) {
+      console.log('Location value (first 100 chars):', 
+                typeof assessment.location === 'string' 
+                ? assessment.location.substring(0, 100) 
+                : JSON.stringify(assessment.location).substring(0, 100));
+    }
+
+    // Sikre at location alltid er riktig formatert som et objekt
+    let locationObject = null;
+    if (assessment.location) {
+      try {
+        if (typeof assessment.location === 'string') {
+          locationObject = JSON.parse(assessment.location);
+          // Validér at objektet har riktige felt
+          if (!('latitude' in locationObject) || !('longitude' in locationObject)) {
+            console.error('Ugyldig location-objekt:', locationObject);
+            locationObject = null;
+          }
+        } else {
+          // Hvis det allerede er et objekt, bruk det direkte
+          locationObject = assessment.location;
+        }
+        
+        // Sikre at verdiene er av riktig type (number)
+        if (locationObject) {
+          locationObject = {
+            latitude: locationObject.latitude !== null ? Number(locationObject.latitude) : null,
+            longitude: locationObject.longitude !== null ? Number(locationObject.longitude) : null,
+            name: locationObject.name || null
+          };
+        }
+      } catch (error) {
+        console.error('Feil ved parsing av location:', error);
+        locationObject = null;
+      }
+    }
+    
+    console.log('Prosessert location-objekt:', locationObject);
+
+    // Lag en enkel versjon av data som garantert kan serialiseres
+    const clientAssessmentData = {
+      id: assessment.id,
+      title: assessment.title,
+      description: assessment.description,
+      department: assessment.department,
+      activity: assessment.activity,
+      status: assessment.status,
+      createdAt: assessment.createdAt?.toISOString(),
+      updatedAt: assessment.updatedAt?.toISOString(),
+      dueDate: assessment.dueDate?.toISOString() || null,
+      location: locationObject,
+      hazards: assessment.hazards.map(hazard => ({
+        id: hazard.id,
+        description: hazard.description,
+        consequence: hazard.consequence,
+        probability: Number(hazard.probability),
+        severity: Number(hazard.severity),
+        riskLevel: Number(hazard.riskLevel),
+        existingMeasures: hazard.existingMeasures,
+        measures: hazard.riskMeasures?.map(m => ({
+          id: m.id,
+          description: m.description,
+          type: m.type,
+          status: m.status,
+          priority: m.priority,
+          hazardId: m.hazardId
+        })) || [],
+        riskMeasures: hazard.riskMeasures?.map(m => ({
+          id: m.id,
+          description: m.description,
+          status: m.status,
+          type: m.type,
+          priority: m.priority,
+          hazardId: m.hazardId
+        })) || [],
+        hmsChanges: hazard.hmsChanges?.map(h => ({
+          hmsChange: {
+            id: h.hmsChange.id,
+            title: h.hmsChange.title,
+            description: h.hmsChange.description,
+            status: h.hmsChange.status,
+            implementedAt: h.hmsChange.implementedAt?.toISOString() || null
+          }
+        })) || []
+      }))
+    };
+
+    // Forenklet struktur for HMS-endringer
+    const hmsAssessmentData = {
+      id: assessment.id,
+      title: assessment.title,
+      description: assessment.description,
+      status: assessment.status,
+      hazards: assessment.hazards.map(hazard => ({
+        id: hazard.id,
+        description: hazard.description,
+        riskLevel: Number(hazard.riskLevel),
+        riskMeasures: hazard.riskMeasures?.map(measure => ({
+          id: measure.id,
+          description: measure.description,
+          status: measure.status,
+          type: measure.type,
+          priority: measure.priority,
+          hazardId: measure.hazardId,
+          riskAssessmentId: assessment.id,
+          hmsChanges: hazard.hmsChanges?.map(h => ({
+            hmsChange: {
+              id: h.hmsChange.id,
+              title: h.hmsChange.title,
+              description: h.hmsChange.description,
+              status: h.hmsChange.status,
+              implementedAt: h.hmsChange.implementedAt?.toISOString() || null
+            }
+          })) || []
+        })) || []
+      })),
+      hmsChanges: assessment.hmsChanges?.map(h => ({
+        hmsChange: {
+          id: h.hmsChange.id,
+          title: h.hmsChange.title,
+          description: h.hmsChange.description,
+          status: h.hmsChange.status,
+          implementedAt: h.hmsChange.implementedAt?.toISOString() || null
+        }
+      })) || []
+    };
+
+    // Konverter direkte til JSON og tilbake for å garantere serialiserbarhet
+    const clientAssessment = JSON.parse(JSON.stringify(clientAssessmentData)) as RiskAssessmentWithHazards;
+    const hmsAssessment = JSON.parse(JSON.stringify(hmsAssessmentData)) as RiskAssessmentWithHMSChanges;
+
     return (
       <div className="space-y-6">
         <Suspense fallback={<div>Laster...</div>}>
           <RiskAssessmentClient 
-            assessment={assessment as unknown as RiskAssessmentWithHazards} 
+            assessment={clientAssessment}
             onUpdate={async () => {
               'use server'
               revalidatePath(`/dashboard/risk-assessments/${id}`)
@@ -142,7 +368,9 @@ export default async function RiskAssessmentPage(props: PageProps) {
           />
         </Suspense>
         
-        <HMSChangesSection riskAssessment={assessment as unknown as RiskAssessmentWithHMSChanges} />
+        <Suspense fallback={<div>Laster HMS-endringer...</div>}>
+          <HMSChangesSection riskAssessment={hmsAssessment} />
+        </Suspense>
       </div>
     )
   } catch (error) {

@@ -1,12 +1,35 @@
 import prisma from '@/lib/db'
+import { NotificationType } from '@prisma/client'
 
 export interface Notification {
   id: string
   title: string
   message: string
-  type: 'info' | 'warning' | 'error' | 'success'
+  type: NotificationType
   createdAt: Date
   readAt?: Date
+  link?: string
+}
+
+interface CreateNotificationParams {
+  userId: string
+  type: NotificationType
+  title: string
+  message: string
+  link?: string
+}
+
+export const createNotification = async (params: CreateNotificationParams) => {
+  const { userId, type, title, message, link } = params
+  return await prisma.notification.create({
+    data: {
+      userId,
+      type,
+      title,
+      message,
+      link
+    }
+  })
 }
 
 export const notificationService = {
@@ -21,7 +44,9 @@ export const notificationService = {
     const db = await prisma
     await db.notification.update({
       where: { id: notificationId },
-      data: { readAt: new Date() }
+      data: { read: true }
     })
-  }
+  },
+
+  createNotification
 } 

@@ -10,13 +10,17 @@ interface PageProps {
   }
 }
 
-export default async function SafetyRoundPage({ params }: PageProps) {
+export default async function SafetyRoundDetailsPage({ params }: PageProps) {
+  // Await params for å sikre at det er lastet før vi bruker egenskapene
+  const resolvedParams = await Promise.resolve(params);
+  const id = resolvedParams.id;
+  
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
   let safetyRound = await prisma.safetyRound.findFirst({
     where: {
-      id: params.id,
+      id: id,
       companyId: session.user.companyId
     },
     include: {

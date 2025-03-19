@@ -15,8 +15,10 @@ import { Table, TableHeader, TableBody, TableCell, TableHead, TableRow } from "@
 import { useSignedUrls } from '@/hooks/use-signed-urls'
 import Image from 'next/image'
 import { ImageModal } from "@/components/ui/image-modal"
-import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { toast } from 'react-hot-toast'
+import { LocationButton } from '../location-button'
+import { getSignedImageUrls, getSignedAttachmentUrls, SJAPDFDocument } from '@/app/(dashboard)/dashboard/sja/pdf-util'
+import ReactPDF from '@react-pdf/renderer'
 
 interface SJADetailsProps {
   sja: any
@@ -39,7 +41,7 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
 
   // Hjelpefunksjon for å konstruere full URL
   const getFullImageUrl = (path: string) => {
-    if (!path) return null
+    if (!path || path.trim() === '') return null
     return `companies/${sja.companyId}/${path}`
   }
 
@@ -73,7 +75,7 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
           const fullUrl = getFullImageUrl(bilde.url)
           const signedUrl = signedUrls[fullUrl as string]
           
-          if (!signedUrl) return null
+          if (!signedUrl || !bilde.url) return null
 
           return (
             <div 
@@ -86,6 +88,7 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
                 alt={bilde.beskrivelse || `Bilde ${index + 1}`}
                 fill
                 className="object-cover rounded-lg"
+                priority={index < 3} // Prioriter de første 3 bildene
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                 <ImageIcon className="w-8 h-8 text-white" />
@@ -116,19 +119,29 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
 
   const generatePDF = async () => {
     try {
-      const response = await fetch(`/api/sja/${sja.id}/pdf`)
-      if (!response.ok) throw new Error('Kunne ikke generere PDF')
+      // Hent signerte URL-er for bilder og vedlegg
+      const signedImageUrls = await getSignedImageUrls(sja);
+      const signedAttachmentUrls = await getSignedAttachmentUrls(sja);
       
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `SJA-${sja.id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      // Generer PDF
+      const blob = await ReactPDF.pdf(<SJAPDFDocument 
+        sja={sja} 
+        signedImageUrls={signedImageUrls} 
+        signedAttachmentUrls={signedAttachmentUrls} 
+      />).toBlob();
+      
+      // Lagre PDF
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SJA-${sja.tittel.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      toast.success('PDF generert');
     } catch (error) {
-      console.error('Feil ved generering av PDF:', error)
-      toast.error('Kunne ikke generere PDF')
+      console.error('Feil ved generering av PDF:', error);
+      toast.error('Kunne ikke generere PDF. Prøv på nytt senere.');
     }
   }
 
@@ -137,9 +150,7 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
     return sannsynlighet * alvorlighet;
   }
 
-  const getRisikoNivå = (sannsynlighet: number, alvorlighet: number) => {
-    const risikoVerdi = beregnRisikoverdi(sannsynlighet, alvorlighet)
-    
+  const getRisikoNivå = (risikoVerdi: number) => {
     // Bestem risikonivå og farge basert på risikoverdi
     if (risikoVerdi > 15) return { verdi: risikoVerdi, nivå: "Høy", color: "text-red-600" }
     if (risikoVerdi > 8) return { verdi: risikoVerdi, nivå: "Middels", color: "text-yellow-600" }
@@ -154,11 +165,11 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.back()}
+          onClick={() => router.push('/dashboard/sja')}
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Tilbake
+          Tilbake til oversikt
         </Button>
       </div>
 
@@ -171,12 +182,19 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
             </Badge>
           </div>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setAddVedleggOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" />
-            Legg til vedlegg
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {isAdmin && (
+            <>
+              <Button onClick={() => router.push(`/dashboard/sja/${sja.id}/edit`)}>
+                Rediger
+              </Button>
+              <Button onClick={() => setAddVedleggOpen(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Legg til vedlegg
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -202,14 +220,30 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
               </div>
             )}
             <div>
+              <dt className="font-medium">Deltakere</dt>
+              <dd>{sja.deltakere}</dd>
+            </div>
+            <div>
               <dt className="font-medium">Opprettet av</dt>
-              <dd>{sja.opprettetAv.name}</dd>
+              <dd>{sja.opprettetAv?.name}</dd>
             </div>
             <div>
               <dt className="font-medium">Opprettet dato</dt>
               <dd>{formatDate(sja.opprettetDato)}</dd>
             </div>
           </dl>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Lokasjon og værforhold</h2>
+          {sja.location ? (
+            <LocationButton
+              sjaId={sja.id}
+              initialLocation={sja.location}
+            />
+          ) : (
+            <p className="text-muted-foreground">Ingen lokasjon registrert</p>
+          )}
         </Card>
 
         <Card className="p-6">
@@ -258,7 +292,9 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
           <h2 className="text-xl font-semibold mb-4">Risikoer og tiltak</h2>
           <div className="space-y-4">
             {risikoer.map((risiko: any, index: number) => {
-              const { verdi, nivå, color } = getRisikoNivå(risiko.sannsynlighet, risiko.alvorlighet)
+              // Bruk den lagrede risikoVerdi eller beregn den hvis den ikke finnes
+              const risikoVerdi = risiko.risikoVerdi || beregnRisikoverdi(risiko.sannsynlighet, risiko.alvorlighet);
+              const { verdi, nivå, color } = getRisikoNivå(risikoVerdi);
               return (
                 <div key={index} className="space-y-2 p-4 border rounded-lg">
                   <p><strong>Aktivitet:</strong> {risiko.aktivitet}</p>
@@ -335,7 +371,8 @@ export function SJADetails({ sja, userRole }: SJADetailsProps) {
               </TableHeader>
               <TableBody>
                 {risikoer.map((risiko: any) => {
-                  const risikoVerdi = beregnRisikoverdi(risiko.sannsynlighet, risiko.alvorlighet)
+                  const risikoVerdi = risiko.risikoVerdi || beregnRisikoverdi(risiko.sannsynlighet, risiko.alvorlighet);
+                  const { verdi, nivå, color } = getRisikoNivå(risikoVerdi);
                   return (
                     <TableRow key={risiko.id}>
                       <TableCell>{risiko.aktivitet}</TableCell>

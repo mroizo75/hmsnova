@@ -45,12 +45,16 @@ interface PageProps {
 }
 
 export default async function DeviationPage({ params }: PageProps) {
+  // Await params for å sikre at det er lastet før vi bruker egenskapene
+  const resolvedParams = await Promise.resolve(params);
+  const id = resolvedParams.id;
+  
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return notFound()
 
   const deviation = await prisma.deviation.findFirst({
     where: {
-      id: params.id,
+      id: id,
       company: {
         users: {
           some: {
@@ -72,7 +76,7 @@ export default async function DeviationPage({ params }: PageProps) {
       deviation={deviation as DeviationWithRelations} 
       onUpdate={async () => {
         'use server'
-        revalidatePath(`/dashboard/deviations/${params.id}`)
+        revalidatePath(`/dashboard/deviations/${id}`)
       }} 
     />
   )

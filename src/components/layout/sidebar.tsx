@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 import { useState } from "react"
 import { SidebarClient } from "./sidebar-client"
+import { MobileSidebar } from "./mobile-sidebar"
 
 interface SidebarProps {
   modules: {
@@ -21,9 +22,9 @@ export function Sidebar({ modules }: SidebarProps) {
   const [open, setOpen] = useState(false)
 
   const SidebarContent = () => (
-    <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 dark:bg-neutral-900">
-      <div className="flex h-16 shrink-0 items-center">
-        <Link href="/dashboard" className="flex items-center">
+    <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 dark:bg-black">
+      <div className="flex h-[65px] shrink-0 items-center border-b">
+        <Link href="/dashboard" className="flex items-center" onClick={() => setOpen(false)}>
           <Image
             src="/HMSNova-logo.svg"
             alt="HMS Nova"
@@ -41,7 +42,7 @@ export function Sidebar({ modules }: SidebarProps) {
         </Link>
       </div>
       <nav className="flex flex-1">
-        <SidebarClient modules={modules} />
+        <SidebarClient modules={modules} onItemClick={() => setOpen(false)} />
       </nav>
     </div>
   )
@@ -56,14 +57,34 @@ export function Sidebar({ modules }: SidebarProps) {
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72">
-            <SidebarContent />
+          <SheetContent side="left" className="p-0 w-60">
+            <div className="flex flex-col h-full">
+              <div className="flex h-[65px] shrink-0 items-center border-b px-6">
+                <Link href="/dashboard" className="flex items-center" onClick={() => setOpen(false)}>
+                  <Image
+                    src="/HMSNova-logo.svg"
+                    alt="HMS Nova"
+                    width={150}
+                    height={150}
+                    className="block dark:hidden"
+                  />
+                  <Image
+                    src="/HMSNova-white.svg"
+                    alt="HMS Nova"
+                    width={150}
+                    height={150}
+                    className="hidden dark:block"
+                  />
+                </Link>
+              </div>
+              <MobileSidebar modules={modules} onCloseAction={() => setOpen(false)} />
+            </div>
           </SheetContent>
         </Sheet>
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col dark:border-r dark:border-neutral-800">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-60 lg:flex-col dark:border-r dark:border-neutral-800">
         <SidebarContent />
       </div>
 
@@ -73,8 +94,8 @@ export function Sidebar({ modules }: SidebarProps) {
           <Image
             src="/HMSNova-logo.svg"
             alt="HMS Nova"
-            width={150}
-            height={150}
+            width={200}
+            height={200}
             className="block dark:hidden"
           />
           <Image
@@ -85,10 +106,13 @@ export function Sidebar({ modules }: SidebarProps) {
             className="hidden dark:block"
           />
         </Link>
+        
       </div>
 
-      {/* Spacing for mobil header */}
-      <div className="h-16 lg:hidden" />
+      {/* Main content spacing */}
+      <div className="lg:pl-60">
+        <div className="h-16 lg:hidden" />
+      </div>
     </>
   )
 }

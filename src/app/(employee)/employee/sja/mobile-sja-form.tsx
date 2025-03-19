@@ -15,10 +15,11 @@ import { useDropzone } from "react-dropzone"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Combobox } from "@/components/ui/combobox"
-import { Plus, Trash, X } from "lucide-react"
+import { Plus, Trash, X, MapPin } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MalVelger } from "@/app/(dashboard)/dashboard/sja/mal-velger"
 import { Checkbox } from "@/components/ui/checkbox"
+import { LocationDialog } from "@/app/(dashboard)/dashboard/sja/location-dialog"
 
 const formSchema = z.object({
   tittel: z.string().min(1, "Tittel er påkrevd"),
@@ -46,8 +47,29 @@ const formSchema = z.object({
     ansvarlig: z.string(),
     status: z.string(),
     frist: z.string().nullable()
-  }))
+  })),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  locationName: z.string().optional()
 })
+
+// Beskrivelse av sannsynlighetsskala
+const sannsynlighetSkala = [
+  { verdi: 1, tekst: "Usannsynlig" },
+  { verdi: 2, tekst: "Mindre sannsynlig" },
+  { verdi: 3, tekst: "Sannsynlig" },
+  { verdi: 4, tekst: "Meget sannsynlig" },
+  { verdi: 5, tekst: "Svært sannsynlig" }
+]
+
+// Beskrivelse av alvorlighetsskala
+const alvorlighetSkala = [
+  { verdi: 1, tekst: "Ubetydelig" },
+  { verdi: 2, tekst: "Mindre alvorlig" },
+  { verdi: 3, tekst: "Alvorlig" },
+  { verdi: 4, tekst: "Meget alvorlig" },
+  { verdi: 5, tekst: "Svært alvorlig" }
+]
 
 export function MobileSJAForm() {
   const router = useRouter()
@@ -55,6 +77,11 @@ export function MobileSJAForm() {
   const [bilder, setBilder] = useState<File[]>([])
   const [produkter, setProdukter] = useState<Array<{ id: string; produktnavn: string; produsent: string }>>([])
   const [valgteProdukter, setValgteProdukter] = useState<Array<{ produktId: string; mengde: string }>>([])
+  const [latitude, setLatitude] = useState<number | undefined>(undefined)
+  const [longitude, setLongitude] = useState<number | undefined>(undefined)
+  const [locationName, setLocationName] = useState<string | undefined>(undefined)
+  const [includeWeather, setIncludeWeather] = useState(false)
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,7 +95,10 @@ export function MobileSJAForm() {
       produkter: [],
       lagreSomMal: false,
       risikoer: [],
-      tiltak: []
+      tiltak: [],
+      latitude: undefined,
+      longitude: undefined,
+      locationName: undefined
     }
   })
 
@@ -107,18 +137,39 @@ export function MobileSJAForm() {
     accept: { 'image/*': [] }
   })
 
+  const handleLocationUpdate = (locationData: { latitude: number, longitude: number, name: string }) => {
+    console.log('handleLocationUpdate kalt med:', locationData);
+    
+    // Bruk setTimeout for å unngå setState under rendering
+    setTimeout(() => {
+      console.log('Oppdaterer lokasjon lokalt i skjemaet (ingen API-kall):', locationData);
+      
+      // Aktiver værdata-visning automatisk hvis ikke allerede aktivert
+      if (!includeWeather) {
+        setIncludeWeather(true);
+      }
+      
+      // Bare oppdater lokale state-verdier, ikke lagre SJA ennå
+      setLatitude(locationData.latitude);
+      setLongitude(locationData.longitude);
+      setLocationName(locationData.name || "Arbeidssted");
+    }, 0);
+  };
+
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true)
     try {
-      // Opprett SJA med samme format som i add-sja-modal
       const sjaData = {
         tittel: values.tittel,
         arbeidssted: values.arbeidssted,
         beskrivelse: values.beskrivelse,
         startDato: new Date(values.startDato).toISOString(),
-        sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
+        sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : undefined,
         status: "UTKAST",
         deltakere: values.deltakere,
+        latitude: includeWeather ? latitude : undefined,
+        longitude: includeWeather ? longitude : undefined,
+        locationName: includeWeather ? locationName : undefined,
         lagreSomMal: values.lagreSomMal,
         produkter: valgteProdukter.length > 0 ? {
           create: valgteProdukter.map(p => ({
@@ -160,25 +211,28 @@ export function MobileSJAForm() {
 
       // Hvis lagre som mal er valgt, opprett mal
       if (values.lagreSomMal) {
+        const malData = {
+          ...sjaData,
+          sjaId: sja.id,
+          navn: values.tittel // Legg til navn-feltet som er påkrevd
+        }
+        
         await fetch('/api/sja/mal', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            ...sjaData,
-            sjaId: sja.id
-          })
+          body: JSON.stringify(malData)
         })
       }
 
-      // Last opp bilder hvis det finnes
+      // Hvis det finnes bilder, last dem opp via kø
       if (bilder.length > 0) {
         const formData = new FormData()
         bilder.forEach(bilde => formData.append('files', bilde))
 
         try {
-          // Last opp bildene
+          // Last opp bildene via kø
           const bildeResponse = await fetch(`/api/sja/${sja.id}/bilder`, {
             method: 'POST',
             body: formData
@@ -186,26 +240,8 @@ export function MobileSJAForm() {
 
           if (!bildeResponse.ok) throw new Error('Kunne ikke laste opp bilder')
           
-          // Hent bilde-URLene fra responsen
-          const bildeData = await bildeResponse.json()
-          
-          // Oppdater SJA med bildene
-          const updateResponse = await fetch(`/api/sja/${sja.id}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              bilder: {
-                create: bildeData.map((bilde: string) => ({
-                  url: bilde,
-                  beskrivelse: ''
-                }))
-              }
-            })
-          })
-
-          if (!updateResponse.ok) throw new Error('Kunne ikke oppdatere SJA med bilder')
+          // Bildene vil nå bli prosessert i bakgrunnen via Redis-køen
+          toast.success('Bilder vil bli lastet opp i bakgrunnen')
         } catch (error) {
           console.error('Feil ved bildehåndtering:', error)
           toast.error('Kunne ikke laste opp alle bilder')
@@ -233,7 +269,10 @@ export function MobileSJAForm() {
       produkter: [],
       lagreSomMal: false,
       risikoer: [],
-      tiltak: []
+      tiltak: [],
+      latitude: undefined,
+      longitude: undefined,
+      locationName: undefined
     })
   }
 
@@ -330,6 +369,77 @@ export function MobileSJAForm() {
             />
           </div>
 
+          {/* Legg til lokasjonsfelt før risikoer */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <FormLabel>Lokasjon og værforhold</FormLabel>
+              <Checkbox 
+                id="include-weather" 
+                checked={includeWeather}
+                onCheckedChange={(checked) => setIncludeWeather(checked as boolean)}
+              />
+              <FormLabel htmlFor="include-weather" className="font-normal text-sm">
+                Inkluder værdata i SJA
+              </FormLabel>
+            </div>
+            
+            {includeWeather && (
+              <div className="border p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h4 className="text-sm font-medium">Værvarsel - {locationName || "Arbeidssted"}</h4>
+                    <p className="text-xs text-gray-500">Vurder værets påvirkning på arbeidet</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsLocationDialogOpen(true)
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    {latitude && longitude ? "Endre lokasjon" : "Legg til lokasjon"}
+                  </Button>
+                </div>
+                
+                {!latitude || !longitude ? (
+                  <div className="text-center py-4">
+                    <p>Legg til lokasjon for å se værvarsel.</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsLocationDialogOpen(true);
+                      }}
+                      className="mt-2 flex items-center gap-1"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Legg til lokasjon
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mt-4 p-2 bg-gray-50 rounded-md">
+                    <MapPin className="h-4 w-4 text-green-600 shrink-0" />
+                    <div className="text-sm flex-1">
+                      <span className="font-medium">{locationName}</span> 
+                      <span className="text-gray-500 ml-1">({latitude.toFixed(4)}, {longitude.toFixed(4)})</span>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="text-xs text-gray-500 mt-4">
+                  <p>Værdata er en viktig faktor ved risikovurdering og kan påvirke arbeidets utførelse og sikkerhet.</p>
+                  <p>Merk: Høye vindverdier eller betydelig nedbør kan utgjøre en sikkerhetsrisiko.</p>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Risikoer */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -400,17 +510,27 @@ export function MobileSJAForm() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Sannsynlighet (1-5)</FormLabel>
-                          <Select
-                            onValueChange={(value) => field.onChange(parseInt(value))}
+                          <Select 
+                            onValueChange={(value) => {
+                              const newSannsynlighet = parseInt(value);
+                              field.onChange(newSannsynlighet);
+                              
+                              // Oppdater risikoVerdi automatisk
+                              const alvorlighet = form.getValues(`risikoer.${index}.alvorlighet`) || 1;
+                              form.setValue(
+                                `risikoer.${index}.risikoVerdi`, 
+                                newSannsynlighet * alvorlighet
+                              );
+                            }}
                             value={field.value.toString()}
                           >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {[1,2,3,4,5].map(num => (
-                                <SelectItem key={num} value={num.toString()}>
-                                  {num}
+                              {sannsynlighetSkala.map(item => (
+                                <SelectItem key={item.verdi} value={item.verdi.toString()}>
+                                  {item.verdi} - {item.tekst}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -425,17 +545,27 @@ export function MobileSJAForm() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Alvorlighet (1-5)</FormLabel>
-                          <Select
-                            onValueChange={(value) => field.onChange(parseInt(value))}
+                          <Select 
+                            onValueChange={(value) => {
+                              const newAlvorlighet = parseInt(value);
+                              field.onChange(newAlvorlighet);
+                              
+                              // Oppdater risikoVerdi automatisk
+                              const sannsynlighet = form.getValues(`risikoer.${index}.sannsynlighet`) || 1;
+                              form.setValue(
+                                `risikoer.${index}.risikoVerdi`, 
+                                sannsynlighet * newAlvorlighet
+                              );
+                            }}
                             value={field.value.toString()}
                           >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {[1,2,3,4,5].map(num => (
-                                <SelectItem key={num} value={num.toString()}>
-                                  {num}
+                              {alvorlighetSkala.map(item => (
+                                <SelectItem key={item.verdi} value={item.verdi.toString()}>
+                                  {item.verdi} - {item.tekst}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -657,6 +787,26 @@ export function MobileSJAForm() {
           </div>
         </form>
       </Form>
+
+      {/* LocationDialog for å søke og velge lokasjon */}
+      <LocationDialog 
+        sjaId="new"
+        location={latitude && longitude ? { latitude, longitude, name: locationName } : null}
+        open={isLocationDialogOpen}
+        onOpenChange={(open) => {
+          if (open === false) {
+            console.log('Lukker lokasjonsdialog uten å kjøre API-kall');
+          }
+          setIsLocationDialogOpen(open);
+        }}
+        onUpdate={async () => {
+          console.log('onUpdate kalt for ny SJA - dette skal aldri skje');
+          return new Promise<void>((resolve) => {
+            resolve();
+          });
+        }}
+        onLocationSelect={handleLocationUpdate}
+      />
     </Card>
   )
 } 

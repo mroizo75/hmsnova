@@ -11,7 +11,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp, CloudSun } from "lucide-react"
 import { MeasureList } from "./measure-list"
 
 interface Measure {
@@ -45,10 +45,12 @@ interface HazardCardProps {
     riskLevel: number
     existingMeasures: string | null
     riskMeasures: RiskAssessmentMeasure[]
+    metadata?: any // For værrisikoinformasjon
   }
+  onAddMeasure?: () => void
 }
 
-export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
+export function HazardCard({ assessmentId, hazard, onAddMeasure }: HazardCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -57,6 +59,10 @@ export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
     if (riskLevel > 8) return "warning"
     return "outline"
   }
+  
+  // Sjekk om faren har værrisikoinformasjon
+  const hasWeatherRisk = hazard.metadata?.weatherRisk?.included === true
+  const weatherRiskNotes = hazard.metadata?.weatherRisk?.notes
 
   return (
     <Card className="p-4">
@@ -70,6 +76,12 @@ export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
                 </Button>
               </CollapsibleTrigger>
               <h3 className="font-medium">{hazard.description}</h3>
+              {hasWeatherRisk && (
+                <Badge variant="outline" className="ml-2 flex items-center gap-1">
+                  <CloudSun className="h-3 w-3 text-blue-500" />
+                  <span>Værrisiko</span>
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">{hazard.consequence}</p>
           </div>
@@ -92,6 +104,18 @@ export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
               </p>
             </div>
           )}
+          
+          {hasWeatherRisk && weatherRiskNotes && (
+            <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-md border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2 mb-1">
+                <CloudSun className="h-4 w-4 text-blue-500" />
+                <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300">Værrisiko</h4>
+              </div>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                {weatherRiskNotes}
+              </p>
+            </div>
+          )}
 
           <div>
             <div className="flex justify-between items-center mb-2">
@@ -108,6 +132,16 @@ export function HazardCard({ assessmentId, hazard }: HazardCardProps) {
               hazardId={hazard.id}
               measures={hazard.riskMeasures}
             />
+          </div>
+
+          <div className="mt-4 flex justify-between">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => onAddMeasure ? onAddMeasure() : setDialogOpen(true)}
+            >
+              Legg til tiltak
+            </Button>
           </div>
         </CollapsibleContent>
       </Collapsible>

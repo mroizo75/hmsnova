@@ -52,7 +52,7 @@ export function Header({ user, className }: HeaderProps) {
       <div className="flex h-16 items-center px-4 gap-4">
         <div className="flex-1">
           {companyName && (
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground hidden lg:block">
               Velkommen, {companyName}
             </span>
           )}

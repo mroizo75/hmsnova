@@ -43,12 +43,20 @@ export function LatestDeviationsCard() {
 
     // WebSocket setup
     const socket = io(`${window.location.protocol}//${window.location.hostname}:3001`, {
-      path: '/api/socketio',
+      path: '/socket.io',
       transports: ['websocket']
     })
 
     socket.on('deviation:created', (newDeviation: Deviation) => {
       setDeviations(prev => [newDeviation, ...prev.slice(0, 4)])
+    })
+
+    socket.on('connect', () => {
+      console.log('LatestDeviationsCard: Tilkoblet Socket.io-server')
+    })
+
+    socket.on('connect_error', (error) => {
+      console.error('LatestDeviationsCard: Socket.io tilkoblingsfeil:', error.message)
     })
 
     return () => {

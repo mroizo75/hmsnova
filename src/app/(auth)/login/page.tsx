@@ -6,37 +6,64 @@ import { Input } from "@/components/ui/input"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { toast } from "sonner"
 import Image from "next/image"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <LoginForm />
+    <Suspense fallback={<div>Laster innlogging...</div>}>
+      <LoginFormInner />
     </Suspense>
   )
 }
 
-function LoginForm() {
+function LoginFormInner() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const isAdminLogin = searchParams.get('admin') === 'true'
+  const callbackUrl = searchParams.get('callbackUrl') || '/'
+  const error = searchParams.get('error')
+  
+  // Håndter feilmeldinger fra URL-parametere
+  useEffect(() => {
+    if (error) {
+      switch (error) {
+        case 'SessionExpired':
+          setAuthError('Din sesjon har utløpt. Vennligst logg inn igjen.')
+          break
+        case 'AuthError':
+          setAuthError('Det oppstod et problem med innloggingen din.')
+          break
+        case 'CredentialsSignin':
+          setAuthError('Ugyldig e-post eller passord.')
+          break
+        default:
+          setAuthError('Det oppstod en feil under innloggingen.')
+      }
+    }
+  }, [error])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setAuthError(null)
 
     try {
       const result = await signIn('credentials', {
         email,
         password,
-        redirect: false
+        redirect: false,
+        callbackUrl
       })
 
       if (result?.error) {
+        setAuthError("Ugyldig e-post eller passord")
         toast.error("Ugyldig innlogging")
       } else {
         const response = await fetch('/api/auth/session')
@@ -47,6 +74,7 @@ function LoginForm() {
             window.location.href = '/admin/dashboard'
           } else {
             toast.error("Ingen tilgang til admin-panel")
+            setAuthError("Du har ikke tilgang til administrasjonspanelet")
             window.location.href = '/dashboard'
           }
         } else {
@@ -61,6 +89,7 @@ function LoginForm() {
       }
     } catch (error) {
       console.error('Login error:', error)
+      setAuthError("Kunne ikke logge inn. Vennligst prøv igjen senere.")
       toast.error("Kunne ikke logge inn")
     } finally {
       setIsLoading(false)
@@ -86,6 +115,16 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {authError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Feil</AlertTitle>
+              <AlertDescription>
+                {authError}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Input

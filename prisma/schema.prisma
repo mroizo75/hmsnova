@@ -49,7 +49,6 @@ model User {
   image               String?
   address       Json?    // Lagrer adresse som JSON { street, postalCode, city }
   
-
   PasswordResetToken PasswordResetToken[]
 
   SafetyRoundImage SafetyRoundImage[]
@@ -65,6 +64,56 @@ model User {
   EquipmentInspection EquipmentInspection[] @relation("Inspections")
 
   DocumentVersion DocumentVersion[]
+  
+  // Kompetansemodul-relasjoner
+  competencies Competence[]
+  courseEnrollments Enrollment[]
+  
+  // Risikovurderingsmodul-relasjoner
+  createdRiskAssessments RiskAssessment[] @relation("createdAssessments")
+
+  assignedInteractions CustomerInteraction[] @relation("AssignedInteractions")
+  assignedOpportunities SalesOpportunity[] @relation("AssignedOpportunities")
+  createdInteractions CustomerInteraction[]
+  createdNewsletters Newsletter[]
+
+  // NextAuth.js relasjoner
+  emailVerified DateTime?
+  accounts      Account[]
+  sessions      Session[]
+
+  Competency Competency[]
+}
+
+// NextAuth.js modeller
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Company {
@@ -86,6 +135,7 @@ model Company {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   documents           Document[]
+  metadata            Json?            @default("{}")
 
   Stoffkartotek Stoffkartotek[]
 
@@ -102,6 +152,9 @@ model Company {
   goals       HMSGoal[]
 
   SafetyRound SafetyRound[]
+  
+  // Integrasjoner
+  daluxSyncs DaluxSync[]
 
   // Legg til nye felt for pakkeinfo
   subscriptionPlan    String    @default("STANDARD") // STANDARD, STANDARD_PLUS, PREMIUM
@@ -109,6 +162,20 @@ model Company {
   storageLimit        Int       @default(1) // i GB
   includeVernerunde   Boolean   @default(false)
   vernerundeDate      DateTime? // Dato for siste vernerunde
+  
+  // Rabatt- og prissettingsinformasjon
+  basePrice           Float?    // Basispris for abonnementet
+  additionalPrice     Float?    // Tilleggspris for ekstramoduler
+  totalPrice          Float?    // Total månedspris før rabatt
+  discountPercentage  Float?    @default(0) // Rabattprosent
+  discountYears       Int?      @default(0) // Antall år med rabatt
+  
+  // Salgsinformasjon for prospects
+  isProspect          Boolean   @default(false) // Er dette en potensiell kunde
+  potentialValue      Float?    @default(0) // Potensiell verdi
+  prospectStage       String?   // LEAD, OPPORTUNITY, PROPOSAL, NEGOTIATION, CLOSED_WON, CLOSED_LOST
+  salesNotes          String?   @db.Text // Notater om salget
+  expectedCloseDate   DateTime? // Forventet dato for avslutning av salg
 
   SafetyRoundTemplate SafetyRoundTemplate[]
 
@@ -117,6 +184,16 @@ model Company {
   EquipmentInspection EquipmentInspection[]
 
   Category Category[]
+  
+  // Kompetansemodul-relasjoner
+  competenceTypes CompetenceType[]
+  courses Course[]
+
+  contacts           CustomerContact[]
+  interactions       CustomerInteraction[]
+  salesOpportunities SalesOpportunity[]
+  newsletters        NewsletterRecipient[]
+  invoiceStatuses    InvoiceStatus[]
 }
 
 model Address {
@@ -219,32 +296,31 @@ model HMSSection {
 
 
 model RiskAssessment {
-  id          String        @id @default(cuid())
-  title       String
-  description String        @db.Text
-  department  String?       // Avdeling/område
-  activity    String        // Aktivitet som vurderes
-  status      Status        @default(DRAFT)
-  dueDate     DateTime?     // Frist for gjennomføring
-  companyId   String
-  company     Company       @relation(fields: [companyId], references: [id])
-  createdBy   String       // Bruker-ID som opprettet
-  updatedBy   String?      // Bruker-ID som sist oppdaterte
-  hazards     Hazard[]     // Risikofaktorer
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String    @id @default(cuid())
+  title         String
+  description   String    @db.Text
+  department    String?
+  activity      String
+  status        String    @default("DRAFT") // DRAFT, IN_PROGRESS, COMPLETED, ARCHIVED
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  dueDate       DateTime?
+  company       Company   @relation(fields: [companyId], references: [id])
+  companyId     String
+  hazards       Hazard[]
   hmsChanges    RiskAssessmentHMSChange[]
-  measures      RiskAssessmentMeasure[]
-
-  // Kobling til HMS-seksjoner
-  relatedHMSSections HMSSection[]
-
-  // Legg til equipment-relasjon
-  equipmentId String?
-  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
+  equipment     Equipment? @relation(fields: [equipmentId], references: [id])
+  equipmentId   String?
+  location      Json?     // Lagrer lokasjon som JSON { latitude: number, longitude: number }
+  createdBy     String?
+  creator       User?     @relation("createdAssessments", fields: [createdBy], references: [id])
+  updatedBy     String?   // Bruker-ID som sist oppdaterte
 
   @@index([companyId])
   @@index([equipmentId])
+  @@index([createdBy])
+  RiskAssessmentMeasure RiskAssessmentMeasure[]
+  HMSSection HMSSection[]
 }
 
 model Hazard {
@@ -255,6 +331,7 @@ model Hazard {
   severity         Int             // 1-5
   riskLevel        Int             // Beregnet: probability * severity
   existingMeasures String?         @db.Text  // Eksisterende tiltak
+  metadata         Json?           // Lagrer værrisikoinformasjon { weatherRisk: { included: boolean, notes: string } }
   riskAssessmentId String
   riskAssessment   RiskAssessment  @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
   measures         Measure[]       // Beholder eksisterende tiltak-relasjon
@@ -333,6 +410,14 @@ model Deviation {
   @@index([status])
   @@index([source, sourceId])
   @@index([equipmentId])
+  @@index([reportedBy])
+  @@index([assignedTo])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([type])
+  @@index([severity])
+  @@index([companyId, status])
+  @@index([companyId, reportedBy])
 }
 
 model DeviationMeasure {
@@ -505,6 +590,7 @@ enum DeviationType {
   ACCIDENT      // Ulykke
   IMPROVEMENT   // Forbedringsforslag
   OBSERVATION   // Observasjon
+  UNWANTED_EVENT // Uønsket hendelse
 }
 
 enum Severity {
@@ -662,6 +748,9 @@ model SJA {
   opprettetAvId String
   opprettetDato DateTime   @default(now())
   oppdatertDato DateTime   @updatedAt
+  
+  // Lokasjon og værdata
+  location      String?    @db.Text // JSON-streng med latitude, longitude og lokasjonsnavn
   
   // ISO 27001: Tilgangskontroll
   company       Company    @relation(fields: [companyId], references: [id])
@@ -1132,18 +1221,18 @@ model NotificationSettings {
 }
 
 model UserSettings {
-  id                 String   @id @default(cuid())
-  userId             String   @unique
-  user               User     @relation(fields: [userId], references: [id])
-  emailNotifications Boolean  @default(true)
-  pushNotifications  Boolean  @default(true)
-  dailyDigest        Boolean  @default(false)
-  weeklyDigest       Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  theme              String    @default("system") // "light", "dark", "system"
-
-  @@map("user_settings")
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id])
+  emailNotifications  Boolean  @default(true)
+  pushNotifications   Boolean  @default(true)
+  dailyDigest         Boolean  @default(false)
+  weeklyDigest        Boolean  @default(true)
+  colorMode           String   @default("default")
+  competenceReminders Boolean  @default(true)
+  competenceExpiryNotifications Boolean @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model PasswordResetToken {
@@ -1551,5 +1640,289 @@ model DeviationStatusHistory {
   deviationId String
 
   @@index([deviationId])
+}
+
+// Dalux-integrasjon
+model DaluxSync {
+  id             String      @id @default(cuid())
+  sourceId       String      // ID i vårt system (deviation/SJA)
+  sourceType     String      // "deviation" eller "sja"
+  targetId       String?     // ID i Dalux system
+  projectId      String      // ID til Dalux prosjekt
+  status         String      @default("pending") // pending, success, error
+  error          String?     // Feilmelding hvis synkronisering feilet
+  companyId      String      // Bedrift ID for isolasjon av data
+  company        Company     @relation(fields: [companyId], references: [id])
+  lastSync       DateTime    @default(now())
+  additionalData Json?       // Ekstra data om synkroniseringen
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([sourceId, sourceType])
+  @@index([companyId])
+  @@index([status])
+  @@index([projectId])
+}
+
+// Kompetansemodul-modeller
+model CompetenceType {
+  id            String      @id @default(cuid())
+  name          String      
+  description   String?     @db.Text
+  category      String      // HMS, FAGLIG, LOVPÅLAGT
+  subcategory   String?     // BYGG, TRANSPORT, ELEKTRO, etc.
+  validity      Int?        // Gyldighetsperiode i måneder (null = ikke utløpsdato)
+  reminderMonths Int         @default(3) // Antall måneder før varsling om utløp
+  isActive      Boolean     @default(true)
+  requiredFor   String?     // Arbeidskategorier som krever denne kompetansen
+  isDefault     Boolean     @default(false) // Om denne er en standard kompetansetype
+  requiresFile  Boolean     @default(true)  // Om kompetansetype krever dokumentasjon
+  companyId     String      // Kobling til bedrift (null for globale typer)
+  company       Company     @relation(fields: [companyId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relasjoner
+  competencies  Competence[]
+
+  @@unique([name, companyId])
+  @@index([companyId])
+  @@index([category])
+  @@index([subcategory])
+}
+
+model Competence {
+  id                String        @id @default(cuid())
+  userId            String        // Kobling til bruker
+  user              User          @relation(fields: [userId], references: [id])
+  competenceTypeId  String        // Kobling til kompetansetype
+  competenceType    CompetenceType @relation(fields: [competenceTypeId], references: [id])
+  achievedDate      DateTime      // Oppnådd dato
+  expiryDate        DateTime?     // Utløpsdato (null hvis ikke utløp)
+  certificateUrl    String?       // URL til sertifikat/dokumentasjon
+  verificationStatus String        @default("PENDING") // PENDING, VERIFIED, REJECTED
+  verifiedBy        String?       // Bruker-ID som verifiserte
+  verifiedAt        DateTime?     // Når verifisert
+  notes             String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relasjoner til kurs
+  courseEnrollments Enrollment[]
+
+  @@index([userId])
+  @@index([competenceTypeId])
+  @@index([expiryDate])
+  @@index([verificationStatus])
+}
+
+model Course {
+  id              String      @id @default(cuid())
+  title           String
+  description     String?     @db.Text
+  content         Json        // Kursmateriale (tekst, video, filer)
+  duration        Int         // Estimert varighet i minutter
+  passingScore    Int         @default(70) // Poengsum for å bestå (prosentvis)
+  isActive        Boolean     @default(true)
+  category        String      // HMS, FAGLIG, etc.
+  competenceTypeId String?    // Kobling til kompetansetype (null hvis ikke gir kompetanse)
+  companyId       String      // Kobling til bedrift
+  company         Company     @relation(fields: [companyId], references: [id])
+  createdBy       String      // Opprettet av (bruker-ID)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relasjoner
+  questions       CourseQuestion[]
+  enrollments     Enrollment[]
+
+  @@index([companyId])
+  @@index([category])
+}
+
+model CourseQuestion {
+  id            String      @id @default(cuid())
+  courseId      String
+  course        Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  question      String      @db.Text
+  options       Json        // Svaralternativer 
+  correctOption Int         // Indeks til riktig svar (0-basert)
+  explanation   String?     @db.Text // Forklaring på riktig svar
+  points        Int         @default(1) // Poeng for riktig svar
+  order         Int         // Rekkefølge i kurset
+
+  @@index([courseId])
+}
+
+model Enrollment {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  courseId      String
+  course        Course      @relation(fields: [courseId], references: [id])
+  status        String      @default("ENROLLED") // ENROLLED, IN_PROGRESS, COMPLETED, FAILED
+  progress      Int         @default(0) // Prosentvis fremgang
+  startedAt     DateTime    @default(now())
+  completedAt   DateTime?
+  score         Int?        // Oppnådd poengsum
+  attempts      Int         @default(0) // Antall forsøk
+  certificateUrl String?    // URL til kursbevis
+  
+  // Kobling til kompetanse (hvis kurset gir kompetanse)
+  competenceId  String?
+  competence    Competence? @relation(fields: [competenceId], references: [id])
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@index([competenceId])
+}
+
+// CRM-modeller
+model CustomerContact {
+  id                String    @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String
+  phone             String?
+  position          String?
+  isPrimary         Boolean   @default(false)
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relasjoner
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id])
+  interactions      CustomerInteraction[]
+  opportunities     SalesOpportunity[]
+  newsletterRecipients NewsletterRecipient[]
+
+  @@index([companyId])
+}
+
+model CustomerInteraction {
+  id                String    @id @default(cuid())
+  type              String    // CALL, EMAIL, MEETING, SUPPORT
+  title             String
+  description       String?   @db.Text
+  status            String    @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  scheduledAt       DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relasjoner
+  contactId         String
+  contact           CustomerContact @relation(fields: [contactId], references: [id])
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id])
+  createdById       String
+  createdBy         User       @relation(fields: [createdById], references: [id])
+  assignedToId      String?
+  assignedTo        User?      @relation("AssignedInteractions", fields: [assignedToId], references: [id])
+  
+  @@index([contactId])
+  @@index([companyId])
+  @@index([createdById])
+  @@index([assignedToId])
+}
+
+model SalesOpportunity {
+  id                String    @id @default(cuid())
+  title             String
+  description       String?   @db.Text
+  value             Float
+  stage             String    @default("LEAD") // LEAD, NEGOTIATION, PROPOSAL, CLOSED_WON, CLOSED_LOST
+  probability       Int       @default(0) // 0-100 prosent
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relasjoner
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id])
+  contactId         String?
+  contact           CustomerContact? @relation(fields: [contactId], references: [id])
+  assignedToId      String?
+  assignedTo        User?      @relation("AssignedOpportunities", fields: [assignedToId], references: [id])
+  
+  @@index([companyId])
+  @@index([contactId])
+  @@index([assignedToId])
+}
+
+model Newsletter {
+  id                String    @id @default(cuid())
+  title             String
+  content           String    @db.Text
+  status            String    @default("DRAFT") // DRAFT, SCHEDULED, SENT
+  scheduledAt       DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relasjoner
+  recipients        NewsletterRecipient[]
+  createdById       String
+  createdBy         User       @relation(fields: [createdById], references: [id])
+  
+  @@index([createdById])
+}
+
+model NewsletterRecipient {
+  id                String    @id @default(cuid())
+  status            String    @default("PENDING") // PENDING, SENT, FAILED
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  
+  // Relasjoner
+  newsletterId      String
+  newsletter        Newsletter @relation(fields: [newsletterId], references: [id])
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id])
+  contactId         String?
+  contact           CustomerContact? @relation(fields: [contactId], references: [id])
+  
+  @@index([newsletterId])
+  @@index([companyId])
+  @@index([contactId])
+}
+
+model InvoiceStatus {
+  id                String    @id @default(cuid())
+  invoiceNumber     String
+  amount            Float
+  dueDate           DateTime
+  status            String    @default("PENDING") // PENDING, PAID, OVERDUE
+  paidAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relasjoner
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id])
+  
+  @@index([companyId])
+}
+
+model Competency {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  expiryDate      DateTime?
+  certificateNumber String?
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
 }
 

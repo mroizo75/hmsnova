@@ -22,10 +22,15 @@ declare module "next-auth" {
   }
 }
 
+// Definer hvor lenge en token skal være gyldig
+// 12 timer i sekunder
+const MAX_AGE = 12 * 60 * 60;
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
+    maxAge: MAX_AGE, // 12 timer i sekunder
   },
   pages: {
     signIn: '/login',
@@ -38,7 +43,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "E-post", type: "email" },
         password: { label: "Passord", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials: Record<string, string> | undefined) {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
@@ -81,12 +86,29 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
+      // Beregn utløpstid for tokenet hvis det ikke finnes
+      if (!token.exp) {
+        token.exp = Math.floor(Date.now() / 1000) + MAX_AGE;
+      }
+      
       if (user) {
         token.id = user.id
         token.role = user.role
         token.companyId = user.companyId
         token.isSystemAdmin = user.role === 'ADMIN' || user.role === 'SUPPORT'
+        // Forny token ved innlogging
+        token.exp = Math.floor(Date.now() / 1000) + MAX_AGE;
       }
+      
+      // Sjekk om tokenet snart utløper og forny det (hvis mindre enn 1 time gjenstår)
+      const ONE_HOUR = 60 * 60;
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      if (token.exp && (token.exp - currentTime) < ONE_HOUR) {
+        console.log("Fornyer JWT token som snart utløper");
+        token.exp = currentTime + MAX_AGE;
+      }
+      
       return token
     },
     async session({ session, token }) {

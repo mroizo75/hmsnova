@@ -18,6 +18,7 @@ import {
 import { useState, useEffect } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
 interface Props {
   onFiltersChange: (filters: any) => void
@@ -32,7 +33,7 @@ const sortOptions = [
   { value: 'nextInspection', label: 'Neste inspeksjon' },
 ]
 
-export function EquipmentFilters({ onFiltersChange }: Props) {
+function EquipmentFiltersInner({ onFiltersChange }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -182,5 +183,13 @@ export function EquipmentFilters({ onFiltersChange }: Props) {
         </div>
       </div>
     </div>
+  )
+}
+
+export function EquipmentFilters({ onFiltersChange }: Props) {
+  return (
+    <Suspense fallback={<div>Laster filtre...</div>}>
+      <EquipmentFiltersInner onFiltersChange={onFiltersChange} />
+    </Suspense>
   )
 } 

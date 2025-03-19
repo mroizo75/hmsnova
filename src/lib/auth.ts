@@ -2,20 +2,36 @@ import { NextAuthOptions } from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import GoogleProvider from "next-auth/providers/google"
 import prisma from "./db"
+import { Adapter } from "next-auth/adapters"
 
 declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      email: string
+  interface User {
+    id: string
+    email: string
+    name: string
+    companyId: string
+    role: string
+    isSystemAdmin: boolean
+    competencies?: Array<{
       name: string
+      description?: string
+      expiryDate?: string
+      certificateNumber?: string
+    }>
+  }
+
+  interface Session {
+    user: User & {
+      id: string
       companyId: string
+      role: string
+      isSystemAdmin: boolean
     }
   }
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,

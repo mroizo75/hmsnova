@@ -57,6 +57,7 @@ body {
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -91,6 +92,118 @@ body {
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+  /* Protanopia tema */
+  .protanopia {
+    --background: 120 0% 95%;
+    --foreground: 120 0% 0%;
+    --card: 120 0% 95%;
+    --card-foreground: 120 0% 0%;
+    --popover: 120 0% 95%;
+    --popover-foreground: 120 0% 0%;
+    --primary: 120 100% 35%;
+    --primary-foreground: 120 0% 100%;
+    --secondary: 120 0% 90%;
+    --secondary-foreground: 120 0% 0%;
+    --muted: 120 0% 90%;
+    --muted-foreground: 120 0% 45%;
+    --accent: 120 0% 90%;
+    --accent-foreground: 120 0% 0%;
+    --destructive: 120 100% 35%;
+    --destructive-foreground: 120 0% 100%;
+    --border: 120 0% 80%;
+    --input: 120 0% 100%;
+    --ring: 120 100% 35%;
+    --chart-1: 120 100% 35%;
+    --chart-2: 120 80% 45%;
+    --chart-3: 120 60% 55%;
+    --chart-4: 120 40% 65%;
+    --chart-5: 120 20% 75%;
+  }
+
+  /* Deuteranopia tema */
+  .deuteranopia {
+    --background: 240 0% 95%;
+    --foreground: 240 0% 0%;
+    --card: 240 0% 95%;
+    --card-foreground: 240 0% 0%;
+    --popover: 240 0% 95%;
+    --popover-foreground: 240 0% 0%;
+    --primary: 240 100% 35%;
+    --primary-foreground: 240 0% 100%;
+    --secondary: 240 0% 90%;
+    --secondary-foreground: 240 0% 0%;
+    --muted: 240 0% 90%;
+    --muted-foreground: 240 0% 45%;
+    --accent: 240 0% 90%;
+    --accent-foreground: 240 0% 0%;
+    --destructive: 240 100% 35%;
+    --destructive-foreground: 240 0% 100%;
+    --border: 240 0% 80%;
+    --input: 240 0% 100%;
+    --ring: 240 100% 35%;
+    --chart-1: 240 100% 35%;
+    --chart-2: 240 80% 45%;
+    --chart-3: 240 60% 55%;
+    --chart-4: 240 40% 65%;
+    --chart-5: 240 20% 75%;
+  }
+
+  /* Tritanopia tema */
+  .tritanopia {
+    --background: 0 0% 95%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 95%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 95%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 100% 35%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 90%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 100% 35%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 80%;
+    --input: 0 0% 100%;
+    --ring: 0 100% 35%;
+    --chart-1: 0 100% 35%;
+    --chart-2: 0 80% 45%;
+    --chart-3: 0 60% 55%;
+    --chart-4: 0 40% 65%;
+    --chart-5: 0 20% 75%;
+  }
+
+  /* Høykontrast tema */
+  .highContrast {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 0%;
+    --accent: 0 0% 90%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 0%;
+    --input: 0 0% 100%;
+    --ring: 0 0% 0%;
+    --chart-1: 0 100% 0%;
+    --chart-2: 0 100% 25%;
+    --chart-3: 0 100% 50%;
+    --chart-4: 0 100% 75%;
+    --chart-5: 0 100% 100%;
+  }
 }
 
 @layer base {
@@ -103,7 +216,6 @@ body {
 }
 
 /* Kalender-spesifikke stiler */
-
 .rdp-root {
   border-radius: 0;
   --rdp-accent-color: hsl(var(--primary));
@@ -113,7 +225,7 @@ body {
 .rdp-day:hover:not(.rdp-day_selected) {
   background-color: hsl(var(--accent));
   color: hsl(var(--accent-foreground));
-  border-radius: 0; /* Gjør hover-effekten firkantet */
+  border-radius: 0;
 }
 
 .rdp-day_selected {
@@ -156,10 +268,8 @@ rdp-month_caption {
   position: absolute;
   inset-block-start: 0;
   inset-inline-end: 0;
-
   display: flex;
   align-items: center;
-
   height: var(--rdp-nav-height);
 }
 
@@ -252,96 +362,7 @@ rdp-month_caption {
   align-items: left;
 }
 
-  .rdp-table.rdp-head_cell {
-    border-collapse: collapse;
-    text-align: center;
-  }
-
-/* Kalender styling */
-.rdp-head_cell {
-  width: 36px !important;  /* Matcher bredden på datocellene */
-  text-align: center !important;
-}
-
-.rdp-cell {
-  width: 36px !important;
-  text-align: center !important;
-}
-
-.rdp-table {
-  margin: 0 auto;
-  border-spacing: 0 4px;
-}
-
-.rdp-head_row {
-  display: grid !important;
-  grid-template-columns: repeat(7, 1fr) !important;
-  margin-bottom: 8px !important;
-}
-
-.rdp-row {
-  display: grid !important;
-  grid-template-columns: repeat(7, 1fr) !important;
-}
-
-/* Tiptap editor styles */
-.tiptap {
-  min-height: 200px;
-}
-
-.tiptap h1 {
-  font-size: 2em;
-  font-weight: bold;
-  margin-top: 1em;
-  margin-bottom: 0.5em;
-}
-
-.tiptap h2 {
-  font-size: 1.5em;
-  font-weight: bold;
-  margin-top: 1em;
-  margin-bottom: 0.5em;
-}
-
-.tiptap h3 {
-  font-size: 1.17em;
-  font-weight: bold;
-  margin-top: 1em;
-  margin-bottom: 0.5em;
-}
-
-.tiptap ul {
-  list-style-type: disc;
-  padding-left: 1.5em;
-  margin: 1em 0;
-}
-
-.tiptap ol {
-  list-style-type: decimal;
-  padding-left: 1.5em;
-  margin: 1em 0;
-}
-
-.tiptap blockquote {
-  border-left: 3px solid #ddd;
-  padding-left: 1em;
-  margin: 1em 0;
-  color: #666;
-}
-
-.tiptap p {
-  margin: 0.5em 0;
-}
-
-.tiptap li {
-  margin: 0.3em 0;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-.custom-toast-width {
-  max-width: 500px !important;
-  width: 90vw !important;
+.rdp-table.rdp-head_cell {
+  border-collapse: collapse;
+  text-align: center;
 }

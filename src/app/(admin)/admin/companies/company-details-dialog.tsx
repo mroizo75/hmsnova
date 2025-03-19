@@ -143,6 +143,14 @@ export function CompanyDetailsDialog({
       description: "Tilgang til HMS-rådgivning og support",
       isActive: false,
       isDefault: false
+    },
+    {
+      id: "8",
+      key: "COMPETENCY",
+      label: "Kompetanse",
+      description: "Administrasjon av ansattes kompetanse og sertifiseringer",
+      isActive: false,
+      isDefault: false
     }
   ]
 
@@ -249,9 +257,9 @@ export function CompanyDetailsDialog({
         isDefault: true
       },
       {
-        key: "EMPLOYEES",
-        label: "Ansatthåndtering",
-        description: "Administrasjon av ansatte og tilganger",
+        key: "COMPETENCY",
+        label: "Kompetanse",
+        description: "Administrasjon av ansattes kompetanse og sertifiseringer",
         isDefault: true
       }
     ],
@@ -267,6 +275,12 @@ export function CompanyDetailsDialog({
         key: "HMS_CONSULTING",
         label: "HMS Rådgivning",
         description: "HMS-rådgivning og kundeoppfølging",
+        isDefault: false
+      },
+      {
+        key: "COMPETENCE",
+        label: "Kompetansestyring",
+        description: "System for registrering og oppfølging av kompetanse, kurs og sertifiseringer",
         isDefault: false
       }
     ]

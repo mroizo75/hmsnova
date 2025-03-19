@@ -5,14 +5,17 @@ import { Status } from "@prisma/client"
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth()
     const { status } = await request.json()
+    
+    // Await params før bruk av id
+    const { id } = await params
 
     const assessment = await prisma.riskAssessment.update({
-      where: { id: params.id },
+      where: { id },
       data: { 
         status: status as Status  // Bruk Status enum fra Prisma
       }

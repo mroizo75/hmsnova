@@ -2,8 +2,18 @@
 
 import { cn } from "@/lib/utils"
 
+interface Hazard {
+  id: string
+  description: string
+  probability: number
+  severity: number
+  riskLevel: number
+  [key: string]: any
+}
+
 interface RiskMatrixProps {
-  data: number[][]
+  hazards?: Hazard[]
+  data?: (number | string)[][]  // Ny prop for å støtte format: [[probability, severity, id], ...]
 }
 
 const probabilityLabels = [
@@ -22,7 +32,48 @@ const severityLabels = [
   "Ubetydelig"
 ]
 
-export function RiskMatrix({ data }: RiskMatrixProps) {
+export function RiskMatrix({ hazards, data }: RiskMatrixProps) {
+  // Beregn matrise-data fra hazards
+  const calculateMatrixData = () => {
+    // Initialiser en 5x5 matrise med nuller
+    const matrix = Array(5).fill(null).map(() => Array(5).fill(0));
+    
+    // Hvis hazards sendes inn, bruker vi det formatet
+    if (hazards && hazards.length > 0) {
+      // Teller forekomster av hver kombinasjon
+      hazards.forEach(hazard => {
+        if (hazard.probability >= 1 && hazard.probability <= 5 && 
+            hazard.severity >= 1 && hazard.severity <= 5) {
+          // Juster indekser (0-basert array)
+          const probIndex = hazard.probability - 1;
+          const sevIndex = hazard.severity - 1;
+          matrix[sevIndex][probIndex] += 1;
+        }
+      });
+    } 
+    // Ellers sjekker vi om data sendes inn i alternativt format
+    else if (data && data.length > 0) {
+      data.forEach(item => {
+        if (item.length >= 2) {
+          const probability = Number(item[0]);
+          const severity = Number(item[1]);
+          
+          if (probability >= 1 && probability <= 5 && 
+              severity >= 1 && severity <= 5) {
+            // Juster indekser (0-basert array)
+            const probIndex = probability - 1;
+            const sevIndex = severity - 1;
+            matrix[sevIndex][probIndex] += 1;
+          }
+        }
+      });
+    }
+    
+    return matrix;
+  };
+  
+  const matrixData = calculateMatrixData();
+  
   // Funksjon for å bestemme farge basert på risikonivå
   const getRiskColor = (severity: number, probability: number) => {
     const risk = (severity + 1) * (probability + 1)
@@ -53,7 +104,7 @@ export function RiskMatrix({ data }: RiskMatrixProps) {
               <th className="p-2 text-sm font-medium text-left border">
                 {5 - severity}. {label}
               </th>
-              {data[4 - severity].map((count, probability) => (
+              {matrixData[4 - severity].map((count, probability) => (
                 <td
                   key={probability}
                   className={cn(

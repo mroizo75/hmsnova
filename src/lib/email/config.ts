@@ -8,6 +8,11 @@ if (!process.env.POSTMARK_FROM_EMAIL) {
   throw new Error('POSTMARK_FROM_EMAIL er ikke satt i miljøvariablene')
 }
 
+export const emailConfig = {
+  fromEmail: process.env.POSTMARK_FROM_EMAIL as string,
+  apiToken: process.env.POSTMARK_API_TOKEN as string
+}
+
 // Initialiser Postmark-klienten
 const client = new ServerClient(process.env.POSTMARK_API_TOKEN)
 
@@ -45,7 +50,7 @@ export async function sendEmail({ to, subject, html }: {
 
   try {
     const response = await client.sendEmail({
-      From: process.env.POSTMARK_FROM_EMAIL,
+      From: process.env.POSTMARK_FROM_EMAIL as string,
       To: to,
       Subject: subject,
       HtmlBody: html,

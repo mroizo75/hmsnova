@@ -20,7 +20,9 @@ export default async function HMSDocumentPage(props: PageProps) {
     where: {
       id,
       companyId: session.user.companyId,
-      published: true
+      publishedAt: {
+        not: null
+      }
     },
     include: {
       sections: {

@@ -5,6 +5,7 @@ import { BookOpen, FileText, AlertTriangle, Settings, Home, ChevronLeft, TestTub
 import Link from "next/link"
 import prisma from "@/lib/db"
 import { StoffkartotekViewer } from "./stoffkartotek-viewer"
+import { Suspense } from "react"
 
 export default async function EmployeeStoffkartotekPage() {
   const session = await getServerSession(authOptions)
@@ -28,38 +29,7 @@ export default async function EmployeeStoffkartotekPage() {
     }
   })
 
-  const modules = [
-    {
-      title: "Hjem",
-      icon: Home,
-      href: "/employee-dashboard",
-      color: "text-gray-600"
-    },
-    {
-      title: "HMS Håndbok",
-      icon: BookOpen,
-      href: "/employee/hms-handbook",
-      color: "text-blue-600"
-    },
-    {
-      title: "SJA",
-      icon: FileText,
-      href: "/employee/sja",
-      color: "text-green-600"
-    },
-    {
-      title: "Avvik",
-      icon: AlertTriangle,
-      href: "/employee/deviations/new",
-      color: "text-orange-600"
-    },
-    {
-      title: "Stoffkartotek",
-      icon: TestTube,
-      href: "/employee/stoffkartotek",
-      color: "text-purple-600"
-    }
-  ]
+  
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -81,34 +51,11 @@ export default async function EmployeeStoffkartotekPage() {
 
       {/* Main Content */}
       <div className="flex-1 p-4">
-        <StoffkartotekViewer produkter={produkter} />
+        <Suspense fallback={<div>Laster stoffkartotek...</div>}>
+          <StoffkartotekViewer produkter={produkter} />
+        </Suspense>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="sticky bottom-0 bg-white border-t px-4 py-2">
-        <div className="flex justify-around">
-          {modules.map((module) => (
-            <Link key={module.title} href={module.href}>
-              <div className="flex flex-col items-center">
-                <module.icon 
-                  className={`w-6 h-6 ${
-                    module.href === "/employee/stoffkartotek"
-                      ? module.color
-                      : "text-gray-500"
-                  }`} 
-                />
-                <span className={`text-xs mt-1 ${
-                  module.href === "/employee/stoffkartotek"
-                    ? module.color
-                    : "text-gray-600"
-                }`}>
-                  {module.title}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   )
 } 

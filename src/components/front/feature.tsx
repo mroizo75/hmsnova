@@ -1,4 +1,7 @@
+"use client"
+
 import { Shield, BookOpen, AlertTriangle, Users, ClipboardCheck, BarChart } from "lucide-react"
+import { motion } from "framer-motion"
 
 const features = [
   {
@@ -33,20 +36,102 @@ const features = [
   }
 ]
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.3
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { duration: 0.5 }
+  }
+}
+
 export default function Features() {
   return (
-    <section id="services" className="py-24">
-      <div className="grid md:grid-cols-3 gap-8 mb-16">
-        {features.map((feature, index) => (
-          <div 
-            key={index} 
-            className="p-8 rounded-2xl border border-gray-200 hover:border-[#2C435F] transition-all duration-200 hover:shadow-lg hover:-translate-y-1 bg-white/80 backdrop-blur-sm group"
-          >
-            <feature.icon className="w-12 h-12 text-[#2C435F] mb-6 group-hover:scale-110 transition-transform duration-200" />
-            <h3 className="text-2xl font-semibold mb-4 text-[#17304F]">{feature.title}</h3>
-            <p className="text-gray-600 leading-relaxed">{feature.description}</p>
-          </div>
-        ))}
+    <section id="services" className="py-24 relative overflow-hidden">
+      {/* Bakgrunnselementer */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute left-1/2 top-1/4 w-[800px] h-[800px] bg-[#2C435F]/5 rounded-full blur-3xl -translate-x-1/2"></div>
+        <div className="absolute right-0 bottom-0 w-[400px] h-[400px] bg-[#17304F]/5 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="container mx-auto px-4 max-w-7xl relative z-10">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
+          <span className="px-4 py-1.5 rounded-full border border-[#2C435F] text-[#2C435F] text-sm font-medium inline-block mb-4">
+            Våre tjenester
+          </span>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#17304F] mb-6">
+            En komplett HMS-løsning
+          </h2>
+          <p className="text-gray-600 text-lg max-w-3xl mx-auto">
+            Vi har alt du trenger for å sikre at din virksomhet oppfyller alle HMS-krav og skaper et trygt arbeidsmiljø.
+          </p>
+        </motion.div>
+        
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8"
+        >
+          {features.map((feature, index) => (
+            <motion.div 
+              key={index} 
+              variants={itemVariants}
+              className="p-8 rounded-2xl border border-gray-100 hover:border-[#2C435F] transition-all duration-300 hover:shadow-xl bg-white/80 backdrop-blur-sm group"
+              whileHover={{ y: -8, transition: { duration: 0.3 } }}
+            >
+              <div className="relative w-16 h-16 bg-[#2C435F]/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-[#17304F]/10 transition-colors duration-300">
+                <feature.icon className="w-8 h-8 text-[#2C435F] group-hover:text-[#17304F] transition-colors duration-300" />
+                
+                <div className="absolute -top-2 -right-2 w-4 h-4 bg-[#17304F] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </div>
+              
+              <h3 className="text-xl font-semibold mb-4 text-[#17304F] group-hover:text-[#2C435F] transition-colors duration-300">
+                {feature.title}
+              </h3>
+              
+              <p className="text-gray-600 leading-relaxed group-hover:text-gray-700 transition-colors duration-300">
+                {feature.description}
+              </p>
+            </motion.div>
+          ))}
+        </motion.div>
+        
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="mt-20 bg-gradient-to-r from-[#2C435F] to-[#17304F] rounded-2xl p-10 text-white text-center"
+        >
+          <h3 className="text-2xl md:text-3xl font-bold mb-4">
+            Vi hjelper deg med å holde oversikt over alle dine HMS-krav
+          </h3>
+          <p className="max-w-2xl mx-auto mb-8 text-white/90">
+            Vårt team av HMS-eksperter er alltid oppdatert på lovverk og forskrifter, og sikrer at du og din bedrift er et steg foran.
+          </p>
+          <button className="bg-white text-[#17304F] font-medium py-3 px-8 rounded-full hover:bg-gray-100 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-transform">
+            Se alle tjenester
+          </button>
+        </motion.div>
       </div>
     </section>
   )

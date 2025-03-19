@@ -261,10 +261,11 @@ export function CreateDeviationDialog({ open, onOpenChange }: Props) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="SAFETY">Sikkerhet</SelectItem>
-                        <SelectItem value="ENVIRONMENT">Miljø</SelectItem>
-                        <SelectItem value="QUALITY">Kvalitet</SelectItem>
-                        <SelectItem value="OTHER">Annet</SelectItem>
+                        {categoryOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

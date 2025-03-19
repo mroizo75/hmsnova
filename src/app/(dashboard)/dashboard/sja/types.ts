@@ -36,9 +36,12 @@ export interface SJAWithRelations {
   id: string
   tittel: string
   arbeidssted: string
+  beskrivelse: string | null
+  deltakere: string | null
   startDato: Date
   sluttDato?: Date
   status: string
+  location?: string | null
   createdAt: Date
   updatedAt: Date
   company: (Company & {
@@ -54,6 +57,7 @@ export interface SJAWithRelations {
     }
   })[]
   bilder: SJABilde[]
+  vedlegg: SJAVedlegg[]
   godkjenninger: (SJAGodkjenning & {
     godkjentAv: Pick<User, "name" | "email">
   })[]
