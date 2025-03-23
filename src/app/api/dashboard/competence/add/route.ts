@@ -47,8 +47,10 @@ export async function POST(req: NextRequest) {
     
     // Validering av obligatoriske felt
     if (!userId || !competenceTypeId || !achievedDate || !certificateFile) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
       return NextResponse.redirect(
-        new URL(`/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent("Manglende obligatoriske felt")}`, req.url)
+        `${baseUrl}/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent("Manglende obligatoriske felt")}`,
+        { status: 303 }
       );
     }
     
@@ -61,8 +63,10 @@ export async function POST(req: NextRequest) {
     })
     
     if (!targetUser) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
       return NextResponse.redirect(
-        new URL(`/dashboard/competence/employees?error=${encodeURIComponent("Bruker ikke funnet eller ikke i ditt selskap")}`, req.url)
+        `${baseUrl}/dashboard/competence/employees?error=${encodeURIComponent("Bruker ikke funnet eller ikke i ditt selskap")}`,
+        { status: 303 }
       );
     }
     
@@ -98,16 +102,20 @@ export async function POST(req: NextRequest) {
     // Verifiser filtype
     const validFileTypes = ["application/pdf", "image/jpeg", "image/png"]
     if (!validFileTypes.includes(certificateFile.type)) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
       return NextResponse.redirect(
-        new URL(`/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent("Ugyldig filtype. Vennligst last opp PDF, JPG eller PNG")}`, req.url)
+        `${baseUrl}/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent("Ugyldig filtype. Vennligst last opp PDF, JPG eller PNG")}`,
+        { status: 303 }
       );
     }
     
     // Verifiser filstørrelse (maks 5MB)
     const maxSizeBytes = 5 * 1024 * 1024 // 5MB
     if (certificateFile.size > maxSizeBytes) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
       return NextResponse.redirect(
-        new URL(`/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent("Filen er for stor. Maksimal størrelse er 5MB")}`, req.url)
+        `${baseUrl}/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent("Filen er for stor. Maksimal størrelse er 5MB")}`,
+        { status: 303 }
       );
     }
     
@@ -121,8 +129,10 @@ export async function POST(req: NextRequest) {
       console.log('Fil vellykket lastet opp:', fileUrl);
     } catch (uploadError) {
       console.error('Feil under filopplasting:', uploadError);
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
       return NextResponse.redirect(
-        new URL(`/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent(`Kunne ikke laste opp fil: ${uploadError instanceof Error ? uploadError.message : 'Ukjent feil'}`)}`, req.url)
+        `${baseUrl}/dashboard/competence/employees/${userId}/add?error=${encodeURIComponent(`Kunne ikke laste opp fil: ${uploadError instanceof Error ? uploadError.message : 'Ukjent feil'}`)}`,
+        { status: 303 }
       );
     }
     
@@ -169,7 +179,7 @@ export async function POST(req: NextRequest) {
             type: "COMPETENCE_EXPIRY",
             title: `Kompetanse utløper snart: ${competenceType.name}`,
             message: `Din kompetanse "${competenceType.name}" utløper ${expiryDate.toLocaleDateString('no-NO')}. Vennligst forny den før utløpsdato.`,
-            isRead: false,
+            read: false,
             scheduledFor: reminderDate,
             metadata: {
               competenceId: newCompetence.id
@@ -200,7 +210,7 @@ export async function POST(req: NextRequest) {
             type: "COMPETENCE_VERIFICATION_NEEDED",
             title: `Ny kompetanse trenger verifisering`,
             message: `${targetUser.name} har lastet opp et nytt kompetansebevis for "${competenceType.name}" som trenger din verifisering.`,
-            isRead: false,
+            read: false,
             metadata: {
               competenceId: newCompetence.id,
               userIdToVerify: userId
@@ -210,10 +220,9 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // Omdiriger til ansattoversikten med suksessmelding
-    return NextResponse.redirect(
-      new URL(`/dashboard/competence/employees/${userId}?success=true&competenceId=${newCompetence.id}`, req.url)
-    );
+    // Redirect til brukerens kompetanseside
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
+    return NextResponse.redirect(`${baseUrl}/dashboard/competence/employees/${userId}`, { status: 303 })
     
   } catch (error) {
     console.error('Error adding competence:', error)

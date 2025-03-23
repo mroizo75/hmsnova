@@ -108,7 +108,8 @@ export async function POST(req: NextRequest) {
     })
 
     // Returner en redirect response istedenfor JSON
-    return NextResponse.redirect(new URL(redirectPath, req.url))
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
+    return NextResponse.redirect(`${baseUrl}${redirectPath}`, { status: 303 })
 
   } catch (error) {
     console.error("Feil ved registrering av kompetanse:", error)

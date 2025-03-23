@@ -58,6 +58,23 @@ const formSchema = z.object({
   tiltak: z.array(tiltakSchema)
 })
 
+// Legg til konstanter for sannsynlighet og alvorlighet
+const sannsynlighetLabels = {
+  1: "Lite sannsynlig",
+  2: "Mindre sannsynlig",
+  3: "Sannsynlig",
+  4: "Meget sannsynlig",
+  5: "Svært sannsynlig"
+};
+
+const alvorlighetLabels = {
+  1: "Ubetydelig",
+  2: "Mindre alvorlig",
+  3: "Alvorlig",
+  4: "Meget alvorlig",
+  5: "Katastrofal"
+};
+
 interface SJAEditFormProps {
   sja: SJAWithRelations
   userRole: string
@@ -171,7 +188,8 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
           const statusEndpoint = `/api/sja/${sja.id}/behandle`
           const statusBody = {
             status: values.status,
-            kommentar: values.kommentar || `Status endret til ${statusLabels[values.status as keyof typeof statusLabels]}`
+            kommentar: values.kommentar || `Status endret til ${statusLabels[values.status as keyof typeof statusLabels]}`,
+            redirect: "/dashboard/sja"
           }
 
           console.log("Status-oppdatering data:", JSON.stringify(statusBody, null, 2))
@@ -183,11 +201,19 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
           })
 
           if (!statusResponse.ok) {
+            // Sjekk om responsen er en omdirigering
+            if (statusResponse.redirected) {
+              // Hvis serveren omdirigerer, følg omdirigering
+              window.location.href = statusResponse.url
+              return
+            }
+            
             const errorData = await statusResponse.json()
             console.error("Feil ved statusoppdatering:", errorData)
             throw new Error(errorData.error || 'Kunne ikke oppdatere status')
           }
           
+          // Hvis vi kommer hit, har vi fått en vellykket respons men ikke en omdirigering
           console.log("Status oppdatert vellykket")
         } catch (statusError) {
           console.error("Feil ved statusoppdatering:", statusError)
@@ -197,6 +223,16 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
 
       // Oppdater SJA-dataene med hovedendepunktet
       console.log("Sender SJA-oppdatering til API")
+      
+      // Håndter risikoer ved å separere nye og eksisterende
+      const eksisterendeRisikoer = oppdaterteRisikoer.filter(r => r.id && !r._isDeleted);
+      const nyeRisikoer = oppdaterteRisikoer.filter(r => !r.id && !r._isDeleted);
+      const slettedeRisikoIds = oppdaterteRisikoer.filter(r => r.id && r._isDeleted).map(r => r.id);
+
+      // Håndter tiltak ved å separere nye og eksisterende
+      const eksisterendeTiltak = values.tiltak.filter(t => t.id && !t._isDeleted);
+      const nyeTiltak = values.tiltak.filter(t => !t.id && !t._isDeleted);
+      const slettedeTiltakIds = values.tiltak.filter(t => t.id && t._isDeleted).map(t => t.id);
       
       // Bygg opp updateBody i formatet som API-et forventer
       const updateBody = {
@@ -208,8 +244,48 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
         startDato: new Date(values.startDato).toISOString(),
         sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
         status: values.status, // Inkluder status selv om den allerede er oppdatert
-        risikoer: oppdaterteRisikoer,
-        tiltak: values.tiltak
+        risikoer: {
+          update: eksisterendeRisikoer.map(r => ({
+            where: { id: r.id },
+            data: {
+              aktivitet: r.aktivitet,
+              fare: r.fare,
+              konsekvens: r.konsekvens || "",
+              sannsynlighet: r.sannsynlighet,
+              alvorlighet: r.alvorlighet,
+              risikoVerdi: r.risikoVerdi || beregneRisikoverdi(r.sannsynlighet, r.alvorlighet)
+            }
+          })),
+          create: nyeRisikoer.map(r => ({
+            aktivitet: r.aktivitet,
+            fare: r.fare,
+            konsekvens: r.konsekvens || "",
+            sannsynlighet: r.sannsynlighet,
+            alvorlighet: r.alvorlighet,
+            risikoVerdi: r.risikoVerdi || beregneRisikoverdi(r.sannsynlighet, r.alvorlighet)
+          })),
+          deleteMany: slettedeRisikoIds.length > 0 ? { id: { in: slettedeRisikoIds } } : undefined
+        },
+        tiltak: {
+          update: eksisterendeTiltak.map(t => ({
+            where: { id: t.id },
+            data: {
+              beskrivelse: t.beskrivelse,
+              ansvarlig: t.ansvarlig,
+              frist: t.frist ? new Date(t.frist).toISOString() : null,
+              status: t.status,
+              risikoId: t.risikoId || null
+            }
+          })),
+          create: nyeTiltak.map(t => ({
+            beskrivelse: t.beskrivelse,
+            ansvarlig: t.ansvarlig,
+            frist: t.frist ? new Date(t.frist).toISOString() : null,
+            status: t.status,
+            risikoId: t.risikoId || null
+          })),
+          deleteMany: slettedeTiltakIds.length > 0 ? { id: { in: slettedeTiltakIds } } : undefined
+        }
       }
 
       console.log("SJA oppdateringsdata:", JSON.stringify(updateBody, null, 2))
@@ -542,7 +618,17 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
                               <FormItem>
                                 <FormLabel>Sannsynlighet (1-5)</FormLabel>
                                 <FormControl>
-                                  <Input type="number" min="1" max="5" {...field} />
+                                  <select 
+                                    className="w-full h-10 px-3 py-2 border border-input bg-background text-foreground rounded-md"
+                                    value={field.value}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                  >
+                                    {Object.entries(sannsynlighetLabels).map(([value, label]) => (
+                                      <option key={value} value={value}>
+                                        {value} - {label}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -556,7 +642,17 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
                               <FormItem>
                                 <FormLabel>Alvorlighet (1-5)</FormLabel>
                                 <FormControl>
-                                  <Input type="number" min="1" max="5" {...field} />
+                                  <select 
+                                    className="w-full h-10 px-3 py-2 border border-input bg-background text-foreground rounded-md"
+                                    value={field.value}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                  >
+                                    {Object.entries(alvorlighetLabels).map(([value, label]) => (
+                                      <option key={value} value={value}>
+                                        {value} - {label}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>

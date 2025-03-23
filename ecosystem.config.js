@@ -25,8 +25,8 @@ module.exports = {
     },
     {
       name: "hmsnova-workers",
-      script: "npm",
-      args: "run workers",
+      script: "node",
+      args: "worker.mjs",
       env: {
         NODE_ENV: "production",
         REDIS_FALLBACK: "true",
@@ -34,7 +34,12 @@ module.exports = {
         REDIS_HOST: process.env.REDIS_HOST,
         REDIS_PASSWORD: process.env.REDIS_PASSWORD,
         REDIS_PORT: process.env.UPSTASH_REDIS_PORT,
-        REDIS_URL: process.env.REDIS_URL
+        REDIS_URL: process.env.REDIS_URL,
+        // Socket.io konfigurasjon
+        SOCKET_PORT: 3002,
+        // Websokets konfigurasjon
+        WS_PING_INTERVAL: 25000, // 25 sekunder
+        WS_PING_TIMEOUT: 10000 // 10 sekunder
       },
       max_memory_restart: "300M", 
       restart_delay: 5000,

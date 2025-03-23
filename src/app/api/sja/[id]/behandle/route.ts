@@ -9,10 +9,7 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log("1. Starting SJA behandling...")
-    
     const session = await getServerSession(authOptions)
-    console.log("2. Session:", JSON.stringify(session, null, 2))
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Ikke autorisert" }, { status: 401 })
@@ -20,19 +17,15 @@ export async function POST(
 
     const { id } = await context.params
     const body = await request.json()
-    console.log("3. Request body:", JSON.stringify(body, null, 2))
-    const { status, kommentar } = body
+    const { status, kommentar, redirect } = body
 
-    console.log("4. Validating status:", status)
     if (!status || !Object.values(SJAStatus).includes(status)) {
-      console.log("Invalid status:", status)
       return NextResponse.json(
         { error: "Ugyldig status" },
         { status: 400 }
       )
     }
 
-    console.log("5. Finding SJA with id:", id)
     const sja = await prisma.sJA.findFirst({
       where: {
         id,
@@ -45,13 +38,11 @@ export async function POST(
         }
       }
     })
-    console.log("6. Found SJA:", JSON.stringify(sja, null, 2))
 
     if (!sja) {
       return NextResponse.json({ error: "SJA ikke funnet" }, { status: 404 })
     }
 
-    console.log("7. Starting transaction...")
     const [godkjenning, oppdatertSja] = await prisma.$transaction([
       prisma.sJAGodkjenning.create({
         data: {
@@ -70,9 +61,11 @@ export async function POST(
       })
     ])
 
-    console.log("8. Transaction completed successfully")
-    console.log("Godkjenning:", JSON.stringify(godkjenning, null, 2))
-    console.log("Oppdatert SJA:", JSON.stringify(oppdatertSja, null, 2))
+    // Hvis redirect parameter er spesifisert, omdiriger brukeren
+    if (redirect) {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
+      return NextResponse.redirect(`${baseUrl}${redirect}`, { status: 303 })
+    }
 
     return NextResponse.json({ 
       success: true,

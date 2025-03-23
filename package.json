@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:withsockets": "concurrently \"next dev\" \"npm run workers:alt\"",
-    "build": "next build",
+    "build": "next build && npm run build:worker",
+    "build:worker": "tsc -p tsconfig.worker.json",
     "build:strict": "tsc --noEmit && next build",
     "start": "next start",
     "start:withsockets": "concurrently \"next start\" \"npm run workers\"",

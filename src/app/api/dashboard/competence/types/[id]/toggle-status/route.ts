@@ -68,7 +68,7 @@ export async function POST(
       const associatedCompetencesCount = await prisma.competence.count({
         where: {
           competenceTypeId: id,
-          isActive: true
+          active: true
         }
       })
       
@@ -100,8 +100,9 @@ export async function POST(
       }
     })
     
-    // Omdiriger tilbake til siden
-    return NextResponse.redirect(new URL("/dashboard/competence/types", req.url))
+    // Redirect til kompetansetyper-oversikten
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
+    return NextResponse.redirect(`${baseUrl}/dashboard/competence/types`, { status: 303 })
     
   } catch (error) {
     console.error('Error toggling competence type status:', error)

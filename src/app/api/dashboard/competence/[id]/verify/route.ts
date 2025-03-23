@@ -104,8 +104,10 @@ export async function POST(
     })
     
     // Redirect tilbake til oversikten
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
     return NextResponse.redirect(
-      new URL(`/dashboard/competence/details/${id}?action=${action}`, req.url)
+      `${baseUrl}/dashboard/competence/details/${id}?action=${action}`, 
+      { status: 303 }
     )
     
   } catch (error) {

@@ -114,7 +114,7 @@ export default function Home() {
       </section> */}
 
       {/* Pricing Section - Optimalisert for mobil under bretten */}
-      <MobileOptimizedSection id="priser" aria-labelledby="pricing-heading">
+      <MobileOptimizedSection id="pricing" aria-labelledby="pricing-heading">
         <h2 id="pricing-heading" className="sr-only">Våre priser</h2>
         <PricingSection />
       </MobileOptimizedSection>

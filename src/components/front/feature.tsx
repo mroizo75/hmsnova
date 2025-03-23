@@ -2,6 +2,8 @@
 
 import { Shield, BookOpen, AlertTriangle, Users, ClipboardCheck, BarChart, Link } from "lucide-react"
 import { motion } from "framer-motion"
+import { Button } from "../ui/button"
+import NextLink from "next/link"
 
 const features = [
   {
@@ -79,9 +81,14 @@ export default function Features() {
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#17304F] mb-6">
             En komplett HMS-løsning
           </h2>
-          <p className="text-gray-600 text-lg max-w-3xl mx-auto">
+          <p className="text-gray-600 text-lg max-w-3xl mx-auto mb-8">
             Vi har alt du trenger for å sikre at din virksomhet oppfyller alle HMS-krav og skaper et trygt arbeidsmiljø.
           </p>
+          <NextLink href="/tjenester">
+            <button className="bg-[#2C435F] text-white font-medium py-3 px-8 rounded-full hover:bg-[#17304F] transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-transform">
+              Utforsk alle tjenester
+            </button>
+          </NextLink>
         </motion.div>
         
         <motion.div 
@@ -128,9 +135,11 @@ export default function Features() {
           <p className="max-w-2xl mx-auto mb-8 text-white/90">
             Vårt team av HMS-eksperter er alltid oppdatert på lovverk og forskrifter, og sikrer at du og din bedrift er et steg foran.
           </p>
-          <button className="bg-white text-[#17304F] font-medium py-3 px-8 rounded-full hover:bg-gray-100 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-transform">
-            <Link href="/tjenester">Se alle tjenester</Link>
-          </button>
+          <NextLink href="/tjenester">
+            <button className="bg-white text-[#17304F] font-medium py-3 px-8 rounded-full hover:bg-gray-100 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-transform">
+              Alle tjenester
+            </button>
+          </NextLink>
         </motion.div>
       </div>
     </section>

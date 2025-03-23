@@ -106,12 +106,14 @@ export async function POST(request: NextRequest) {
           title: `Nytt kompetansebevis venter på verifisering`,
           message: `${session.user.name} har lastet opp et nytt kompetansebevis for ${competenceType.name} som venter på verifisering.`,
           type: 'COMPETENCE',
-          isRead: false
+          read: false
         }
       })
     }
 
-    return NextResponse.redirect(new URL('/employee/competence', request.url))
+    // Omdiriger tilbake til kompetanseoversikten
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.hmsnova.com"
+    return NextResponse.redirect(`${baseUrl}/employee/competence`, { status: 303 })
   } catch (error) {
     console.error("Feil ved opplasting av kompetansebevis:", error)
     return NextResponse.json({ error: "Serverfeil" }, { status: 500 })

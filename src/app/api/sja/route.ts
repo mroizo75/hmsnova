@@ -272,66 +272,78 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'SJA ikke funnet' }, { status: 404 })
     }
     
+    // Forbered oppdateringsdata
+    const updateData = {
+      tittel: data.tittel,
+      arbeidssted: data.arbeidssted,
+      beskrivelse: data.beskrivelse,
+      startDato: new Date(data.startDato),
+      sluttDato: data.sluttDato ? new Date(data.sluttDato) : null,
+      status: data.status,
+      deltakere: data.deltakere,
+      location: data.latitude && data.longitude ? 
+        JSON.stringify({
+          latitude: Number(data.latitude),
+          longitude: Number(data.longitude),
+          name: data.locationName || data.arbeidssted || "Valgt lokasjon",
+          weatherData: data.weatherData || null // Lagrer værdata-snapshot
+        }) : 
+        data.location,
+    }
+
+    // Håndter risikoer og tiltak hvis de er strukturerte Prisma-objekter
+    if (data.risikoer && typeof data.risikoer === 'object' && 
+       (data.risikoer.create || data.risikoer.update || data.risikoer.deleteMany)) {
+      updateData.risikoer = data.risikoer
+    } 
+    // Fallback til gammel atferd hvis risikoer er et array
+    else if (Array.isArray(data.risikoer)) {
+      updateData.risikoer = {
+        create: data.risikoer.map((r: any) => ({
+          aktivitet: r.aktivitet,
+          fare: r.fare,
+          konsekvens: r.konsekvens || '',
+          sannsynlighet: r.sannsynlighet,
+          alvorlighet: r.alvorlighet,
+          risikoVerdi: r.risikoVerdi
+        }))
+      }
+    }
+
+    // Håndter tiltak på samme måte
+    if (data.tiltak && typeof data.tiltak === 'object' && 
+       (data.tiltak.create || data.tiltak.update || data.tiltak.deleteMany)) {
+      updateData.tiltak = data.tiltak
+    }
+    // Fallback til gammel atferd hvis tiltak er et array
+    else if (Array.isArray(data.tiltak)) {
+      updateData.tiltak = {
+        create: data.tiltak.map((t: any) => ({
+          beskrivelse: t.beskrivelse,
+          ansvarlig: t.ansvarlig,
+          status: t.status || "PLANLAGT",
+          frist: t.frist ? new Date(t.frist) : null
+        }))
+      }
+    }
+
+    // Håndter bilder
+    if (data.bilder) {
+      if (data.bilder.create) {
+        updateData.bilder = data.bilder
+      } else if (Array.isArray(data.bilder)) {
+        updateData.bilder = {
+          create: data.bilder.map((url: string) => ({
+            url: url
+          }))
+        }
+      }
+    }
+    
     // Oppdater SJA
     const updatedSja = await prisma.sJA.update({
       where: { id: data.id },
-      data: {
-        tittel: data.tittel,
-        arbeidssted: data.arbeidssted,
-        beskrivelse: data.beskrivelse,
-        startDato: new Date(data.startDato),
-        sluttDato: data.sluttDato ? new Date(data.sluttDato) : null,
-        status: data.status,
-        deltakere: data.deltakere,
-        location: data.latitude && data.longitude ? 
-          JSON.stringify({
-            latitude: Number(data.latitude),
-            longitude: Number(data.longitude),
-            name: data.locationName || data.arbeidssted || "Valgt lokasjon",
-            weatherData: data.weatherData || null // Lagrer værdata-snapshot
-          }) : 
-          data.location,
-        bilder: data.bilder?.create ? data.bilder : {
-          create: data.bilder?.map((url: string) => ({
-            url: url
-          })) || []
-        },
-        produkter: data.produkter,
-        risikoer: data.risikoer?.create ? {
-          create: data.risikoer.create.map((r: any) => ({
-            aktivitet: r.aktivitet,
-            fare: r.fare,
-            konsekvens: r.konsekvens || '',
-            sannsynlighet: r.sannsynlighet,
-            alvorlighet: r.alvorlighet,
-            risikoVerdi: r.risikoVerdi
-          }))
-        } : {
-          create: data.risikoer?.map((r: any) => ({
-            aktivitet: r.aktivitet,
-            fare: r.fare,
-            konsekvens: r.konsekvens || '',
-            sannsynlighet: r.sannsynlighet,
-            alvorlighet: r.alvorlighet,
-            risikoVerdi: r.risikoVerdi
-          })) || []
-        },
-        tiltak: data.tiltak?.create ? {
-          create: data.tiltak.create.map((t: any) => ({
-            beskrivelse: t.beskrivelse,
-            ansvarlig: t.ansvarlig,
-            status: t.status || "PLANLAGT",
-            frist: t.frist ? new Date(t.frist) : null
-          }))
-        } : {
-          create: data.tiltak?.map((t: any) => ({
-            beskrivelse: t.beskrivelse,
-            ansvarlig: t.ansvarlig,
-            status: t.status || "PLANLAGT",
-            frist: t.frist ? new Date(t.frist) : null
-          })) || []
-        }
-      },
+      data: updateData,
       include: {
         risikoer: true,
         tiltak: true,

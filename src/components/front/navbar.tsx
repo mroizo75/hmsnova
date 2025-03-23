@@ -39,8 +39,8 @@ export default function Navbar() {
     const element = document.getElementById(sectionId)
     if (element) {
       const offset = 80
-      const elementPosition = element.getBoundingClientRect().top
-      const offsetPosition = elementPosition + window.pageYOffset - offset
+      const elementPosition = element.getBoundingClientRect().top + window.scrollY
+      const offsetPosition = elementPosition - offset
 
       window.scrollTo({
         top: offsetPosition,

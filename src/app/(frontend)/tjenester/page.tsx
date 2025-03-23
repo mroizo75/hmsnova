@@ -178,14 +178,140 @@ export default function ServicesPage() {
               <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-[#2C435F]/10 rounded-full"></div>
               
               <div className="relative bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
-                <Image 
-                  src="/dashboard-preview.jpg" 
-                  alt="HMS Nova Dashboard" 
-                  width={600} 
-                  height={400} 
-                  className="w-full h-auto"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#17304F]/30 to-transparent"></div>
+                <div className="p-6 bg-white">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-[#17304F]">HMS Nova Dashboard</h3>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 rounded-full bg-[#2C435F]/10 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#2C435F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-[#2C435F]/10 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#2C435F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4 grid-cols-4 mb-6">
+                    <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-medium text-gray-500">Ansatte</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-xl font-bold">14</div>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-medium text-gray-500">Avvik</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <div className="text-xl font-bold">7</div>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-medium text-gray-500">Risikovurderinger</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                      </div>
+                      <div className="text-xl font-bold">12</div>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-medium text-gray-500">SJA</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                      <div className="text-xl font-bold">3</div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm mb-6">
+                    <h4 className="text-sm font-semibold mb-4">Avviksstatus</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-red-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Åpne</div>
+                          <div className="text-lg font-bold">3</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3">
+                        <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Under arbeid</div>
+                          <div className="text-lg font-bold">4</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3">
+                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Lukket</div>
+                          <div className="text-lg font-bold">24</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Totalt</div>
+                          <div className="text-lg font-bold">31</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                    <h4 className="text-sm font-semibold mb-3">Siste aktivitet</h4>
+                    <ul className="space-y-3">
+                      <li className="flex items-center text-sm">
+                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                        <span className="text-gray-600">Nytt avvik registrert: </span>
+                        <span className="ml-1 font-medium">Manglende verneutstyr</span>
+                      </li>
+                      <li className="flex items-center text-sm">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                        <span className="text-gray-600">Risikovurdering oppdatert: </span>
+                        <span className="ml-1 font-medium">Brannrisiko verksted</span>
+                      </li>
+                      <li className="flex items-center text-sm">
+                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        <span className="text-gray-600">Avvik lukket: </span>
+                        <span className="ml-1 font-medium">Manglende brannslukkere</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#17304F]/30 to-transparent pointer-events-none"></div>
               </div>
             </div>
             
