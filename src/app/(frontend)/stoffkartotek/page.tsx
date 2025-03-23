@@ -5,7 +5,7 @@ import Footer from "@/components/front/footer";
 import { ContactModal } from "@/components/contact-modal";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Download, FileText, Search } from "lucide-react";
+import { AlertCircle, Download, FileText, Link, Search } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 
@@ -297,7 +297,7 @@ export default function StoffkartotekPage() {
             <div className="flex flex-col sm:flex-row gap-4">
               <Button className="bg-[#17304F] hover:bg-[#2C435F]">
                 <Download className="mr-2 h-4 w-4" />
-                Last ned veiledning
+                <Link href="/register">Ditt eget stoffkartotek</Link>
               </Button>
               <ContactModal>
                 <Button variant="outline">

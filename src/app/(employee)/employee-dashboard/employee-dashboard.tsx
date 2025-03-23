@@ -10,7 +10,8 @@ import {
   LogOut,
   TestTube,
   ClipboardCheck,
-  FileBox
+  FileBox,
+  Award
 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -35,9 +36,15 @@ interface Company {
   orgNumber: string
 }
 
-export function EmployeeDashboard() {
-  const { data: session } = useSession()
-  const [company, setCompany] = useState<Company | null>(null)
+interface EmployeeDashboardProps {
+  initialSession?: any
+  initialCompany?: Company | null
+}
+
+export function EmployeeDashboard({ initialSession, initialCompany }: EmployeeDashboardProps) {
+  const { data: sessionData } = useSession()
+  const session = initialSession || sessionData
+  const [company, setCompany] = useState<Company | null>(initialCompany || null)
   const pathname = usePathname()
 
   const modules = [
@@ -82,12 +89,19 @@ export function EmployeeDashboard() {
       icon: ClipboardCheck,
       href: "/employee/safety-rounds",
       color: "bg-teal-100 text-teal-600"
+    },
+    {
+      title: "Kompetanse",
+      description: "Se og søk i kompetanse",
+      icon: Award,
+      href: "/employee/competence",
+      color: "bg-amber-100 text-amber-600"
     }
   ]
 
   useEffect(() => {
     const fetchCompany = async () => {
-      if (session?.user?.companyId) {
+      if (!initialCompany && session?.user?.companyId) {
         try {
           const response = await fetch(`/api/companies/${session.user.companyId}`)
           if (!response.ok) throw new Error('Kunne ikke hente bedriftsinformasjon')
@@ -100,7 +114,7 @@ export function EmployeeDashboard() {
     }
 
     fetchCompany()
-  }, [session?.user?.companyId])
+  }, [session?.user?.companyId, initialCompany])
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -153,10 +167,10 @@ export function EmployeeDashboard() {
               <p className="text-sm font-medium">Dokumenter</p>
             </Card>
           </Link>
-          <Link href="/employee/safety-rounds">
+          <Link href="/employee/sja">
             <Card className="p-4 bg-teal-50 border-teal-100">
-              <ClipboardCheck className="w-6 h-6 text-teal-500 mb-2" />
-              <p className="text-sm font-medium">Vernerunder</p>
+              <FileText className="w-6 h-6 text-teal-500 mb-2" />
+              <p className="text-sm font-medium">Ny SJA</p>
             </Card>
           </Link>
         </div>

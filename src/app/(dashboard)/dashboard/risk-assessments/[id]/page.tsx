@@ -238,79 +238,63 @@ export default async function RiskAssessmentPage(props: PageProps) {
       try {
         if (typeof assessment.location === 'string') {
           locationObject = JSON.parse(assessment.location);
-          // Validér at objektet har riktige felt
-          if (!('latitude' in locationObject) || !('longitude' in locationObject)) {
-            console.error('Ugyldig location-objekt:', locationObject);
-            locationObject = null;
-          }
+          console.log('Parsed location from string:', locationObject);
         } else {
           // Hvis det allerede er et objekt, bruk det direkte
           locationObject = assessment.location;
+          console.log('Location is already an object:', locationObject);
         }
         
-        // Sikre at verdiene er av riktig type (number)
-        if (locationObject) {
-          locationObject = {
-            latitude: locationObject.latitude !== null ? Number(locationObject.latitude) : null,
-            longitude: locationObject.longitude !== null ? Number(locationObject.longitude) : null,
-            name: locationObject.name || null
-          };
+        // Validér at objektet har riktige felt og konverter verdier til riktig type
+        locationObject = {
+          latitude: locationObject.latitude !== null && locationObject.latitude !== undefined
+            ? Number(locationObject.latitude)
+            : null,
+          longitude: locationObject.longitude !== null && locationObject.longitude !== undefined
+            ? Number(locationObject.longitude)
+            : null,
+          name: locationObject.name || null
+        };
+        
+        // Sjekk at koordinatene er gyldige tall
+        if (locationObject.latitude !== null && isNaN(locationObject.latitude)) {
+          console.error('Ugyldig latitude-verdi:', locationObject.latitude);
+          locationObject.latitude = null;
         }
+        
+        if (locationObject.longitude !== null && isNaN(locationObject.longitude)) {
+          console.error('Ugyldig longitude-verdi:', locationObject.longitude);
+          locationObject.longitude = null;
+        }
+        
+        console.log('Validert location-objekt:', locationObject);
       } catch (error) {
         console.error('Feil ved parsing av location:', error);
         locationObject = null;
       }
+    } else {
+      console.log('Ingen location funnet på assessment');
     }
     
-    console.log('Prosessert location-objekt:', locationObject);
+    // Sett validert location
+    assessment.location = locationObject;
+    
+    // Konvertere objektet til et rent JavaScript-objekt og sikre at det er serialiserbart
+    const safeAssessment = toPlainObject(assessment);
+    
+    console.log('Endelig location som sendes til klienten:', 
+      safeAssessment.location ? JSON.stringify(safeAssessment.location) : 'null');
 
-    // Lag en enkel versjon av data som garantert kan serialiseres
-    const clientAssessmentData = {
-      id: assessment.id,
-      title: assessment.title,
-      description: assessment.description,
-      department: assessment.department,
-      activity: assessment.activity,
-      status: assessment.status,
-      createdAt: assessment.createdAt?.toISOString(),
-      updatedAt: assessment.updatedAt?.toISOString(),
-      dueDate: assessment.dueDate?.toISOString() || null,
-      location: locationObject,
-      hazards: assessment.hazards.map(hazard => ({
-        id: hazard.id,
-        description: hazard.description,
-        consequence: hazard.consequence,
-        probability: Number(hazard.probability),
-        severity: Number(hazard.severity),
-        riskLevel: Number(hazard.riskLevel),
-        existingMeasures: hazard.existingMeasures,
-        measures: hazard.riskMeasures?.map(m => ({
-          id: m.id,
-          description: m.description,
-          type: m.type,
-          status: m.status,
-          priority: m.priority,
-          hazardId: m.hazardId
-        })) || [],
-        riskMeasures: hazard.riskMeasures?.map(m => ({
-          id: m.id,
-          description: m.description,
-          status: m.status,
-          type: m.type,
-          priority: m.priority,
-          hazardId: m.hazardId
-        })) || [],
-        hmsChanges: hazard.hmsChanges?.map(h => ({
-          hmsChange: {
-            id: h.hmsChange.id,
-            title: h.hmsChange.title,
-            description: h.hmsChange.description,
-            status: h.hmsChange.status,
-            implementedAt: h.hmsChange.implementedAt?.toISOString() || null
-          }
-        })) || []
-      }))
-    };
+    // Implementer revalidation for serversidekomponenten
+    const revalidateAssessment = async () => {
+      'use server'
+      try {
+        // Bruk både revalidatePath og revalidateTag for å sikre oppdatering
+        revalidatePath(`/dashboard/risk-assessments/${id}`)
+      } catch (error) {
+        console.error('Feil ved revalidering:', error)
+      }
+    }
 
     // Forenklet struktur for HMS-endringer
     const hmsAssessmentData = {
@@ -353,7 +337,7 @@ export default async function RiskAssessmentPage(props: PageProps) {
     };
 
     // Konverter direkte til JSON og tilbake for å garantere serialiserbarhet
-    const clientAssessment = JSON.parse(JSON.stringify(clientAssessmentData)) as RiskAssessmentWithHazards;
+    const clientAssessment = JSON.parse(JSON.stringify(safeAssessment)) as RiskAssessmentWithHazards;
     const hmsAssessment = JSON.parse(JSON.stringify(hmsAssessmentData)) as RiskAssessmentWithHMSChanges;
 
     return (
@@ -361,10 +345,7 @@ export default async function RiskAssessmentPage(props: PageProps) {
         <Suspense fallback={<div>Laster...</div>}>
           <RiskAssessmentClient 
             assessment={clientAssessment}
-            onUpdate={async () => {
-              'use server'
-              revalidatePath(`/dashboard/risk-assessments/${id}`)
-            }} 
+            onUpdate={revalidateAssessment} 
           />
         </Suspense>
         

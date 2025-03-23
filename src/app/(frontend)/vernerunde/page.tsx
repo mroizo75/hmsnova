@@ -553,12 +553,12 @@ export default function VernerundePage() {
                 <Link href="/register">Prøv gratis i 14 dager</Link>
               </Button>
               <ContactModal>
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+                <Button size="lg" variant="outline" className="border-white text-[#17304F] hover:text-white hover:bg-white/10">
                   Kontakt oss
                 </Button>
               </ContactModal>
             </div>
-            <p className="mt-4 text-sm text-white/60">Ingen kredittkort nødvendig. Avbryt når som helst.</p>
+            <p className="mt-4 text-sm text-white/60">Ingen kredittkort nødvendig.</p>
           </div>
         </section>
       </main>

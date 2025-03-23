@@ -18,6 +18,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 interface Notification {
   id: string
@@ -38,16 +39,43 @@ export function NotificationBell({ onSettingsClick }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
   const router = useRouter()
+  const { status } = useSession()
+  const isAuthenticated = status === "authenticated"
 
   // Bruk React Query for å hente notifikasjoner
-  const { data: notifications = [] } = useQuery<Notification[]>({
+  const { data: notifications = [], isLoading, isError, refetch } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const response = await fetch('/api/notifications')
-      if (!response.ok) throw new Error('Kunne ikke hente varsler')
-      return response.json()
+      try {
+        console.log('Henter varsler, autentiseringsstatus:', status)
+        const response = await fetch('/api/notifications', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Accept': 'application/json'
+          }
+        })
+        
+        console.log('Notifikasjons-API svarte med status:', response.status)
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.log('401 Unauthorized - Ikke innlogget')
+            return [] // Returner tom liste hvis ikke innlogget
+          }
+          throw new Error('Kunne ikke hente varsler')
+        }
+        
+        const data = await response.json()
+        console.log(`Hentet ${data.length} varsler`)
+        return data
+      } catch (e) {
+        console.error('Feil ved henting av varsler:', e)
+        return [] // Returner tom liste ved feil
+      }
     },
-    refetchInterval: 30000
+    refetchInterval: isAuthenticated ? 30000 : false, // Bare polle hvis innlogget
+    enabled: status !== 'loading' // Ikke kjør før auth-status er lastet
   })
 
   const unreadCount = notifications.filter(n => !n.read).length
@@ -63,12 +91,83 @@ export function NotificationBell({ onSettingsClick }: NotificationBellProps) {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/mark-all-read', { method: 'POST' })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      toast.success('Alle varsler markert som lest')
+      if (!isAuthenticated) {
+        toast.error('Du må være logget inn for å utføre denne handlingen')
+        return
+      }
+
+      // Sjekk om det finnes noen uleste varsler først
+      const hasUnreadNotifications = notifications.some(n => !n.read)
+      
+      if (!hasUnreadNotifications) {
+        toast.info('Alle varsler er allerede markert som lest')
+        return
+      }
+
+      // Fjerner optimistisk oppdatering for å unngå feil hvis API feiler
+      // Istedenfor bruker vi en midlertidig oppdatering som vi kan rulle tilbake
+
+      // Lagre nåværende notifikasjoner for å kunne gjenopprette dem
+      const currentNotifications = [...notifications]
+      
+      // Vis suksessmelding
+      toast.success('Markerer varsler som lest...')
       setIsOpen(false) // Lukk dropdown etter handling
+      
+      // Oppdater UI midlertidig
+      queryClient.setQueryData(['notifications'], (oldData: Notification[] | undefined) => 
+        (oldData || []).map(n => ({ ...n, read: true }))
+      )
+      
+      // Gjør API-kall
+      console.log('Sender forespørsel til mark-all-read API...')
+      const response = await fetch('/api/notifications/mark-all-read', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        cache: 'no-store'
+      })
+      
+      console.log('API respons status:', response.status, response.statusText)
+      
+      if (!response.ok) {
+        // Rulle tilbake endringer i UI hvis API-kallet feilet
+        queryClient.setQueryData(['notifications'], currentNotifications)
+        
+        const errorText = await response.text()
+        console.error('API svarte med feil:', response.status, errorText)
+        try {
+          const errorData = JSON.parse(errorText)
+          console.error('API feilmeldingsdetaljer:', errorData)
+        } catch (e) {
+          console.error('Kunne ikke parse feilresponsen som JSON')
+        }
+        
+        toast.error('Kunne ikke markere alle varsler som lest')
+      } else {
+        const result = await response.json()
+        console.log('API svarte med suksess:', result)
+        
+        if (result.count === 0) {
+          toast.info('Ingen uleste varsler å markere')
+        } else {
+          toast.success(`${result.count} varsler markert som lest`)
+        }
+        
+        // Oppdater frontend data
+        setTimeout(() => {
+          refetch()
+        }, 300)
+      }
     } catch (error) {
-      toast.error('Kunne ikke markere alle som lest')
+      console.error('Feil ved markering av alle varsler som lest:', error)
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke markere alle som lest')
+      
+      // Sikre at vi oppdaterer uansett
+      refetch()
     }
   }
 
@@ -122,14 +221,16 @@ export function NotificationBell({ onSettingsClick }: NotificationBellProps) {
         <DropdownMenuContent align="end" className="w-80">
           <div className="flex items-center justify-between p-2">
             <h4 className="font-medium">Varsler</h4>
-            {unreadCount > 0 && (
+            {notifications.length > 0 && (
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={handleMarkAllAsRead}
+                disabled={!notifications.some(n => !n.read)}
+                title={notifications.some(n => !n.read) ? 'Merk alle som lest' : 'Alle varsler er allerede lest'}
               >
                 <Check className="h-4 w-4 mr-1" />
-                Merk alle som lest
+                {notifications.some(n => !n.read) ? 'Merk alle som lest' : 'Alle er lest'}
               </Button>
             )}
           </div>

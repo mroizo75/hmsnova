@@ -155,7 +155,7 @@ export default function AvvikshandteringPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="bg-white text-[#17304F] hover:bg-white/90">
-                Kom i gang nå
+                <Link href="/register">Kom i gang nå</Link>
               </Button>
               <ContactModal>
                 <Button size="lg" variant="outline" className="border-white text-[#17304F] hover:text-white hover:bg-white/10">

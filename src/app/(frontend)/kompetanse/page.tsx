@@ -47,7 +47,7 @@ export default function KompetansePage() {
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Button className="bg-[#17304F] hover:bg-[#2C435F]">
                     <Award className="mr-2 h-4 w-4" />
-                    Kom i gang med kompetansestyring
+                   <Link href="/register">Kom i gang med kompetansestyring</Link>
                   </Button>
                   <ContactModal>
                     <Button variant="outline">
@@ -59,27 +59,27 @@ export default function KompetansePage() {
               
               <div className="relative rounded-xl overflow-hidden shadow-xl">
                 {/* Designelement som visualiserer kompetansestyringsmodulen */}
-                <div className="bg-gradient-to-br from-[#17304F] to-[#2C5282] p-8 h-[400px] w-full flex flex-col">
+                <div className="bg-gradient-to-br from-[#17304F] to-[#2C5282] p-4 sm:p-6 md:p-8 h-auto min-h-[400px] w-full flex flex-col">
                   {/* Topplinje med navigasjon */}
-                  <div className="bg-white/10 backdrop-blur-sm rounded-t-lg p-4 flex justify-between items-center mb-6">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-t-lg p-3 sm:p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
                     <div className="flex items-center gap-2 text-white">
-                      <Award className="h-5 w-5" />
-                      <span className="font-semibold">Kompetanseoversikt</span>
+                      <Award className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="font-semibold text-sm sm:text-base">Kompetanseoversikt</span>
                     </div>
                     <div className="flex gap-2">
-                      <Badge className="bg-blue-400/80 text-white hover:bg-blue-500/80">Sertifikater</Badge>
-                      <Badge className="bg-white/20 text-white hover:bg-white/30">Statistikk</Badge>
+                      <Badge className="bg-blue-400/80 text-white hover:bg-blue-500/80 text-xs">Sertifikater</Badge>
+                      <Badge className="bg-white/20 text-white hover:bg-white/30 text-xs">Statistikk</Badge>
                     </div>
                   </div>
                   
                   {/* Kompetanseinnhold */}
-                  <div className="flex-grow grid grid-cols-3 gap-4">
+                  <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {/* Kompetansekort */}
                     {Array.from({ length: 3 }).map((_, index) => (
-                      <div key={index} className="bg-white/5 backdrop-blur-sm rounded-lg p-4 flex flex-col h-full">
-                        <div className="flex justify-between items-start mb-3">
+                      <div key={index} className="bg-white/5 backdrop-blur-sm rounded-lg p-3 sm:p-4 flex flex-col h-full">
+                        <div className="flex justify-between items-start mb-2 sm:mb-3">
                           <div className="flex flex-col">
-                            <span className="text-white font-medium">{
+                            <span className="text-white font-medium text-sm sm:text-base">{
                               index === 0 ? "Truck sertifikat" : 
                               index === 1 ? "Varmt arbeid" : 
                               "Fallsikring"
@@ -88,7 +88,7 @@ export default function KompetansePage() {
                               {index === 0 ? "Per Hansen" : index === 1 ? "Kari Olsen" : "Ola Nordmann"}
                             </span>
                           </div>
-                          <div className={`text-xs px-2 py-1 rounded-full ${
+                          <div className={`text-xs px-2 py-0.5 sm:py-1 rounded-full ${
                             index === 0 ? "bg-green-500/20 text-green-100" : 
                             index === 1 ? "bg-yellow-500/20 text-yellow-100" : 
                             "bg-red-500/20 text-red-100"
@@ -112,11 +112,11 @@ export default function KompetansePage() {
                           </div>
                         </div>
                         
-                        <div className="mt-3 pt-3 border-t border-white/10 flex justify-end">
-                          <div className="text-white/80 text-xs px-2 py-1 rounded bg-white/10 flex items-center">
+                        <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-white/10 flex justify-end">
+                          <button className="text-white/80 text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors flex items-center">
                             <FileText className="h-3 w-3 mr-1" />
                             <span>Se sertifikat</span>
-                          </div>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -188,28 +188,28 @@ export default function KompetansePage() {
             </p>
             
             <Tabs defaultValue="certificates" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-8">
-                <TabsTrigger value="certificates">Sertifikater</TabsTrigger>
-                <TabsTrigger value="courses">Kurs og opplæring</TabsTrigger>
-                <TabsTrigger value="internal">Intern kompetanse</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 mb-6 sm:mb-8">
+                <TabsTrigger value="certificates" className="text-xs sm:text-sm md:text-base px-1 sm:px-2 py-1.5 sm:py-2">Sertifikater</TabsTrigger>
+                <TabsTrigger value="courses" className="text-xs sm:text-sm md:text-base px-1 sm:px-2 py-1.5 sm:py-2">Kurs og opplæring</TabsTrigger>
+                <TabsTrigger value="internal" className="text-xs sm:text-sm md:text-base px-1 sm:px-2 py-1.5 sm:py-2">Intern kompetanse</TabsTrigger>
               </TabsList>
               
               <TabsContent value="certificates">
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
                   <h3 className="text-xl font-semibold mb-4 text-[#17304F]">Lovpålagte sertifikater og godkjenninger</h3>
-                  <p className="text-gray-700 mb-6">
+                  <p className="text-gray-700 mb-4 sm:mb-6 text-sm sm:text-base">
                     Hold styr på sertifikater som er påkrevd av lover og forskrifter, og sikre at alle ansatte har gyldig dokumentasjon:
                   </p>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {[
                       "Maskinførerbevis", "Varmt arbeid", "Stillasbygger", 
                       "Fallsikring", "Truck/kran", "Elektrofag", 
                       "FSE", "Førerkort", "Dykkerbevis"
                     ].map((cert, index) => (
-                      <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-md shadow-sm border border-gray-200">
-                        <GraduationCap className="h-5 w-5 text-blue-600" />
-                        <span>{cert}</span>
+                      <div key={index} className="flex items-center gap-2 bg-white p-2 sm:p-3 rounded-md shadow-sm border border-gray-200">
+                        <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
+                        <span className="text-sm sm:text-base truncate">{cert}</span>
                       </div>
                     ))}
                   </div>
@@ -217,13 +217,13 @@ export default function KompetansePage() {
               </TabsContent>
               
               <TabsContent value="courses">
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
                   <h3 className="text-xl font-semibold mb-4 text-[#17304F]">Kurs og opplæringsprogrammer</h3>
-                  <p className="text-gray-700 mb-6">
+                  <p className="text-gray-700 mb-4 sm:mb-6 text-sm sm:text-base">
                     Dokumenter gjennomført opplæring og kurs, og sørg for at ansatte får nødvendig påfyll av kunnskap:
                   </p>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     {[
                       { name: "HMS Grunnkurs", duration: "8 timer" },
                       { name: "Førstehjelp", duration: "16 timer" },
@@ -232,12 +232,12 @@ export default function KompetansePage() {
                       { name: "Stoffkartotek", duration: "2 timer" },
                       { name: "Risikovurdering", duration: "8 timer" }
                     ].map((course, index) => (
-                      <div key={index} className="flex justify-between items-center bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                      <div key={index} className="flex justify-between items-center bg-white p-3 sm:p-4 rounded-md shadow-sm border border-gray-200">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-5 w-5 text-green-600" />
-                          <span>{course.name}</span>
+                          <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+                          <span className="text-sm sm:text-base">{course.name}</span>
                         </div>
-                        <Badge variant="outline">{course.duration}</Badge>
+                        <Badge variant="outline" className="ml-2 text-xs whitespace-nowrap">{course.duration}</Badge>
                       </div>
                     ))}
                   </div>
@@ -245,26 +245,26 @@ export default function KompetansePage() {
               </TabsContent>
               
               <TabsContent value="internal">
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
                   <h3 className="text-xl font-semibold mb-4 text-[#17304F]">Intern kompetanseutvikling</h3>
-                  <p className="text-gray-700 mb-6">
+                  <p className="text-gray-700 mb-4 sm:mb-6 text-sm sm:text-base">
                     Registrer og følg opp interne opplæringsprogrammer, mentorordninger og kompetanseoverføring:
                   </p>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {[
                       { name: "Sidemannsopplæring", category: "Produksjon", status: "Pågående" },
                       { name: "Kvalitetssystem", category: "Administrasjon", status: "Fullført" },
                       { name: "Prosjektledelse", category: "Ledelse", status: "Planlagt" },
                       { name: "Kundehåndtering", category: "Salg", status: "Fullført" }
                     ].map((program, index) => (
-                      <div key={index} className="bg-white p-4 rounded-md shadow-sm border border-gray-200">
-                        <div className="flex justify-between items-start">
+                      <div key={index} className="bg-white p-3 sm:p-4 rounded-md shadow-sm border border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
                           <div>
-                            <h4 className="font-medium">{program.name}</h4>
-                            <p className="text-sm text-gray-500">Kategori: {program.category}</p>
+                            <h4 className="font-medium text-sm sm:text-base">{program.name}</h4>
+                            <p className="text-xs sm:text-sm text-gray-500">Kategori: {program.category}</p>
                           </div>
-                          <Badge className={`${
+                          <Badge className={`self-start sm:self-auto text-xs ${
                             program.status === "Fullført" ? "bg-green-100 text-green-800" :
                             program.status === "Pågående" ? "bg-blue-100 text-blue-800" :
                             "bg-yellow-100 text-yellow-800"
@@ -332,18 +332,18 @@ export default function KompetansePage() {
               
               <div className="order-1 md:order-2">
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
-                  <div className="bg-[#17304F] text-white p-5">
-                    <h3 className="text-xl font-bold mb-2 flex items-center">
-                      <ListChecks className="h-5 w-5 mr-2" />
+                  <div className="bg-[#17304F] text-white p-4 sm:p-5">
+                    <h3 className="text-lg sm:text-xl font-bold mb-1 sm:mb-2 flex items-center">
+                      <ListChecks className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                       HMS Nova integrasjoner
                     </h3>
-                    <p className="text-sm text-white/80">
+                    <p className="text-xs sm:text-sm text-white/80">
                       Kompetansestyring integrert med HMS-systemets moduler
                     </p>
                   </div>
                   
-                  <div className="p-6">
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 sm:p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {[
                         { name: "Avviksbehandling", color: "border-red-200 bg-red-50" },
                         { name: "Risikovurdering", color: "border-orange-200 bg-orange-50" },
@@ -354,22 +354,22 @@ export default function KompetansePage() {
                       ].map((module, index) => (
                         <div 
                           key={index} 
-                          className={`border ${module.color} rounded-lg p-4 flex items-center gap-2`}
+                          className={`border ${module.color} rounded-lg p-2 sm:p-4 flex items-center gap-2`}
                         >
-                          <div className={`w-3 h-3 rounded-full ${module.name === "Kompetansestyring" ? "bg-indigo-500" : "bg-gray-300"}`}></div>
-                          <span>{module.name}</span>
+                          <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${module.name === "Kompetansestyring" ? "bg-indigo-500" : "bg-gray-300"}`}></div>
+                          <span className="text-xs sm:text-sm md:text-base truncate">{module.name}</span>
                         </div>
                       ))}
                     </div>
                     
-                    <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
                       <div className="flex items-start">
-                        <div className="bg-indigo-100 p-2 rounded-full mr-4">
-                          <Award className="h-6 w-6 text-indigo-600" />
+                        <div className="bg-indigo-100 p-1.5 sm:p-2 rounded-full mr-3 sm:mr-4">
+                          <Award className="h-4 w-4 sm:h-6 sm:w-6 text-indigo-600" />
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-900">Kompetansestyring aktivert</h4>
-                          <p className="text-sm text-gray-500 mt-1">
+                          <h4 className="font-medium text-gray-900 text-sm sm:text-base">Kompetansestyring aktivert</h4>
+                          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                             Modulen er integrert med hele HMS-systemet og deler data med andre moduler
                           </p>
                         </div>
@@ -395,7 +395,7 @@ export default function KompetansePage() {
                 Kom i gang nå
               </Button>
               <ContactModal>
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+                <Button size="lg" variant="outline" className="border-white text-[#17304F] hover:text-white hover:bg-white/10">
                   Kontakt oss
                 </Button>
               </ContactModal>

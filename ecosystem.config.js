@@ -5,8 +5,16 @@ module.exports = {
       script: "npm",
       args: "start",
       env: {
-        PORT: 3000,
+        PORT: 3001,
         NODE_ENV: "production",
+        // Legg til Redis-konfigurasjon her:
+        REDIS_HOST: process.env.REDIS_HOST,
+        REDIS_PASSWORD: process.env.REDIS_PASSWORD,
+        REDIS_PORT: process.env.UPSTASH_REDIS_PORT,
+        // Bruk riktig Redis URL
+        REDIS_URL: process.env.REDIS_URL,
+        // Aktiver fallback-modus for å unngå tilkoblingsfeil
+        REDIS_FALLBACK: "true"
       },
       max_memory_restart: "500M",
       instances: 1,
@@ -21,7 +29,12 @@ module.exports = {
       args: "run workers",
       env: {
         NODE_ENV: "production",
-        REDIS_FALLBACK: "true" // Bruk fallback for Redis
+        REDIS_FALLBACK: "true",
+        // Kopier samme Redis-konfigurasjon:
+        REDIS_HOST: process.env.REDIS_HOST,
+        REDIS_PASSWORD: process.env.REDIS_PASSWORD,
+        REDIS_PORT: process.env.UPSTASH_REDIS_PORT,
+        REDIS_URL: process.env.REDIS_URL
       },
       max_memory_restart: "300M", 
       restart_delay: 5000,

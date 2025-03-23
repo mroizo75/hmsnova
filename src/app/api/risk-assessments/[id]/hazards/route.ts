@@ -23,6 +23,8 @@ export async function POST(
       )
     }
 
+    // Hent hele request-innholdet inkludert metadata
+    const requestData = await req.json()
     const { 
       description, 
       consequence, 
@@ -30,8 +32,12 @@ export async function POST(
       severity, 
       existingMeasures,
       includeWeatherRisk,
-      weatherRiskNotes
-    } = await req.json()
+      weatherRiskNotes,
+      metadata = {} // Hent metadata-objektet direkte fra request
+    } = requestData
+
+    // Logg metadata for debugging
+    console.log("Mottatt metadata fra klient:", JSON.stringify(metadata).substring(0, 200) + "...");
 
     // Verifiser nødvendige data
     if (!description || !consequence || !probability || !severity) {
@@ -71,19 +77,9 @@ export async function POST(
     // Beregn risikonivå (probability * severity)
     const riskLevel = probability * severity
 
-    // Juster metadata for å inkludere værrisiko hvis valgt
-    const metadata = includeWeatherRisk 
-      ? { 
-          weatherRisk: { 
-            included: true, 
-            notes: weatherRiskNotes || "" 
-          } 
-        }
-      : {}
+    console.log("Oppretter fare med metadata:", JSON.stringify(metadata).substring(0, 200) + "...");
 
-    console.log("Oppretter fare med metadata:", metadata)
-
-    // Opprett ny fare
+    // Opprett ny fare med metadata fra request
     const hazard = await db.hazard.create({
       data: {
         description,
@@ -93,7 +89,7 @@ export async function POST(
         riskLevel,
         existingMeasures,
         riskAssessmentId: assessment.id,
-        // Lagre metadata med værrisikoinformasjon
+        // Bruk metadata direkte fra request
         metadata: metadata
       }
     })

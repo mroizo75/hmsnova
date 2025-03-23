@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from "@/components/providers"
@@ -6,7 +6,10 @@ import { cn } from "@/lib/utils"
 import { CookieConsent } from "@/components/cookie-consent"
 import Script from 'next/script'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap', // Optimalisert font-visning
+})
 
 export const metadata: Metadata = {
   title: 'HMS Nova | Markedsledende HMS-system for norske bedrifter',
@@ -69,6 +72,12 @@ export const metadata: Metadata = {
   category: 'HMS Software',
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -80,6 +89,23 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="theme-color" content="#2C435F" />
+        
+        {/* Preconnect til eksterne ressurser */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.clarity.ms" />
+        
+        {/* Optimalisert critical CSS som reduserer CLS */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            /* Reduserer Content Layout Shift */
+            body { font-family: var(--font-sans); overflow-x: hidden; }
+            @media (max-width: 640px) {
+              .mobile-optimized { content-visibility: auto; }
+            }
+          `
+        }} />
       </head>
       <body
         className={`${inter.className} overflow-x-hidden bg-gradient-to-b from-gray-100 to-gray-200 text-gray-900 antialiased min-h-screen`}

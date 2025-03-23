@@ -9,8 +9,9 @@ console.log('Redis URL:', process.env.REDIS_URL);
 const redisUrl = process.env.REDIS_URL;
 const isUpstash = redisUrl.includes('upstash.io');
 const connectionOptions = {
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: null,
   enableReadyCheck: false,
+  connectTimeout: 1000,
   reconnectOnError: (err) => {
     console.error('Redis-feil:', err.message);
     return false;
@@ -23,9 +24,17 @@ if (isUpstash) {
     rejectUnauthorized: false
   };
   console.log('Bruker TLS for Upstash Redis');
+  
+  // Sjekk om URL bruker SSL
+  if (!redisUrl.startsWith('rediss://')) {
+    console.warn('ADVARSEL: Redis URL bruker ikke SSL (rediss://). Dette kan føre til tilkoblingsproblemer med Upstash.');
+    console.log('Nåværende URL:', redisUrl);
+    console.log('Anbefalt format: rediss://default:password@host:port');
+  }
 }
 
 // Test tilkoblingen
+console.log('Kobler til Redis med følgende opsjoner:', JSON.stringify(connectionOptions, null, 2));
 const connection = new IORedis(redisUrl, connectionOptions);
 
 connection.on('connect', () => {

@@ -29,18 +29,40 @@ const getRedisClient = (): Redis | null => {
     try {
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
       
-      // Endret konfigurasjonen for å redusere antall forespørsler og håndtere timeouts bedre
-      redisClient = new Redis(redisUrl, {
+      // Sjekk om vi bruker Upstash
+      const isUpstash = redisUrl.includes('upstash.io');
+      
+      // Oppdatert konfigurasjon for å støtte både lokal og Upstash Redis
+      const connectionOptions: any = {
         maxRetriesPerRequest: null, // Bruk standardverdi istedenfor å begrense til 1
         enableReadyCheck: false,
         connectTimeout: 1000, // 1 sek timeout for tilkobling
         commandTimeout: 3000, // 3 sek timeout for kommandoer
-        retryStrategy: (times) => {
-          // Maks 3 forsøk med eksponentiell backoff
-          if (times > 3) return null;
-          return Math.min(times * 100, 3000); // Maks 3 sekunders ventetid
+        family: 4, // Bruk IPv4 for mer stabil tilkobling
+        retryStrategy: (times: number) => {
+          // Maks 2 forsøk med eksponentiell backoff
+          if (times > 2) {
+            logger.warn('Kunne ikke koble til Redis - går over til minnebasert cache');
+            redisEnabled = false;
+            return null;
+          }
+          return Math.min(times * 500, 3000); // Maks 3 sekunders ventetid
         }
-      });
+      };
+      
+      // Legg til TLS-opsjoner for Upstash
+      if (isUpstash) {
+        connectionOptions.tls = {
+          rejectUnauthorized: false
+        };
+        
+        // Hvis det er Upstash, sjekk også om URL'en har riktig format
+        if (!redisUrl.startsWith('rediss://')) {
+          logger.warn('Redis URL bruker ikke SSL (rediss://). Dette kan føre til tilkoblingsproblemer med Upstash.');
+        }
+      }
+      
+      redisClient = new Redis(redisUrl, connectionOptions);
 
       redisClient.on('error', (err) => {
         logger.error('Redis tilkoblingsfeil:', { error: err });

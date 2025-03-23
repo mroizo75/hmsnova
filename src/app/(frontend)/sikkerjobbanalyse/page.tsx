@@ -16,7 +16,8 @@ import {
   Wind, 
   Thermometer, 
   Snowflake,
-  Info
+  Info,
+  Link
 } from "lucide-react";
 import { 
   Card, 
@@ -408,7 +409,7 @@ export default function SikkerJobbAnalysePage() {
                     <CardFooter>
                       <Button variant="outline" className="w-full">
                         <FileText className="h-4 w-4 mr-2" />
-                        Last ned komplett SJA-mal
+                       <Link href="/register">Kom i gang med SJA</Link>
                       </Button>
                     </CardFooter>
                   </Card>

@@ -1,13 +1,22 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
 import prisma from "@/lib/db"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return new NextResponse("Uautentisert", { status: 401 })
+      return NextResponse.json({
+        error: "Uautentisert"
+      }, { 
+        status: 401,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache', 
+          'Expires': '0'
+        }
+      })
     }
 
     // Hent brukerens bedrift
@@ -22,9 +31,18 @@ export async function GET() {
         }
       }
     })
-
+    
     if (!user || !user.companyId) {
-      return new NextResponse("Bruker har ikke tilgang til bedriftsmoduler", { status: 403 })
+      return NextResponse.json({
+        error: "Bruker har ikke tilgang til bedriftsmoduler"
+      }, { 
+        status: 403,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache', 
+          'Expires': '0'
+        }
+      })
     }
 
     // Standardmoduler - sikrer at navigasjonen viser riktige elementer
@@ -53,9 +71,24 @@ export async function GET() {
     // Returner aktive moduler
     return NextResponse.json({
       modules: formattedModules
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache', 
+        'Expires': '0'
+      }
     })
   } catch (error) {
     console.error("Feil ved henting av moduler:", error)
-    return new NextResponse("Intern serverfeil", { status: 500 })
+    return NextResponse.json({
+      error: "Intern serverfeil"
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache', 
+        'Expires': '0'
+      }
+    })
   }
 } 

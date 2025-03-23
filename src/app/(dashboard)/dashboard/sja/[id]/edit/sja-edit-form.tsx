@@ -20,6 +20,7 @@ import { SJAStatus } from "@prisma/client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Trash2, Upload, File, Image, ArrowLeft } from "lucide-react"
 import { AddVedleggModal } from "../../add-vedlegg-modal"
+import { useQueryClient } from "@tanstack/react-query"
 
 const risikoSchema = z.object({
   id: z.string().optional(),
@@ -67,6 +68,7 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
   const [activeTab, setActiveTab] = useState("generelt")
   const [addVedleggOpen, setAddVedleggOpen] = useState(false)
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   // Beregne risikoverdi automatisk
   const beregneRisikoverdi = (sannsynlighet: number, alvorlighet: number) => {
@@ -149,11 +151,12 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
       if (!validationResult.success) {
         console.error("Valideringsfeil:", validationResult.error)
         toast.error("Vennligst fyll ut alle påkrevde felt")
+        setIsSubmitting(false)
         return
       }
 
       const statusChanged = values.status !== sja.status
-      console.log("Status endret:", statusChanged)
+      console.log("Status endret:", statusChanged, "Fra:", sja.status, "Til:", values.status)
 
       // Beregn risikoverdi for alle risikoer
       const oppdaterteRisikoer = values.risikoer.map(risiko => ({
@@ -161,43 +164,57 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
         risikoVerdi: beregneRisikoverdi(risiko.sannsynlighet, risiko.alvorlighet)
       }))
 
-      // Hvis status er endret, bruk behandle-endepunktet for statusoppdatering
+      // Hvis status er endret, bruk behandle-endepunktet for statusoppdatering først
       if (statusChanged) {
         console.log("Sender statusoppdatering til API")
-        const statusEndpoint = `/api/sja/${sja.id}/behandle`
-        const statusBody = {
-          status: values.status,
-          kommentar: values.kommentar || `Status endret til ${statusLabels[values.status as keyof typeof statusLabels]}`
-        }
+        try {
+          const statusEndpoint = `/api/sja/${sja.id}/behandle`
+          const statusBody = {
+            status: values.status,
+            kommentar: values.kommentar || `Status endret til ${statusLabels[values.status as keyof typeof statusLabels]}`
+          }
 
-        const statusResponse = await fetch(statusEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(statusBody)
-        })
+          console.log("Status-oppdatering data:", JSON.stringify(statusBody, null, 2))
 
-        if (!statusResponse.ok) {
-          const errorData = await statusResponse.json()
-          console.error("Feil ved statusoppdatering:", errorData)
-          throw new Error(errorData.error || 'Kunne ikke oppdatere status')
+          const statusResponse = await fetch(statusEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(statusBody)
+          })
+
+          if (!statusResponse.ok) {
+            const errorData = await statusResponse.json()
+            console.error("Feil ved statusoppdatering:", errorData)
+            throw new Error(errorData.error || 'Kunne ikke oppdatere status')
+          }
+          
+          console.log("Status oppdatert vellykket")
+        } catch (statusError) {
+          console.error("Feil ved statusoppdatering:", statusError)
+          toast.error('Kunne ikke oppdatere status, prøver generell oppdatering')
         }
       }
 
-      // Oppdater SJA-dataene
+      // Oppdater SJA-dataene med hovedendepunktet
       console.log("Sender SJA-oppdatering til API")
-      const updateEndpoint = `/api/sja/${sja.id}`
+      
+      // Bygg opp updateBody i formatet som API-et forventer
       const updateBody = {
+        id: sja.id, // Viktig å inkludere ID i hoveddataene
         tittel: values.tittel,
         arbeidssted: values.arbeidssted,
         beskrivelse: values.beskrivelse,
         deltakere: values.deltakere,
         startDato: new Date(values.startDato).toISOString(),
         sluttDato: values.sluttDato ? new Date(values.sluttDato).toISOString() : null,
+        status: values.status, // Inkluder status selv om den allerede er oppdatert
         risikoer: oppdaterteRisikoer,
         tiltak: values.tiltak
       }
 
-      const updateResponse = await fetch(updateEndpoint, {
+      console.log("SJA oppdateringsdata:", JSON.stringify(updateBody, null, 2))
+
+      const updateResponse = await fetch(`/api/sja`, {  // Bruker hovedendepunktet
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateBody)
@@ -210,6 +227,11 @@ export function SJAEditForm({ sja, userRole }: SJAEditFormProps) {
       }
 
       console.log("Oppdatering vellykket, navigerer til /dashboard/sja")
+      
+      // Invalider React Query cache for å sikre at data blir oppdatert i UI
+      queryClient.invalidateQueries({ queryKey: ['sja-list'] })
+      queryClient.invalidateQueries({ queryKey: ['sja-detail', sja.id] })
+      
       toast.success('SJA oppdatert')
       router.push('/dashboard/sja')
       router.refresh()

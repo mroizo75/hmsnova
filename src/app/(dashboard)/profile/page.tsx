@@ -29,8 +29,33 @@ export default async function ProfilePage() {
 
   // Sjekk om kompetansemodulen er aktiv
   const hasCompetencyModule = user.company.modules.some(module => 
-    module.key === 'COMPETENCY' && module.isActive
+    (module.key === 'COMPETENCY' || module.key === 'COMPETENCE') && module.isActive
   )
+
+  // Hent kompetansetyper hvis modulen er aktiv
+  let competenceTypes: any[] = []
+  let formalCompetencies: any[] = []
+  if (hasCompetencyModule) {
+    competenceTypes = await prisma.competenceType.findMany({
+      where: {
+        companyId: user.company.id,
+        isActive: true
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    })
+
+    // Hent formelle kompetanser fra Competence-tabellen
+    formalCompetencies = await prisma.competence.findMany({
+      where: {
+        userId: user.id
+      },
+      include: {
+        competenceType: true
+      }
+    })
+  }
 
   // Strukturer data riktig før vi sender til client
   const userData = {
@@ -42,8 +67,10 @@ export default async function ProfilePage() {
     address: user.address,
     certifications: user.certifications,
     competencies: hasCompetencyModule ? user.Competency : [],
+    formalCompetencies: hasCompetencyModule ? formalCompetencies : [],
     companyId: user.company.id,
-    hasCompetencyModule
+    hasCompetencyModule,
+    competenceTypes: hasCompetencyModule ? competenceTypes : []
   }
 
   console.log("Sending user data to client:", {

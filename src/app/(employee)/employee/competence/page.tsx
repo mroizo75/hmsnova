@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth/auth-options"
 import { redirect } from "next/navigation"
 import prisma from "@/lib/db"
 import { Separator } from "@/components/ui/separator"
-import { AlertCircle, Award, Calendar, Check, Clock, Filter, PlusCircle, Search, UserCircle } from "lucide-react"
+import { AlertCircle, Award, Calendar, Check, Clock, Filter, PlusCircle, Search, UserCircle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { 
@@ -164,6 +164,17 @@ export default async function EmployeeCompetencePage({
     <div className="space-y-4 p-4 pb-24">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="space-y-0.5">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mb-2 h-8 w-fit" 
+            asChild
+          >
+            <Link href="/employee-dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Tilbake til dashbordet
+            </Link>
+          </Button>
           <div className="flex items-center gap-2">
             <Award className="h-6 w-6 text-muted-foreground" />
             <h2 className="text-xl font-bold tracking-tight">Mine kompetanser</h2>

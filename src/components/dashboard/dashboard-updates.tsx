@@ -12,36 +12,58 @@ export function DashboardUpdates() {
   useEffect(() => {
     if (!session?.user?.companyId) return
 
-    const socket = io(`${window.location.protocol}//${window.location.hostname}:3001`, {
-      path: '/socket.io',
-      transports: ['websocket']
-    })
+    // Forsøk å koble til socket.io-serveren
+    try {
+      const socket = io(`${window.location.protocol}//${window.location.hostname}:3001`, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      })
 
-    // Koble til company-spesifikk rom
-    socket.emit('join-company', session.user.companyId)
+      // Koble til company-spesifikk rom
+      socket.emit('join-company', session.user.companyId)
 
-    socket.on('deviation:created', () => {
-      // Oppdater dashboard data
-      router.refresh()
-    })
+      // Håndterer hendelser for avvik, SJA og andre
+      socket.on('deviation:created', () => {
+        console.log('Nytt avvik registrert, oppdaterer data')
+        router.refresh()
+      })
 
-    socket.on('sja:created', () => {
-      // Oppdater dashboard data
-      router.refresh()
-    })
+      socket.on('sja:created', () => {
+        console.log('Ny SJA registrert, oppdaterer data')
+        router.refresh()
+      })
 
-    socket.on('connect', () => {
-      console.log('Tilkoblet Socket.io-server')
-    })
+      // Nye hendelser for moduler og generell oppdatering
+      socket.on('modules:updated', () => {
+        console.log('Moduler oppdatert, oppdaterer grensesnitt')
+        router.refresh()
+      })
 
-    socket.on('connect_error', (error) => {
-      console.error('Socket.io tilkoblingsfeil:', error.message)
-    })
+      socket.on('data:refresh', () => {
+        console.log('Mottok global oppdateringsforespørsel')
+        router.refresh()
+      })
 
-    return () => {
-      socket.disconnect()
+      // Loggføring for tilkobling
+      socket.on('connect', () => {
+        console.log('Tilkoblet Socket.io-server')
+      })
+
+      socket.on('connect_error', (error) => {
+        console.error('Socket.io tilkoblingsfeil:', error.message)
+      })
+
+      // Koble fra ved komponent-unmount
+      return () => {
+        socket.disconnect()
+      }
+    } catch (error) {
+      console.error('Feil ved oppsett av socket.io:', error)
     }
   }, [session, router])
 
+  // Usynlig komponent
   return null
 } 

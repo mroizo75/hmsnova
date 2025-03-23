@@ -29,12 +29,26 @@ export const getRedisConnection = (): QueueOptions => {
   const connectionOptions: any = {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    // Legg til flere alternativer for robust tilkobling
+    connectTimeout: 3000, // Økt timeout for tilkobling
+    retryStrategy: (times: number) => {
+      // Maks 3 forsøk med eksponentiell backoff
+      if (times > 3) {
+        console.log('Maks antall tilkoblingsforsøk nådd - går over til fallback');
+        return null;
+      }
+      return Math.min(times * 1000, 5000); // Maks 5 sekunders ventetid
+    },
+    // Forbedre DNS-oppløsning ved å bruke familie 4 (IPv4)
+    family: 4,
     reconnectOnError: (err: Error) => {
       const targetError = 'READONLY';
       if (err.message.includes(targetError)) {
         // Koble til ny node hvis feil oppstår
         return true; 
       }
+      // Logg feilmeldingen for å hjelpe med debugging
+      console.error(`Redis-feil: ${err.message}`);
       return false;
     }
   };
@@ -43,6 +57,23 @@ export const getRedisConnection = (): QueueOptions => {
   if (isUpstash) {
     connectionOptions.tls = {
       rejectUnauthorized: false
+    };
+    // Sikre at vi bruker SSL-tilkobling for Upstash
+    if (!redisUrl.startsWith('rediss://')) {
+      console.warn('Redis URL bruker ikke SSL (rediss://). Dette kan føre til tilkoblingsproblemer med Upstash.');
+    }
+    
+    // Legg til dnsLookup opsjon for mer stabil tilkobling
+    console.log(`Kobler til Upstash Redis: ${redisUrl.replace(/\/\/(.+?)@/, '//****@')}`);
+    
+    // Hvis flere tilkoblingsforsøk fortsetter å mislykkes, aktiver fallback automatisk
+    connectionOptions.retryStrategy = (times: number) => {
+      if (times > 2) {
+        console.warn(`Kunne ikke koble til Upstash etter ${times} forsøk - aktiverer fallback-modus`);
+        process.env.REDIS_FALLBACK = 'true';
+        return null; // Ikke prøv igjen
+      }
+      return Math.min(times * 1000, 3000);
     };
   }
 

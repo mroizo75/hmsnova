@@ -4,6 +4,7 @@ import prisma from "@/lib/db"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { redirect } from "next/navigation"
+import { DashboardUpdates } from "@/components/dashboard/dashboard-updates"
 
 export default async function DashboardLayout({
   children,
@@ -13,6 +14,11 @@ export default async function DashboardLayout({
   const session = await getServerSession(authOptions)
   if (!session?.user?.companyId) {
     redirect('/login')
+  }
+
+  // Redirect employee users til employee dashboard
+  if (session.user.role === 'EMPLOYEE') {
+    redirect('/employee-dashboard')
   }
 
   const modules = await prisma.module.findMany({
@@ -46,6 +52,8 @@ export default async function DashboardLayout({
               </div>
             </main>
           </div>
+          {/* Legger til DashboardUpdates for socket.io støtte */}
+          <DashboardUpdates />
         </div>
       </body>
     </html>

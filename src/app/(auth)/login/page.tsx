@@ -78,6 +78,7 @@ function LoginFormInner() {
             window.location.href = '/dashboard'
           }
         } else {
+          console.log("Brukerrolle ved innlogging:", session?.user?.role);
           if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPPORT') {
             window.location.href = '/admin/dashboard'
           } else if (session?.user?.role === 'EMPLOYEE') {

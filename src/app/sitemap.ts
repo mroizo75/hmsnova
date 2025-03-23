@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   // Basisadresse for nettstedet
-  const baseUrl = 'https://www.hmsnova.no'
+  const baseUrl = 'https://www.hmsnova.com'
   
   // Dagens dato for lastModified
   const currentDate = new Date().toISOString()

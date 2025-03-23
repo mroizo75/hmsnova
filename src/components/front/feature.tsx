@@ -1,6 +1,6 @@
 "use client"
 
-import { Shield, BookOpen, AlertTriangle, Users, ClipboardCheck, BarChart } from "lucide-react"
+import { Shield, BookOpen, AlertTriangle, Users, ClipboardCheck, BarChart, Link } from "lucide-react"
 import { motion } from "framer-motion"
 
 const features = [
@@ -73,7 +73,7 @@ export default function Features() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <span className="px-4 py-1.5 rounded-full border border-[#2C435F] text-[#2C435F] text-sm font-medium inline-block mb-4">
+          <span className="px-4 py-1.5 text-[#2C435F] text-md font-medium inline-block mb-4">
             Våre tjenester
           </span>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#17304F] mb-6">
@@ -129,7 +129,7 @@ export default function Features() {
             Vårt team av HMS-eksperter er alltid oppdatert på lovverk og forskrifter, og sikrer at du og din bedrift er et steg foran.
           </p>
           <button className="bg-white text-[#17304F] font-medium py-3 px-8 rounded-full hover:bg-gray-100 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-transform">
-            Se alle tjenester
+            <Link href="/tjenester">Se alle tjenester</Link>
           </button>
         </motion.div>
       </div>

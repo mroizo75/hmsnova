@@ -57,28 +57,55 @@ const certifications = [
   { 
     code: "T1", 
     title: "Palletruck", 
-    category: "Stillaser"
+    category: "Truckførerkurs"
   },
   { 
     code: "T2", 
     title: "Støttebeinstruck", 
-    category: "Stillaser"
+    category: "Truckførerkurs"
   },
   { 
     code: "T4", 
     title: "Motvektstruck", 
-    category: "Stillaser"
+    category: "Truckførerkurs"
   },
   { 
     code: "C1", 
     title: "Teleskoptruck", 
-    category: "Fallsikring"
+    category: "Truckførerkurs"
   },
   { 
     code: "C2", 
     title: "Rundsvingende teleskoptruck", 
-    category: "Fallsikring"
-  }
+    category: "Truckførerkurs"
+  },
+  { 
+    code: "", 
+    title: "Personløfter", 
+    category: "Dokumentert opplæring"
+  },
+  { 
+    code: "", 
+    title: "Fallsikring", 
+    category: "Dokumentert opplæring"
+  },
+  { 
+    code: "", 
+    title: "Stillaser", 
+    category: "Dokumentert opplæring"
+  },
+  { 
+    code: "",
+    title: "HMS-leder",
+    category: "Dokumentert opplæring"
+  },
+  { 
+    code: "",
+    title: "HMS-verneombud",
+    category: "Dokumentert opplæring"
+  },
+  
+  
 ]
 
 // Grupperer sertifikater etter kategori
@@ -127,7 +154,7 @@ export default function CourseBHT() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <span className="px-4 py-1.5 rounded-full border border-[#2C435F] text-[#2C435F] text-sm font-medium inline-block mb-4">
+          <span className="px-4 py-1.5 text-[#2C435F] text-md font-medium inline-block mb-4">
             Ekstra tjenester
           </span>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#17304F] mb-6">
@@ -269,7 +296,7 @@ export default function CourseBHT() {
                   
                   <div className="bg-[#17304F]/5 p-4 rounded-lg">
                     <h4 className="font-semibold text-[#17304F] mb-2 flex items-center gap-1">
-                      <Award className="h-4 w-4" /> Maskinføreropplæring
+                      <Award className="h-4 w-4" /> Maskinfører
                     </h4>
                     <ul className="space-y-1 text-sm">
                       {groupedCertifications['Maskinføreropplæring'].map(cert => (
@@ -285,10 +312,10 @@ export default function CourseBHT() {
                 <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 mt-4">
                   <div className="bg-[#17304F]/5 p-4 rounded-lg">
                     <h4 className="font-semibold text-[#17304F] mb-2 flex items-center gap-1">
-                      <Award className="h-4 w-4" /> Stillaser
+                      <Award className="h-4 w-4" /> Truckfører
                     </h4>
                     <ul className="space-y-1 text-sm">
-                      {groupedCertifications['Stillaser'].map(cert => (
+                      {groupedCertifications['Truckførerkurs'].map(cert => (
                         <li key={cert.code} className="flex items-center gap-1">
                           <BadgeCheck className="h-4 w-4 text-green-500" />
                           <span><span className="font-medium">{cert.code}</span> - {cert.title}</span>
@@ -299,10 +326,10 @@ export default function CourseBHT() {
                   
                   <div className="bg-[#17304F]/5 p-4 rounded-lg">
                     <h4 className="font-semibold text-[#17304F] mb-2 flex items-center gap-1">
-                      <Award className="h-4 w-4" /> Fallsikring
+                      <Award className="h-4 w-4" /> Dokumentert opplæring
                     </h4>
                     <ul className="space-y-1 text-sm">
-                      {groupedCertifications['Fallsikring'].map(cert => (
+                      {groupedCertifications['Dokumentert opplæring'].map(cert => (
                         <li key={cert.code} className="flex items-center gap-1">
                           <BadgeCheck className="h-4 w-4 text-green-500" />
                           <span><span className="font-medium">{cert.code}</span> - {cert.title}</span>

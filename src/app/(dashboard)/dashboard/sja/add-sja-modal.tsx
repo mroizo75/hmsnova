@@ -462,16 +462,25 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
     },
     onSuccess: (data) => {
       console.log('SJA opprettet vellykket:', data)
-      toast.success('SJA opprettet')
-      onOpenChange(false)
+      
+      // Invalider alle SJA-relaterte queries for oppdatering i UI
+      queryClient.invalidateQueries({ queryKey: ['sja-list'] })
+      
+      // Tilbakestill skjemaet og lukk dialogen
       form.reset()
       setBilder([])
       setValgteProdukter([])
-      if (onAdd) onAdd(data)
+      toast.success('SJA opprettet!')
+      
+      // Kall onAdd-callback med dataene
+      onAdd(data)
+      onOpenChange(false)
     },
     onError: (error) => {
       console.error('Feil ved oppretting av SJA:', error)
-      toast.error('Kunne ikke opprette SJA')
+      toast.error('Kunne ikke opprette SJA', {
+        description: error instanceof Error ? error.message : 'Ukjent feil'
+      })
     }
   })
 
@@ -608,6 +617,84 @@ export function AddSJAModal({ open, onOpenChange, onAdd }: AddSJAModalProps) {
       }
     }, 0);
   };
+
+  async function onSave() {
+    try {
+      setIsSubmitting(true);
+
+      // Opprett formdata objekt for å kunne laste opp bilder
+      const formData = new FormData();
+      
+      // Legg til all form-data
+      const formValues = form.getValues();
+      
+      // Strukturer SJA-objektet med alle nødvendige felter
+      const sjaObject = {
+        tittel: formValues.tittel,
+        arbeidssted: formValues.arbeidssted,
+        beskrivelse: formValues.beskrivelse,
+        startDato: formValues.startDato,
+        sluttDato: formValues.sluttDato || null,
+        deltakere: formValues.deltakere,
+        risikoer: formValues.risikoer,
+        tiltak: formValues.tiltak,
+        lagreSomMal: formValues.lagreSomMal || false,
+        latitude: formValues.latitude,
+        longitude: formValues.longitude,
+        locationName: formValues.locationName
+      };
+
+      // Konverter SJA objektet til JSON og legg til i formData
+      formData.append('data', JSON.stringify(sjaObject));
+      
+      // Legg til bilder i FormData
+      bilder.forEach((file, index) => {
+        formData.append(`bilde-${index}`, file);
+      });
+      
+      // Logg data som skal sendes for debugging
+      console.log('Sender SJA:', JSON.stringify(sjaObject, null, 2));
+      
+      // Send formData til API
+      const response = await fetch('/api/sja/submit', {
+        method: 'POST',
+        body: formData,
+      });
+
+      // Sjekk om responsen er OK
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Kunne ikke lagre SJA');
+      }
+
+      // Parse responsen
+      const data = await response.json();
+      
+      // Invalider alle SJA-relaterte queries for oppdatering i UI
+      queryClient.invalidateQueries({ queryKey: ['sja-list'] });
+      
+      // Informer brukeren om velykket lagring
+      toast.success('SJA opprettet!', {
+        description: `SJA "${sjaObject.tittel}" er lagret`
+      });
+      
+      // Reset skjema og lukk dialog
+      form.reset();
+      setBilder([]);
+      setValgteProdukter([]);
+      
+      onAdd(data);
+      onOpenChange(false);
+      
+    } catch (error) {
+      console.error('Feil ved lagring av SJA:', error);
+      toast.error('Kunne ikke lagre SJA', {
+        description: error instanceof Error ? error.message : 'Ukjent feil'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <>

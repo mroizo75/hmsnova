@@ -26,6 +26,11 @@ export function startSocketServer() {
       try {
         const redisUrl = process.env.REDIS_URL;
         
+        // Sjekk om dette er en Upstash URL og om den har riktig format
+        if (redisUrl.includes('upstash.io') && !redisUrl.startsWith('rediss://')) {
+          logger.warn('Redis URL bruker ikke SSL (rediss://). Dette kan føre til tilkoblingsproblemer med Upstash.');
+        }
+
         // Konfigurer tilkoblingsopsjoner for Redis med optimaliserte innstillinger
         const redisOptions: {
           maxRetriesPerRequest: number | null;

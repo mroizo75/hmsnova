@@ -43,6 +43,10 @@ function FareSymbolBadge({ symbol }: { symbol: FareSymbol }) {
           alt={config.label}
           fill
           className="object-contain"
+          sizes="24px"
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
         />
       </div>
     </div>
@@ -73,7 +77,7 @@ const previewProducts = [
 
 export default function StoffkartotekPreview() {
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 mobile-optimized">
       <div className="p-6 bg-gradient-to-r from-[#17304F] to-[#2C435F] text-white">
         <h3 className="text-2xl font-bold mb-2">Stoffkartotek</h3>
         <p className="text-white/80">
@@ -88,7 +92,7 @@ export default function StoffkartotekPreview() {
               <TableRow>
                 <TableHead className="w-[180px]">Produkt</TableHead>
                 <TableHead>Faresymboler</TableHead>
-                <TableHead>Bruksområde</TableHead>
+                <TableHead className="hidden sm:table-cell">Bruksområde</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -102,7 +106,7 @@ export default function StoffkartotekPreview() {
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell>{product.bruksomrade}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{product.bruksomrade}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

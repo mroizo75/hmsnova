@@ -128,11 +128,42 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json()
-
+    
+    // Valider påkrevde felt
+    const requiredFields = ['name', 'type', 'category', 'serialNumber', 'location']
+    for (const field of requiredFields) {
+      if (!data[field]) {
+        return NextResponse.json(
+          { message: `Felt ${field} er påkrevd` },
+          { status: 400 }
+        )
+      }
+    }
+    
+    // Konverter datoer hvis de er strenger
+    if (data.purchaseDate && typeof data.purchaseDate === 'string') {
+      data.purchaseDate = new Date(data.purchaseDate)
+    }
+    
+    if (data.nextInspection && typeof data.nextInspection === 'string') {
+      data.nextInspection = new Date(data.nextInspection)
+    }
+    
+    // Opprett utstyr med korrekte felter
     const equipment = await prisma.equipment.create({
       data: {
-        ...data,
-        status: 'ACTIVE',
+        name: data.name,
+        type: data.type,
+        category: data.category,
+        serialNumber: data.serialNumber,
+        location: data.location,
+        description: data.description || null,
+        manufacturer: data.manufacturer || null,
+        model: data.model || null,
+        purchaseDate: data.purchaseDate || null,
+        nextInspection: data.nextInspection || null,
+        notes: data.notes || null,
+        status: data.status || 'ACTIVE',
         companyId: session.user.companyId
       },
       include: {
@@ -140,10 +171,35 @@ export async function POST(req: Request) {
         inspections: true
       }
     })
+    
+    // Send socket.io-oppdatering hvis tilgjengelig
+    try {
+      const { getIO } = await import('@/lib/socket/store')
+      const io = getIO()
+      if (io) {
+        io.to(`company-${session.user.companyId}`).emit('equipment:created', {
+          id: equipment.id,
+          name: equipment.name
+        })
+      }
+    } catch (error) {
+      console.error('Socket.io-feil ved utstyrsopprettelse:', error)
+    }
 
     return NextResponse.json(equipment)
   } catch (error) {
     console.error('Error creating equipment:', error)
-    return new NextResponse("Internal error", { status: 500 })
+    
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { message: `Feil ved opprettelse av utstyr: ${error.message}` },
+        { status: 500 }
+      )
+    }
+    
+    return NextResponse.json(
+      { message: "Intern serverfeil" },
+      { status: 500 }
+    )
   }
 } 

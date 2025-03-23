@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CloudRain, Snowflake, Sun, Wind, AlertTriangle, RefreshCcw, ThermometerSun, Thermometer } from 'lucide-react'
+import { CloudRain, Snowflake, Sun, Wind, AlertTriangle, RefreshCcw, ThermometerSun, Thermometer, AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
@@ -37,115 +37,6 @@ interface DailyForecast {
   riskLevel: 'high' | 'medium' | 'low';
 }
 
-// Funksjon for å hente værdata med anti-cache tiltak
-async function fetchWeatherData(id: string, latitude: number, longitude: number) {
-  try {
-    // Sikre at vi har gyldige tall for koordinatene
-    if (isNaN(latitude) || isNaN(longitude)) {
-      throw new Error('Ugyldige koordinater: latitude eller longitude er ikke et tall');
-    }
-    
-    // Formater koordinater for å sikre gyldige verdier
-    const formattedLat = parseFloat(latitude.toString()).toFixed(4);
-    const formattedLon = parseFloat(longitude.toString()).toFixed(4);
-    
-    // Bygg en enkel URL uten for mange parametre
-    const url = `/api/weather?lat=${formattedLat}&lon=${formattedLon}`;
-    
-    console.log(`[WeatherMini] Henter værdata for koordinater: ${formattedLat},${formattedLon}`);
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      cache: 'no-store',
-      next: { revalidate: 0 }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Værdata-feil: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log(`[WeatherMini] Mottok værdata med tidsstempel: ${data._metadata?.timestamp || 'ukjent'}`);
-    return data;
-  } catch (error) {
-    console.error('[WeatherMini] Feil ved henting av værdata:', error);
-    throw error;
-  }
-}
-
-// Funksjon for å gruppere værdata etter dag
-function groupForecastsByDay(timeseries: any[]): DailyForecast[] {
-  const dailyData: Map<string, any[]> = new Map();
-  
-  // Gruppere alle timeseries etter dato
-  timeseries.forEach(item => {
-    const date = parseISO(item.time);
-    const dateKey = format(date, 'yyyy-MM-dd');
-    
-    if (!dailyData.has(dateKey)) {
-      dailyData.set(dateKey, []);
-    }
-    
-    dailyData.get(dateKey)?.push(item);
-  });
-  
-  // Opprette daglige prognoser
-  const result: DailyForecast[] = [];
-  
-  dailyData.forEach((dayForecasts, dateKey) => {
-    // Finn temperaturer og vind
-    const temperatures = dayForecasts.map(f => f.data.instant.details.air_temperature);
-    const winds = dayForecasts.map(f => f.data.instant.details.wind_speed);
-    
-    // Finn nedbør (samlet for dagen)
-    let totalPrecipitation = 0;
-    dayForecasts.forEach(f => {
-      if (f.data.next_1_hours) {
-        totalPrecipitation += f.data.next_1_hours.details.precipitation_amount;
-      } else if (f.data.next_6_hours) {
-        totalPrecipitation += f.data.next_6_hours.details.precipitation_amount / 6; // Fordel over timer
-      }
-    });
-    
-    // Velg en representativ symbol kode for dagen (helst fra midt på dagen)
-    const afternoonForecast = dayForecasts.find(f => {
-      const hour = parseISO(f.time).getHours();
-      return hour >= 12 && hour <= 15;
-    });
-    
-    const symbolCode = afternoonForecast?.data.next_1_hours?.summary.symbol_code || 
-                       dayForecasts[0]?.data.next_1_hours?.summary.symbol_code ||
-                       'clearsky_day';
-    
-    const date = parseISO(dateKey);
-    const maxTemp = Math.max(...temperatures);
-    const minTemp = Math.min(...temperatures);
-    const maxWind = Math.max(...winds);
-    
-    // Vurder værrisiko
-    let riskLevel: 'high' | 'medium' | 'low' = 'low';
-    if (maxWind > 15 || totalPrecipitation > 5 || minTemp < -10 || maxTemp > 30) {
-      riskLevel = 'high';
-    } else if (maxWind > 8 || totalPrecipitation > 1 || minTemp < 0 || maxTemp > 25) {
-      riskLevel = 'medium';
-    }
-    
-    result.push({
-      date,
-      day: format(date, 'EE', { locale: nb }),
-      symbolCode,
-      maxTemp,
-      minTemp,
-      maxWind,
-      totalPrecipitation,
-      riskLevel
-    });
-  });
-  
-  // Sorter etter dato
-  return result.sort((a, b) => a.date.getTime() - b.date.getTime());
-}
-
 export function WeatherMiniPreview({ latitude, longitude, id, locationName }: WeatherMiniPreviewProps) {
   // Logg informasjon om locationName for debugging
   console.log(`[WeatherMini] Received locationName: "${locationName}", type: ${typeof locationName}`);
@@ -166,25 +57,146 @@ export function WeatherMiniPreview({ latitude, longitude, id, locationName }: We
   console.log(`[WeatherMini] Koordinater - latitude: ${latitude} (${typeof latitude}), longitude: ${longitude} (${typeof longitude})`);
   console.log(`[WeatherMini] Validerte koordinater: ${validCoordinates}, latNumber: ${latNumber}, lonNumber: ${lonNumber}`);
   
+  // Funksjon for å hente værdata - nå med bedre typesikkerhet
+  const fetchWeatherData = async () => {
+    // Sikre at vi har gyldige tall for koordinatene
+    if (!validCoordinates) {
+      console.error('[WeatherMiniPreview] Ugyldige koordinater:', { latNumber, lonNumber });
+      throw new Error('Ugyldige koordinater');
+    }
+    
+    // Formater koordinater med maks 4 desimaler for API-kallet
+    const formattedLat = latNumber.toFixed(4);
+    const formattedLon = lonNumber.toFixed(4);
+    
+    console.log(`[WeatherMiniPreview] Henter værdata for ${formattedLat}, ${formattedLon}`);
+    
+    // Legg til timestamp for å unngå caching
+    const timestamp = Date.now();
+    const url = `/api/weather?lat=${formattedLat}&lon=${formattedLon}&t=${timestamp}`;
+    
+    // Debugging - logg fullstendig URL
+    console.log(`[WeatherMiniPreview] API URL: ${url}`);
+    
+    // Bruk samme fetch-konfigurasjon som i weather-forecast.tsx
+    const response = await fetch(url, {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    
+    if (!response.ok) {
+      console.error(`[WeatherMiniPreview] Feil ved API-kall: ${response.status} ${response.statusText}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('[WeatherMiniPreview] Værdata mottatt:', data);
+    
+    // Sjekk at dataene inneholder den forventede strukturen
+    if (!data.properties || !data.properties.timeseries || !Array.isArray(data.properties.timeseries)) {
+      console.error('[WeatherMiniPreview] Manglende eller ugyldig forecast-data:', data);
+      throw new Error('Ugyldig respons-format fra API');
+    }
+    
+    return data;
+  };
+  
   // Bruk React Query med tidsbasert nøkkel for å unngå caching
   const queryKey = ['weather-mini', latNumber, lonNumber, id, Math.floor(Date.now() / (5 * 60 * 1000))];
   
   const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch 
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isFetching
   } = useQuery({
     queryKey,
-    queryFn: () => fetchWeatherData(id, latNumber, lonNumber),
+    queryFn: fetchWeatherData,
     staleTime: 5 * 60 * 1000, // 5 minutter
     gcTime: 10 * 60 * 1000, // 10 minutter
-    enabled: !!id && validCoordinates,
+    enabled: validCoordinates,
     retry: 2,
+    refetchOnWindowFocus: false,
   });
   
+  // Funksjon for å gruppere værdata etter dag
+  const groupForecastsByDay = (timeseries: any[]): DailyForecast[] => {
+    const dailyData: Map<string, any[]> = new Map();
+    
+    // Gruppere alle timeseries etter dato
+    timeseries.forEach(item => {
+      const date = parseISO(item.time);
+      const dateKey = format(date, 'yyyy-MM-dd');
+      
+      if (!dailyData.has(dateKey)) {
+        dailyData.set(dateKey, []);
+      }
+      
+      dailyData.get(dateKey)?.push(item);
+    });
+    
+    // Opprette daglige prognoser
+    const result: DailyForecast[] = [];
+    
+    dailyData.forEach((dayForecasts, dateKey) => {
+      // Finn temperaturer og vind
+      const temperatures = dayForecasts.map(f => f.data.instant.details.air_temperature);
+      const winds = dayForecasts.map(f => f.data.instant.details.wind_speed);
+      
+      // Finn nedbør (samlet for dagen)
+      let totalPrecipitation = 0;
+      dayForecasts.forEach(f => {
+        if (f.data.next_1_hours) {
+          totalPrecipitation += f.data.next_1_hours.details.precipitation_amount;
+        } else if (f.data.next_6_hours) {
+          totalPrecipitation += f.data.next_6_hours.details.precipitation_amount / 6; // Fordel over timer
+        }
+      });
+      
+      // Velg en representativ symbol kode for dagen (helst fra midt på dagen)
+      const afternoonForecast = dayForecasts.find(f => {
+        const hour = parseISO(f.time).getHours();
+        return hour >= 12 && hour <= 15;
+      });
+      
+      const symbolCode = afternoonForecast?.data.next_1_hours?.summary.symbol_code || 
+                        dayForecasts[0]?.data.next_1_hours?.summary.symbol_code ||
+                        'clearsky_day';
+      
+      const date = parseISO(dateKey);
+      const maxTemp = Math.max(...temperatures);
+      const minTemp = Math.min(...temperatures);
+      const maxWind = Math.max(...winds);
+      
+      // Vurder værrisiko
+      let riskLevel: 'high' | 'medium' | 'low' = 'low';
+      if (maxWind > 15 || totalPrecipitation > 5 || minTemp < -10 || maxTemp > 30) {
+        riskLevel = 'high';
+      } else if (maxWind > 8 || totalPrecipitation > 1 || minTemp < 0 || maxTemp > 25) {
+        riskLevel = 'medium';
+      }
+      
+      result.push({
+        date,
+        day: format(date, 'EE', { locale: nb }),
+        symbolCode,
+        maxTemp,
+        minTemp,
+        maxWind,
+        totalPrecipitation,
+        riskLevel
+      });
+    });
+    
+    // Sorter etter dato
+    return result.sort((a, b) => a.date.getTime() - b.date.getTime());
+  };
+  
   // Behandle data til daglige prognoser
-  const dailyForecasts = data ? groupForecastsByDay(data.properties.timeseries.slice(0, 72)).slice(0, 3) : [];
+  const dailyForecasts = data && data.properties && data.properties.timeseries ? 
+    groupForecastsByDay(data.properties.timeseries.slice(0, 72)).slice(0, 3) : 
+    [];
   
   function getWeatherIcon(symbolCode: string) {
     if (symbolCode.includes('rain')) {
@@ -231,6 +243,41 @@ export function WeatherMiniPreview({ latitude, longitude, id, locationName }: We
     refetch();
   };
   
+  // Avbryt tidlig om vi mangler gyldig lokasjon
+  useEffect(() => {
+    if (!validCoordinates) {
+      console.error('[WeatherMiniPreview] Ugyldige koordinater:', { latNumber, lonNumber });
+      return;
+    }
+    
+    // Logg gyldige koordinater for debugging
+    console.log('[WeatherMiniPreview] Laster værinformasjon for:', { 
+      latNumber, 
+      lonNumber, 
+      locationName,
+      latType: typeof latNumber,
+      lonType: typeof lonNumber
+    });
+  }, [latNumber, lonNumber, validCoordinates, locationName]);
+  
+  // Vis feilmelding hvis vi ikke kunne laste værdata
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-3">
+        <div className="flex items-center">
+          <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+          <p className="text-red-700 text-sm">
+            Kunne ikke laste værdata. Sjekk at lokasjonen er korrekt.
+          </p>
+        </div>
+        <p className="text-red-500 text-xs mt-2">
+          Detaljer: Breddegrader skal være mellom -90 og 90, lengdegrader mellom -180 og 180.
+          Gjeldende verdier: {latitude}, {longitude}
+        </p>
+      </div>
+    );
+  }
+  
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -240,10 +287,10 @@ export function WeatherMiniPreview({ latitude, longitude, id, locationName }: We
     )
   }
   
-  if (error || !dailyForecasts.length) {
+  if (isFetching || !dailyForecasts.length) {
     return (
       <div className="space-y-2">
-        <div className="text-sm text-red-500">{error instanceof Error ? error.message : 'Ingen værdata tilgjengelig'}</div>
+        <div className="text-sm text-red-500">{isFetching ? 'Laster værdata...' : 'Ingen værdata tilgjengelig'}</div>
         <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-2 flex items-center gap-1">
           <RefreshCcw className="h-3 w-3" />
           <span>Prøv igjen</span>
@@ -266,7 +313,7 @@ export function WeatherMiniPreview({ latitude, longitude, id, locationName }: We
       
       {/* Kompakt visning av 3 dagers værmelding */}
       <div className="grid grid-cols-3 gap-2">
-        {dailyForecasts.map((day, index) => (
+        {dailyForecasts.map((day: DailyForecast, index: number) => (
           <Card key={index} className={`overflow-hidden border ${
             day.riskLevel === 'high' ? 'border-red-200 bg-red-50' : 
             day.riskLevel === 'medium' ? 'border-yellow-200 bg-yellow-50' : 

@@ -77,11 +77,34 @@ export async function PUT(
     }
     
     // Sjekk brukerens tillatelser
-    const isAdmin = session.user.role === "ADMIN" || session.user.role === "HMS_RESPONSIBLE"
+    // Hent bruker med fullt metadata for å sjekke HMS-ansvarlig status
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    });
+    
+    // Sjekk om brukeren er admin (ADMIN, COMPANY_ADMIN, HMS_RESPONSIBLE eller bruker med isHMSResponsible=true)
+    const isAdmin = 
+      session.user.role === "ADMIN" || 
+      session.user.role === "COMPANY_ADMIN" || 
+      session.user.role === "HMS_RESPONSIBLE" || 
+      session.user.role === "SUPPORT";
+    
+    // Sjekk om brukeren er markert som HMS-ansvarlig i metadata
+    let isHMSResponsible = false;
+    if (user?.metadata) {
+      const metadata = typeof user.metadata === 'string' 
+        ? JSON.parse(user.metadata) 
+        : user.metadata;
+      
+      if (metadata.isHMSResponsible === true) {
+        isHMSResponsible = true;
+      }
+    }
+    
     const isOwnCompetence = competence.user.id === session.user.id
     
     // Vanlige brukere kan bare oppdatere notater for sin egen kompetanse
-    if (!isAdmin && !isOwnCompetence) {
+    if (!isAdmin && !isHMSResponsible && !isOwnCompetence) {
       return NextResponse.json({ 
         error: "You don't have permission to update this competence" 
       }, { status: 403 })
@@ -90,7 +113,7 @@ export async function PUT(
     // Vanlige brukere kan bare oppdatere notater
     const updateData: any = {}
     
-    if (isAdmin) {
+    if (isAdmin || isHMSResponsible) {
       // Admin kan oppdatere alle felt
       updateData.competenceTypeId = json.competenceTypeId
       updateData.achievedDate = new Date(json.achievedDate)
@@ -105,6 +128,26 @@ export async function PUT(
         // Hvis status endres fra VERIFIED til noe annet, fjern verifiseringsinformasjon
         updateData.verifiedBy = null
         updateData.verifiedAt = null
+      }
+    } else if (isOwnCompetence) {
+      // For egen kompetanse, kan brukeren oppdatere notater og andre felt som ikke krever admin-tilgang
+      // Men vi beholder opprinelige tilstandsfelt
+      updateData.verificationStatus = competence.verificationStatus;
+      
+      // Vi beholder achievedDate og expiryDate hvis de finnes i requesten
+      if (json.achievedDate) {
+        updateData.achievedDate = new Date(json.achievedDate);
+      }
+      
+      if (json.expiryDate) {
+        updateData.expiryDate = new Date(json.expiryDate);
+      } else if (json.expiryDate === null) {
+        updateData.expiryDate = null;
+      }
+      
+      // Også tillat oppdatering av kompetansetypen for egne kompetanser
+      if (json.competenceTypeId) {
+        updateData.competenceTypeId = json.competenceTypeId;
       }
     }
     
@@ -121,7 +164,7 @@ export async function PUT(
     })
     
     // Send notifikasjon hvis admin har endret noe
-    if (isAdmin && !isOwnCompetence) {
+    if ((isAdmin || isHMSResponsible) && !isOwnCompetence) {
       await prisma.notification.create({
         data: {
           userId: competence.user.id,

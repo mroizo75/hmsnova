@@ -13,6 +13,7 @@ import { AlertTriangle, FileCheck2, Clock, User, TrendingUp, TrendingDown, Arrow
 import { SJAStatus, Status } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { LineChart, Line, ResponsiveContainer } from "recharts"
+import { redirect } from "next/navigation"
 
 // Definer status enum
 const DeviationStatus = {
@@ -180,6 +181,11 @@ async function getHMSStats(companyId: string) {
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return null
+
+  // Redirect employee users til employee dashboard
+  if (session.user.role === 'EMPLOYEE') {
+    redirect('/employee-dashboard')
+  }
 
   // Hent bedriftens ID fra brukerens sesjon
   const user = await prisma.user.findUnique({

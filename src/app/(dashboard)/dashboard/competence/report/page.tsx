@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { ExportToExcelButton } from "./export-button"
 
 export default async function CompetenceReportPage({
   searchParams,
@@ -346,10 +347,27 @@ export default async function CompetenceReportPage({
                   <Filter className="mr-2 h-4 w-4" />
                   Filtrer
                 </Button>
-                <Button variant="outline" type="button">
-                  <Download className="mr-2 h-4 w-4" />
-                  Eksporter til Excel
-                </Button>
+                <ExportToExcelButton 
+                  filters={{
+                    employeeId,
+                    competenceTypeId,
+                    category,
+                    status,
+                    expiryStatus
+                  }}
+                  columnsConfig={{
+                    name: true,
+                    email: true,
+                    department: true,
+                    position: true,
+                    competenceType: true,
+                    category: true,
+                    achievedDate: true,
+                    expiryDate: true,
+                    status: true,
+                    expiryStatus: true
+                  }}
+                />
               </div>
             </div>
           </form>

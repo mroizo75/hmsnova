@@ -13,6 +13,31 @@ import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { CompetenceEditForm } from "./competence-edit-form"
 
+// Interface som matcher forventet type i CompetenceEditForm
+interface CompetenceType {
+  id: string
+  name: string
+  validity: number | null
+}
+
+interface User {
+  id: string
+  name: string | null
+}
+
+interface CompetenceForEdit {
+  id: string
+  userId: string
+  competenceTypeId: string
+  achievedDate: Date
+  expiryDate: Date | null
+  certificateUrl: string | null
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED'
+  notes: string | null
+  user: User
+  competenceType: CompetenceType
+}
+
 export default async function EditCompetencePage({
   params,
 }: {
@@ -46,8 +71,19 @@ export default async function EditCompetencePage({
       }
     },
     include: {
-      user: true,
-      competenceType: true,
+      user: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      competenceType: {
+        select: {
+          id: true,
+          name: true,
+          validity: true
+        }
+      },
     }
   })
   
@@ -55,13 +91,47 @@ export default async function EditCompetencePage({
     notFound()
   }
   
-  // Sjekk om brukeren har tilgang til å redigere denne kompetansen
-  // Kun hvis det er din egen kompetanse eller du er admin/HMS-ansvarlig
-  const isOwnCompetence = competence.user.id === session.user.id
-  const permissions = await getUserPermissions(session.user.id)
-  const isAdmin = permissions.includes("ADMIN") || permissions.includes("HMS_RESPONSIBLE")
+  // Type-assertering for å fikse typefeil
+  const typedCompetence = {
+    ...competence,
+    verificationStatus: competence.verificationStatus as 'PENDING' | 'VERIFIED' | 'REJECTED'
+  } as CompetenceForEdit
   
-  if (!isOwnCompetence && !isAdmin) {
+  // Sjekk om brukeren har tilgang til å redigere denne kompetansen
+  // Vi bruker en mer omfattende sjekk for admin-rettigheter
+  const isOwnCompetence = competence.user.id === session.user.id
+  
+  // Hent brukerens tillatelser og alle brukerdata for å sjekke HMS-ansvarlig status
+  const permissions = await getUserPermissions(session.user.id)
+  const isAdminRole = 
+    session.user.role === "ADMIN" || 
+    session.user.role === "COMPANY_ADMIN" || 
+    session.user.role === "HMS_RESPONSIBLE" || 
+    session.user.role === "SUPPORT"
+  
+  // Hent brukerens metadata for å sjekke HMS-ansvarlig status
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id }
+  })
+  
+  let isHMSResponsible = false
+  if (user?.metadata) {
+    const metadata = typeof user.metadata === 'string' 
+      ? JSON.parse(user.metadata) 
+      : user.metadata
+    
+    if (metadata.isHMSResponsible === true) {
+      isHMSResponsible = true
+    }
+  }
+  
+  const hasPermission = permissions.includes("ADMIN") || 
+                        permissions.includes("HMS_RESPONSIBLE") || 
+                        isAdminRole || 
+                        isHMSResponsible
+  
+  // Hvis brukeren verken er admin eller eier kompetansen, redirect
+  if (!isOwnCompetence && !hasPermission) {
     redirect('/dashboard/competence')
   }
   
@@ -106,9 +176,9 @@ export default async function EditCompetencePage({
         </CardHeader>
         <CardContent>
           <CompetenceEditForm 
-            competence={competence} 
+            competence={typedCompetence} 
             competenceTypes={competenceTypes} 
-            isAdmin={isAdmin} 
+            isAdmin={hasPermission} 
           />
         </CardContent>
       </Card>

@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/auth-options"
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import prisma from "@/lib/db"
 
 export async function PATCH(request: Request) {
@@ -40,5 +40,57 @@ export async function PATCH(request: Request) {
       { error: "Kunne ikke oppdatere innstillinger" },
       { status: 500 }
     )
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({
+        error: "Uautentisert"
+      }, { 
+        status: 401,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache', 
+          'Expires': '0'
+        }
+      })
+    }
+
+    // Hent brukerens innstillinger
+    const userSettings = await prisma.userSettings.findUnique({
+      where: {
+        userId: session.user.id
+      }
+    })
+
+    // Returner standardinnstillinger hvis ingen funnet
+    const settings = userSettings || {
+      colorMode: 'default',
+      language: 'no',
+      notifications: true
+    }
+
+    return NextResponse.json(settings, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache', 
+        'Expires': '0'
+      }
+    })
+  } catch (error) {
+    console.error("Feil ved henting av brukerinnstillinger:", error)
+    return NextResponse.json({
+      error: "Kunne ikke hente brukerinnstillinger"
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache', 
+        'Expires': '0'
+      }
+    })
   }
 } 

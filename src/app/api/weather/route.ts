@@ -23,13 +23,13 @@ export async function GET(req: NextRequest) {
 
     // Hent lat/lon fra URL-parametere
     const { searchParams } = new URL(req.url)
-    const lat = searchParams.get('lat')
-    const lon = searchParams.get('lon')
+    const latParam = searchParams.get('lat')
+    const lonParam = searchParams.get('lon')
 
     // Logg for debugging
-    console.log(`[Weather API] Forespørsel mottatt for lat=${lat}, lon=${lon}, timestamp=${Date.now()}`);
+    console.log(`[Weather API] Forespørsel mottatt for lat=${latParam}, lon=${lonParam}, timestamp=${Date.now()}`);
 
-    if (!lat || !lon) {
+    if (!latParam || !lonParam) {
       return new NextResponse(JSON.stringify({ error: "Mangler koordinater" }), { 
         status: 400,
         headers: {
@@ -37,9 +37,47 @@ export async function GET(req: NextRequest) {
         }
       })
     }
-
+    
+    // Sikre at vi har gyldige tall og formater dem korrekt
+    const lat = parseFloat(latParam);
+    const lon = parseFloat(lonParam);
+    
+    // Sjekk om koordinatene er gyldige tall
+    if (isNaN(lat) || isNaN(lon)) {
+      return new NextResponse(JSON.stringify({ 
+        error: "Ugyldige koordinater", 
+        details: "Koordinatene må være gyldige tall" 
+      }), { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+    
+    // Avrund til 6 desimaler for sammenligning
+    const roundedLat = Math.round(lat * 1000000) / 1000000;
+    const roundedLon = Math.round(lon * 1000000) / 1000000;
+    
+    // Sjekk om koordinatene er innenfor gyldige områder
+    if (roundedLat < -90 || roundedLat > 90 || roundedLon < -180 || roundedLon > 180) {
+      return new NextResponse(JSON.stringify({ 
+        error: "Koordinater utenfor gyldig område", 
+        details: `Breddegrader skal være mellom -90 og 90, lengdegrader mellom -180 og 180. Mottatt: ${lat}, ${lon}` 
+      }), { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+    
+    // Formater koordinater med maks 4 desimaler for API-kallet
+    const formattedLat = lat.toFixed(4);
+    const formattedLon = lon.toFixed(4);
+    
     // Hent data direkte fra MET API
-    const metUrl = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`;
+    const metUrl = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${formattedLat}&lon=${formattedLon}`;
     console.log(`[Weather API] Henter værdata fra: ${metUrl}`);
     
     // Viktig: MET API krever en User-Agent header

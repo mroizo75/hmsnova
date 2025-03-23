@@ -47,7 +47,6 @@ const formSchema = z.object({
   nextInspection: z.date().optional(),
   description: z.string().optional(),
   status: z.string().default("ACTIVE"),
-  maintenanceInterval: z.number().min(0).optional(),
   notes: z.string().optional(),
 })
 
@@ -70,16 +69,18 @@ export function CreateEquipmentDialog({ open, onOpenChange, onSuccess }: Props) 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsSubmitting(true)
+      
       const response = await fetch('/api/equipment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...values,
-          // companyId vil bli håndtert på server-siden via session
-        }),
+        body: JSON.stringify(values),
       })
 
-      if (!response.ok) throw new Error('Kunne ikke opprette utstyr')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Ukjent feil' }));
+        toast.error(`Kunne ikke opprette utstyr: ${errorData.message || 'Kontakt systemadministrator'}`)
+        throw new Error('Kunne ikke opprette utstyr')
+      }
 
       const equipment = await response.json()
       onSuccess(equipment)
@@ -286,28 +287,6 @@ export function CreateEquipmentDialog({ open, onOpenChange, onSuccess }: Props) 
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="maintenanceInterval"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vedlikeholdsintervall (dager)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min="0"
-                        {...field}
-                        onChange={e => field.onChange(e.target.valueAsNumber)}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Antall dager mellom hver planlagte vedlikehold. La stå tomt hvis ikke relevant.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

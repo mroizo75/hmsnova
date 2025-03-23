@@ -22,9 +22,10 @@ import {
 } from "@/components/ui/table"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
-import { Award, Calendar, FileText, Trash2, Eye } from "lucide-react"
+import { Award, Calendar, FileText, Trash2, Eye, ArrowLeft, Download } from "lucide-react"
 import { DeleteCompetenceButton } from "./delete-competence-button"
 import Link from "next/link"
+import { ExportToExcelButton } from "./export-button"
 
 // Hjelpefunksjon for status badge
 function getStatusBadge(status: string) {
@@ -128,6 +129,15 @@ export default async function AllCompetencePage() {
           <p className="text-muted-foreground">
             Oversikt over alle kompetanser og sertifiseringer i bedriften
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <ExportToExcelButton />
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard/competence">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Tilbake til oversikt
+            </Link>
+          </Button>
         </div>
       </div>
       <Separator />

@@ -1577,6 +1577,8 @@ model Equipment {
   manufacturer String?
   model       String?
   location    String?
+  description String?     @db.Text // Beskrivelse av utstyret
+  notes       String?     @db.Text // Ekstra notater
   status      String      // ACTIVE, INACTIVE, MAINTENANCE, DISPOSED
   lastInspection DateTime?
   nextInspection DateTime?
@@ -1918,6 +1920,7 @@ model Competency {
   description     String?
   expiryDate      DateTime?
   certificateNumber String?
+  certificateUrl  String?
   userId          String
   user            User     @relation(fields: [userId], references: [id])
   createdAt       DateTime @default(now())

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useQueryClient } from '@tanstack/react-query'
 
 interface Location {
   latitude: number | null
@@ -67,6 +68,13 @@ export function LocationDialog({
   const [directSearchTerm, setDirectSearchTerm] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [directSearchQuery, setDirectSearchQuery] = useState("")
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
+  const [map, setMap] = useState<any | null>(null)
+  const [marker, setMarker] = useState<any | null>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const [weatherData, setWeatherData] = useState<any | null>(null)
+  const [isLoadingWeather, setIsLoadingWeather] = useState(false)
+  const queryClient = useQueryClient()
   
   // Oppdater lokasjonsverdier når dialog åpnes eller lokasjon endres
   useEffect(() => {
@@ -148,7 +156,7 @@ export function LocationDialog({
     
     try {
       // Hent værdata først
-      const weatherResponse = await fetch(`/api/weather?lat=${locationValues.latitude}&lon=${locationValues.longitude}`, {
+      const weatherResponse = await fetch(`/api/weather?lat=${locationValues.latitude}&lon=${locationValues.longitude}&t=${Date.now()}`, {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -183,7 +191,7 @@ export function LocationDialog({
         });
         return;
       }
-
+      
       // For eksisterende SJA, oppdater lokasjonen i databasen
       const response = await fetch(`/api/sja/${sjaId}/location`, {
         method: 'PUT',
@@ -210,11 +218,22 @@ export function LocationDialog({
       const result = await response.json();
       console.log('Lokasjonsoppdatering resultat:', result);
 
+      // Invalider React Query cache for å sikre oppdaterte data
+      if (sjaId && sjaId !== "new") {
+        // Invalider både SJA-detalj, SJA-liste og værdata-cachen
+        queryClient.invalidateQueries({ queryKey: ['sja-detail', sjaId] });
+        queryClient.invalidateQueries({ queryKey: ['sja-list'] });
+        queryClient.invalidateQueries({ 
+          queryKey: ['weather', locationValues.latitude, locationValues.longitude, sjaId] 
+        });
+      }
+
       onUpdate();
       onOpenChange(false);
       toast.success('Lokasjon oppdatert', {
         description: `${locationValues.name || 'Lokasjon'} er registrert med værdata`
       });
+      
     } catch (error) {
       console.error('Feil ved oppdatering av lokasjon:', error);
       toast.error('Kunne ikke oppdatere lokasjon', {

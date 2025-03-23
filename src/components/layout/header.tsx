@@ -38,24 +38,42 @@ export function Header({ user, className }: HeaderProps) {
       }
     }
 
-    if (session?.user) {
+    if (user) {
       fetchCompanyName()
     }
-  }, [session])
+  }, [user])
 
-  if (!session?.user) {
-    return null
+  // Hvis user-prop ikke finnes, vis en nødløsning
+  if (!user) {
+    console.warn("Header: user prop er ikke definert");
+    return (
+      <header className="border-b bg-background dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex h-16 items-center px-4 gap-4">
+          <div className="flex-1">
+            <span className="text-muted-foreground">Debug: Header mangler user-data</span>
+          </div>
+        </div>
+      </header>
+    );
   }
+
+  // Hvis useSession ikke har data, bruk props-dataene
+  const effectiveUser = user;
 
   return (
     <header className="border-b bg-background dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex h-16 items-center px-4 gap-4">
         <div className="flex-1">
-          {companyName && (
+          <div className="flex flex-col">
             <span className="text-muted-foreground hidden lg:block">
-              Velkommen, {companyName}
+              Velkommen, {effectiveUser.name || effectiveUser.email}
             </span>
-          )}
+            {companyName && (
+              <span className="text-muted-foreground hidden lg:block">
+                {companyName}
+              </span>
+            )}
+          </div>
         </div>
         <NotificationBell onSettingsClick={() => setSettingsOpen(true)} />
         <NotificationSettingsDialog 
@@ -65,17 +83,29 @@ export function Header({ user, className }: HeaderProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative dark:text-neutral-100">
-              {session.user.name || session.user.email}
+              {effectiveUser.name || effectiveUser.email}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel className="dark:text-neutral-200">Min konto</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/profile")}>
+            <DropdownMenuItem onClick={() => {
+              if (effectiveUser.role === 'EMPLOYEE') {
+                router.push("/employee/settings")
+              } else {
+                router.push("/profile")
+              }
+            }}>
               <User className="mr-2 h-4 w-4" />
               <span>Profil</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/settings")}>
+            <DropdownMenuItem onClick={() => {
+              if (effectiveUser.role === 'EMPLOYEE') {
+                router.push("/employee/settings")
+              } else {
+                router.push("/settings")
+              }
+            }}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Innstillinger</span>
             </DropdownMenuItem>

@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { format } from 'date-fns'
+import { format, parse } from 'date-fns'
 import { nb } from 'date-fns/locale'
-import { CalendarIcon } from 'lucide-react'
+import { Calendar, Trash } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,12 +28,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Calendar } from '@/components/ui/calendar'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
 
 // Schema for form validation
 const formSchema = z.object({
@@ -196,33 +191,30 @@ export function CompetenceEditForm({ competence, competenceTypes, isAdmin }: Com
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Oppnådd dato</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className="w-full pl-3 text-left font-normal"
-                        disabled={!isAdmin}
-                      >
-                        {field.value ? (
-                          format(field.value, 'PPP', { locale: nb })
-                        ) : (
-                          <span>Velg dato</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date > new Date()}
-                      initialFocus
+                <FormControl>
+                  <div className="relative">
+                    <Input
+                      type="date"
+                      disabled={!isAdmin}
+                      value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                      onChange={(e) => {
+                        const date = e.target.value ? new Date(e.target.value) : null;
+                        field.onChange(date);
+                        
+                        // Oppdater utløpsdato hvis kompetansetypen har gyldighetsperiode
+                        if (date) {
+                          const competenceTypeId = form.getValues('competenceTypeId');
+                          if (competenceTypeId) {
+                            handleCompetenceTypeChange(competenceTypeId);
+                          }
+                        }
+                      }}
+                      className="pl-10"
+                      max={format(new Date(), 'yyyy-MM-dd')}
                     />
-                  </PopoverContent>
-                </Popover>
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </FormControl>
                 <FormDescription>
                   Dato kompetansen ble oppnådd
                 </FormDescription>
@@ -237,43 +229,48 @@ export function CompetenceEditForm({ competence, competenceTypes, isAdmin }: Com
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Utløpsdato</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className="w-full pl-3 text-left font-normal"
-                        disabled={!isAdmin}
-                      >
-                        {field.value ? (
-                          format(field.value, 'PPP', { locale: nb })
-                        ) : (
-                          <span>Utløper ikke</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <div className="p-2 border-b">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-start text-left font-normal"
-                        onClick={() => field.onChange(null)}
-                      >
-                        Utløper ikke
-                      </Button>
+                <div className="space-y-2">
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        type="date"
+                        disabled={!isAdmin || field.value === null}
+                        value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                        onChange={(e) => {
+                          const date = e.target.value ? new Date(e.target.value) : null;
+                          field.onChange(date);
+                        }}
+                        className="pl-10"
+                        min={format(form.getValues('achievedDate') || new Date(), 'yyyy-MM-dd')}
+                      />
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     </div>
-                    <Calendar
-                      mode="single"
-                      selected={field.value || undefined}
-                      onSelect={field.onChange}
-                      disabled={(date) => date < (form.getValues('achievedDate') || new Date())}
-                      initialFocus
+                  </FormControl>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="no-expiry"
+                      checked={field.value === null}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          field.onChange(null);
+                        } else {
+                          // Hvis utløper, sett standard utløpsdato til 1 år frem i tid
+                          const date = new Date();
+                          date.setFullYear(date.getFullYear() + 1);
+                          field.onChange(date);
+                        }
+                      }}
+                      disabled={!isAdmin}
                     />
-                  </PopoverContent>
-                </Popover>
+                    <label
+                      htmlFor="no-expiry"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Utløper ikke
+                    </label>
+                  </div>
+                </div>
                 <FormDescription>
                   Dato kompetansen utløper (hvis relevant)
                 </FormDescription>

@@ -12,9 +12,8 @@ import Link from "next/link"
 import { HazardCard } from "./hazard-card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UpdateStatusDialog } from "./update-status-dialog"
-import { WeatherForecast } from "./weather-forecast"
 import { LocationDialog } from "./location-dialog"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { AddMeasureDialog } from "./add-measure-dialog"
 
@@ -105,6 +104,7 @@ export function RiskAssessmentClient({ assessment, onUpdate }: PageProps) {
   const [isRefetching, setIsRefetching] = useState(false)
   const [addMeasureDialogOpen, setAddMeasureDialogOpen] = useState(false)
   const [selectedHazardId, setSelectedHazardId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   // Funksjon for å hente risikovurdering med cache-busting
   const fetchRiskAssessment = useCallback(async () => {
@@ -129,7 +129,7 @@ export function RiskAssessmentClient({ assessment, onUpdate }: PageProps) {
     queryKey: ['riskAssessment', assessment.id, lastUpdate],
     queryFn: fetchRiskAssessment,
     initialData: assessment,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     staleTime: 1000 * 30, // 30 sekunder
     refetchInterval: 1000 * 60 * 2, // Refetch hver 2. minutt
   })
@@ -183,6 +183,8 @@ export function RiskAssessmentClient({ assessment, onUpdate }: PageProps) {
     try {
       await onUpdate();
       setLastUpdate(Date.now());
+      // Invalider cachen for å sørge for at data blir hentet på nytt
+      queryClient.invalidateQueries({ queryKey: ['riskAssessment', assessment.id] });
     } catch (error) {
       console.error('Feil ved oppdatering:', error);
     }
@@ -194,37 +196,57 @@ export function RiskAssessmentClient({ assessment, onUpdate }: PageProps) {
     return acc
   }, Array(5).fill(null).map(() => Array(5).fill(0)))
 
+  // Oppdatering etter ny fare er lagt til
+  const handleHazardAdded = useCallback(() => {
+    console.log('handleHazardAdded kalt - oppdaterer lastUpdate og kjører refetch');
+    // Oppdater timestamp for å tvinge ny data-henting
+    setLastUpdate(Date.now());
+    
+    // Invalider hele riskAssessment query cachen
+    queryClient.invalidateQueries({ 
+      queryKey: ['riskAssessment', assessment.id]
+    });
+    
+    // Kjør en manuell refetch for umiddelbar oppdatering
+    setTimeout(() => {
+      refetch();
+    }, 100);
+  }, [assessment.id, queryClient, refetch]);
+
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex justify-between items-center">
-        <div className="flex space-x-2 items-center">
-          <Link href="/dashboard/risk-assessments" className="bg-primary/10 p-2 rounded-full">
-            <ArrowLeft className="h-4 w-4 text-primary" />
-          </Link>
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div>
           <h1 className="text-2xl font-bold">{data.title}</h1>
+          {!isRefetching ? (
+            <p className="text-gray-500 text-sm">
+              ID: {data.id}
+            </p>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              <span>Oppdaterer...</span>
+            </div>
+          )}
         </div>
-        
-        <div className="flex gap-2">
-        <UpdateStatusDialog 
-                assessment={data}
-                open={statusDialogOpen}
-                onOpenChange={setStatusDialogOpen}
-                onUpdate={handleUpdate}
-              />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefetching}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
             Oppdater
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/risk-assessments/${data.id}/edit`}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Rediger
-            </Link>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Legg til fare
+          </Button>
+          {/* Knapp for å redigere lokasjon */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setLocationDialogOpen(true)}
+          >
+            <MapPin className="h-4 w-4 mr-2" />
+            {data.location ? "Endre lokasjon" : "Legg til lokasjon"}
           </Button>
         </div>
       </div>
@@ -337,6 +359,7 @@ export function RiskAssessmentClient({ assessment, onUpdate }: PageProps) {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         location={data.location}
+        onHazardAdded={handleHazardAdded}
       />
       
       {/* Dialog for å legge til tiltak */}
@@ -360,39 +383,16 @@ export function RiskAssessmentClient({ assessment, onUpdate }: PageProps) {
         </Card>
       </div>
       
-      {/* Værdata og lokasjon */}
-      <div className="grid md:grid-cols-1 gap-6">
-        <Card>
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Værdata</h2>
-              {data.location && (
-                <Button variant="outline" size="sm" onClick={() => setLocationDialogOpen(true)}>
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Endre lokasjon
-                </Button>
-              )}
-            </div>
-            
-            {/* Ny WeatherForecast komponent som håndterer lokasjoner selv */}
-            <WeatherForecast 
-              initialLatitude={data.location?.latitude || null} 
-              initialLongitude={data.location?.longitude || null} 
-              initialLocationName={data.location?.name || null}
-            />
-          </div>
-        </Card>
-      </div>
+      {/* Fjern hele denne seksjonen som viser værdata */}
 
-      {data.location && (
-        <LocationDialog
-          assessmentId={data.id}
-          location={data.location}
-          open={locationDialogOpen}
-          onOpenChange={setLocationDialogOpen}
-          onUpdate={handleUpdate}
-        />
-      )}
+      {/* Behold LocationDialog med korrekte props */}
+      <LocationDialog 
+        open={locationDialogOpen} 
+        onOpenChange={setLocationDialogOpen}
+        assessmentId={data.id}
+        location={data.location}
+        onUpdate={handleUpdate}
+      />
     </div>
   )
 } 

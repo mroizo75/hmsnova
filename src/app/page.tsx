@@ -7,6 +7,8 @@ import WeatherPreview from "@/components/front/weather-preview"
 import CourseBHT from "@/components/front/course-bht"
 import Link from "next/link"
 import { Metadata } from "next"
+import dynamic from "next/dynamic"
+import { MobileOptimizedSection } from "@/components/mobile-optimized-section"
 
 export const metadata: Metadata = {
   title: 'HMS Nova | Norges ledende HMS-system for bedrifter i alle bransjer',
@@ -14,10 +16,13 @@ export const metadata: Metadata = {
   keywords: 'HMS-system, avviksbehandling, risikovurdering, stoffkartotek, internkontroll, sikker jobbanalyse, kompetansestyring, HMS-løsning, HMS-programvare, HMS-verktøy, digitalt HMS-system, vernerunde',
 }
 
+// Statisk generering med revalidering hver 24. time
+export const revalidate = 86400;
+
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Hero Section */}
+      {/* Hero Section - Kritisk over bretten */}
       <section className="bg-gradient-to-b from-white via-gray-50 to-gray-100">
         <div className="w-full mx-auto px-4">
           <header>
@@ -34,8 +39,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Innovative Features Section */}
-      <section className="py-20 bg-gradient-to-b from-gray-100 to-white" aria-labelledby="innovative-heading">
+      {/* Innovative Features Section - Optimalisert for mobil under bretten */}
+      <MobileOptimizedSection className="py-20 bg-gradient-to-b from-gray-100 to-white" aria-labelledby="innovative-heading">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 id="innovative-heading" className="text-3xl font-bold mb-4 text-[#17304F]">Fremtidsrettet HMS-løsning</h2>
@@ -49,10 +54,10 @@ export default function Home() {
             <WeatherPreview />
           </div>
         </div>
-      </section>
+      </MobileOptimizedSection>
 
-      {/* Fordeler med HMS Nova */}
-      <section className="py-16 bg-white" aria-labelledby="benefits-heading">
+      {/* Fordeler med HMS Nova - Optimalisert for mobil under bretten */}
+      <MobileOptimizedSection className="py-16 bg-white" aria-labelledby="benefits-heading">
         <div className="max-w-6xl mx-auto px-4">
           <h2 id="benefits-heading" className="text-3xl font-bold mb-8 text-center text-[#17304F]">Fordelene med HMS Nova</h2>
           
@@ -79,7 +84,7 @@ export default function Home() {
             </article>
           </div>
         </div>
-      </section>
+      </MobileOptimizedSection>
 
       {/* Testimonials
       <section className="py-16 bg-gray-50" aria-labelledby="testimonials-heading">
@@ -108,20 +113,20 @@ export default function Home() {
         </div>
       </section> */}
 
-      {/* Pricing Section */}
-      <section id="priser" aria-labelledby="pricing-heading">
+      {/* Pricing Section - Optimalisert for mobil under bretten */}
+      <MobileOptimizedSection id="priser" aria-labelledby="pricing-heading">
         <h2 id="pricing-heading" className="sr-only">Våre priser</h2>
         <PricingSection />
-      </section>
+      </MobileOptimizedSection>
       
-      {/* Course and BHT Section */}
-      <section aria-labelledby="course-heading">
+      {/* Course and BHT Section - Optimalisert for mobil under bretten */}
+      <MobileOptimizedSection aria-labelledby="course-heading">
         <h2 id="course-heading" className="sr-only">Kurs og BHT-tjenester</h2>
         <CourseBHT />
-      </section>
+      </MobileOptimizedSection>
 
-      {/* FAQ Section */}
-      <section className="py-16 bg-white" aria-labelledby="faq-heading">
+      {/* FAQ Section - Optimalisert for mobil under bretten */}
+      <MobileOptimizedSection className="py-16 bg-white" aria-labelledby="faq-heading">
         <div className="max-w-4xl mx-auto px-4">
           <h2 id="faq-heading" className="text-3xl font-bold mb-8 text-center text-[#17304F]">Ofte stilte spørsmål</h2>
           
@@ -158,7 +163,7 @@ export default function Home() {
             <p className="mt-3 text-sm text-gray-500">Ingen kredittkort nødvendig. Avbryt når som helst.</p>
           </div>
         </div>
-      </section>
+      </MobileOptimizedSection>
 
       <footer className="mt-auto">
         <Footer />

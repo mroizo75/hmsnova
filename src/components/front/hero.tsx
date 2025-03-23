@@ -125,6 +125,9 @@ export default function HeroSection() {
                 width={600} 
                 height={400} 
                 className="w-full h-auto object-cover"
+                priority={true}
+                fetchPriority="high"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#17304F]/10 to-transparent"></div>
             </div>

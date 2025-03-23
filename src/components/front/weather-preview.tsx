@@ -96,7 +96,7 @@ const previewWeatherData = [
 
 export default function WeatherPreview() {
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 mobile-optimized">
       <div className="p-6 bg-gradient-to-r from-[#2C435F] to-[#3A5474] text-white">
         <h3 className="text-2xl font-bold mb-2">Værdata og sikkerhet</h3>
         <p className="text-white/80">
@@ -153,7 +153,8 @@ export default function WeatherPreview() {
         <div className="flex justify-end">
           <Link href="/sikkerjobbanalyse">
             <Button variant="outline" className="flex items-center gap-2 text-[#17304F]">
-              <span>Les mer om SJA med værdata</span>
+              <span className="sm:inline hidden">Les mer om SJA med værdata</span>
+              <span className="sm:hidden inline">Les mer</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
