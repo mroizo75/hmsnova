@@ -4,19 +4,52 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSession } from "next-auth/react"
 
 export function CookieConsent() {
   const [open, setOpen] = useState(false)
+  const { data: session } = useSession()
   const [preferences, setPreferences] = useState({
-    necessary: true, // Alltid true
+    necessary: true,
     analytics: false,
     marketing: false
   })
 
   useEffect(() => {
-    const consent = localStorage.getItem('cookieConsent')
-    if (!consent) {
-      setOpen(true)
+    const checkConsent = async () => {
+      console.log("============== COOKIE CONSENT CHECK ==============");
+      
+      try {
+        // Sjekk først localStorage
+        const localStorageConsent = localStorage.getItem("cookieConsent");
+        console.log("Cookie-samtykke i localStorage:", localStorageConsent || "ikke funnet");
+        
+        // Sjekk også sessionStorage
+        const sessionStorageConsent = sessionStorage.getItem("cookieConsent");
+        console.log("Cookie-samtykke i sessionStorage:", sessionStorageConsent || "ikke funnet");
+        
+        // Hvis vi har samtykke i sessionStorage men ikke i localStorage, gjenopprett
+        if (sessionStorageConsent && !localStorageConsent) {
+          console.log("Gjenoppretter cookie-samtykke fra sessionStorage til localStorage");
+          localStorage.setItem("cookieConsent", sessionStorageConsent);
+          return true;
+        }
+        
+        return !!localStorageConsent;
+      } catch (error) {
+        console.error("Feil ved sjekk av cookie-samtykke:", error);
+        return false;
+      }
+    };
+    
+    const hasConsent = checkConsent();
+    console.log("Bruker har samtykke:", hasConsent);
+    
+    if (!hasConsent) {
+      setOpen(true);
+      console.log("Åpner samtykke-dialog");
+    } else {
+      console.log("Dialogboks ikke vist - bruker har allerede gitt samtykke");
     }
   }, [])
 
@@ -37,12 +70,45 @@ export function CookieConsent() {
     saveConsent(preferences)
   }
 
-  const saveConsent = (settings: typeof preferences) => {
-    localStorage.setItem('cookieConsent', JSON.stringify({
-      ...settings,
-      timestamp: new Date().toISOString()
-    }))
-    setOpen(false)
+  const saveConsent = async (settings: typeof preferences) => {
+    try {
+      console.log("============== SAVING COOKIE CONSENT ==============");
+      
+      // Lag konsentverdien som skal lagres
+      const consentValue = JSON.stringify({
+        ...settings,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Lagre i localStorage FØRST
+      localStorage.setItem('cookieConsent', consentValue);
+      console.log("Cookie-samtykke lagret i localStorage:", consentValue);
+      
+      // Lagre også i sessionStorage som backup
+      sessionStorage.setItem('cookieConsent', consentValue);
+      console.log("Cookie-samtykke lagret i sessionStorage som backup");
+      
+      // Send til API for å lagre som server-side cookie
+      const response = await fetch('/api/preserve-cookie-consent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ consent: consentValue }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Kunne ikke lagre cookie-samtykke på serveren');
+      }
+      
+      console.log("Cookie-samtykke lagret på serveren");
+      
+      // Lukk dialogen
+      setOpen(false);
+      
+    } catch (error) {
+      console.error("Feil ved lagring av cookie-samtykke:", error);
+    }
   }
 
   return (

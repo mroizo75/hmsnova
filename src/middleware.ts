@@ -62,7 +62,14 @@ export async function middleware(request: NextRequest) {
 
   try {
     // Sjekk om brukeren er autentisert for beskyttede ruter
-    const token = await getToken({ req: request })
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    
+    // Logger token-data for feilsøking
+    console.log(`Middleware: Token for ${pathname}:`, JSON.stringify({
+      exists: !!token,
+      role: token?.role || 'ingen',
+      path: pathname
+    }))
     
     // Ingen token for beskyttet rute
     if (!token) {
@@ -72,6 +79,35 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Valider rolletilgang basert på sti
+    const role = token.role as string || ''
+    console.log(`Middleware: Validerer tilgang for rolle ${role} til sti ${pathname}`);
+    
+    // Admin-ruter krever ADMIN eller SUPPORT-rolle
+    if (pathname.includes('/admin/') && role !== 'ADMIN' && role !== 'SUPPORT') {
+      console.log(`Unauthorized access to admin route: ${pathname} by role: ${role}`)
+      const url = new URL('/login', request.url)
+      url.searchParams.set('error', 'UnauthorizedAccess')
+      return NextResponse.redirect(url)
+    }
+    
+    // Employee-ruter krever EMPLOYEE-rolle (eller admin-rolle)
+    if (pathname.includes('/employee/') && role !== 'EMPLOYEE' && role !== 'ADMIN' && role !== 'SUPPORT') {
+      console.log(`Unauthorized access to employee route: ${pathname} by role: ${role}`)
+      const url = new URL('/login', request.url)
+      url.searchParams.set('error', 'UnauthorizedAccess')
+      return NextResponse.redirect(url)
+    }
+    
+    // Sjekk om brukeren er ADMIN/SUPPORT på et vanlig /dashboard
+    if (pathname === '/dashboard' && (role === 'ADMIN' || role === 'SUPPORT')) {
+      console.log(`ADMIN/SUPPORT bruker prøver å nå vanlig dashboard - omdirigerer til admin/dashboard`);
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+    
+    // FJERNER ALLE OMDIRIGERINGER MELLOM DASHBOARDS - DETTE SKAPER LØKKER
+    // La hver side håndtere sin egen tilgangskontroll
+    
     // Sjekk om token er i ferd med å utløpe (mindre enn 30 minutter igjen)
     const currentTime = Math.floor(Date.now() / 1000)
     const tokenExpires = token.exp as number || 0

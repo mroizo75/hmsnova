@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useEffect, useState } from "react"
 import { io } from "socket.io-client"
+import { useSession } from "next-auth/react"
 
 export default function EmployeeLayout({
   children,
@@ -29,11 +30,33 @@ export default function EmployeeLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [activeModules, setActiveModules] = useState<Record<string, boolean>>({})
   const [isLoading, setIsLoading] = useState(true)
+  const [isAuthorized, setIsAuthorized] = useState(true)
+
+  // Sjekk om brukeren er autorisert til å se employee dashboard
+  useEffect(() => {
+    if (status === "authenticated") {
+      // Når sesjonen er lastet, sjekk om brukeren er ansatt
+      if (session?.user?.role !== 'EMPLOYEE') {
+        console.log(`Client-side (employee) layout: Uautorisert rolle ${session?.user?.role}, omdirigerer til dashboard`);
+        setIsAuthorized(false);
+        
+        // Bruk absolutt URL med cache-busting for å sikre riktig omdirigering
+        const baseUrl = window.location.origin;
+        window.location.href = `${baseUrl}/dashboard?from=employee_layout&t=${Date.now()}`;
+      } else {
+        console.log(`Client-side (employee) layout: Autorisert rolle EMPLOYEE, viser dashboard`);
+      }
+    }
+  }, [session, status, router]);
 
   // Hent aktive moduler når komponenten lastes
   useEffect(() => {
+    // FJERNER ROLLE-SJEKKEN for å bryte den endeløse omdirigeringssløyfen
+    // Server-side og middleware vil håndtere tilgangskontroll
+    
     const fetchModules = async () => {
       try {
         const res = await fetch('/api/user/modules')
@@ -110,6 +133,26 @@ export default function EmployeeLayout({
     ...(hasSafetyRoundsModule ? [{ icon: ClipboardCheck, title: "Vernerunder", href: "/employee/safety-rounds", color: "text-teal-600" }] : []),
     ...(hasCompetencyModule ? [{ icon: Award, title: "Kompetanse", href: "/employee/competence", color: "text-amber-600" }] : [])
   ]
+
+  // Vis en loading-melding hvis vi fortsatt laster sesjonen
+  if (status === "loading") {
+    return <div className="flex items-center justify-center min-h-screen">Laster dashbord...</div>;
+  }
+  
+  // Hvis brukeren ikke er autorisert, vis en melding istedenfor å vente på omdirigering
+  if (status === "authenticated" && !isAuthorized) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="p-8 text-center bg-white rounded shadow-lg">
+          <h2 className="text-2xl font-bold mb-4">Feil dashboard for din rolle</h2>
+          <p className="mb-4">Du er logget inn som {session?.user?.role}, og bør bruke hoved-dashboardet.</p>
+          <Link href="/dashboard" className="text-blue-600 hover:underline">
+            Gå til hoved-dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">

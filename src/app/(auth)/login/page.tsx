@@ -55,6 +55,12 @@ function LoginFormInner() {
     setAuthError(null)
 
     try {
+      console.log("Starter innlogging med:", { email, callbackUrl });
+      
+      // IKKE RENS COOKIES! Det skaper problemer med NextAuth i T3 Stack
+      // NextAuth håndterer cookies selv, og det å slette dem manuelt kan forårsake
+      // problemer med valideringen
+      
       const result = await signIn('credentials', {
         email,
         password,
@@ -62,30 +68,87 @@ function LoginFormInner() {
         callbackUrl
       })
 
+      console.log("SignIn resultat:", result);
+
       if (result?.error) {
         setAuthError("Ugyldig e-post eller passord")
         toast.error("Ugyldig innlogging")
+        console.error("Innloggingsfeil:", result.error);
       } else {
-        const response = await fetch('/api/auth/session')
-        const session = await response.json()
-        
-        if (searchParams.get('admin') === 'true') {
-          if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPPORT') {
-            window.location.href = '/admin/dashboard'
-          } else {
-            toast.error("Ingen tilgang til admin-panel")
-            setAuthError("Du har ikke tilgang til administrasjonspanelet")
-            window.location.href = '/dashboard'
+        try {
+          // Vent litt for å sikre at sesjonen propageres riktig
+          console.log("Venter på at sesjonen skal opprettes fullt ut...");
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Bruk vår egen debug-session API istedenfor standard endpoint
+          const response = await fetch('/api/auth/debug-session')
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Feil fra debug-session API:", errorData);
+            setAuthError("Kunne ikke hente brukerdata. Prøv å laste siden på nytt.");
+            return;
           }
-        } else {
-          console.log("Brukerrolle ved innlogging:", session?.user?.role);
-          if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPPORT') {
-            window.location.href = '/admin/dashboard'
-          } else if (session?.user?.role === 'EMPLOYEE') {
-            window.location.href = '/employee-dashboard'
-          } else {
-            window.location.href = '/dashboard'
+          
+          const sessionData = await response.json()
+          
+          // Debug: Vis all session data for å sjekke om brukerinfo er korrekt
+          console.log("Sesjonsdata ved innlogging (fra debug-session):", JSON.stringify(sessionData, null, 2));
+          
+          // Sjekk om vi har en feilmelding fra API-et
+          if (sessionData.error) {
+            console.error("Feil fra debug-session API:", sessionData.error);
+            setAuthError("Kunne ikke hente brukerdata: " + sessionData.error);
+            window.location.href = "/login";  // Redirect tilbake til login
+            return;
           }
+          
+          // Sjekk om vi har en gyldig sesjon med brukerdata
+          const session = sessionData.session;
+          
+          if (!session?.user) {
+            console.error("KRITISK: Ingen bruker i session etter vellykket innlogging!");
+            setAuthError("Kunne ikke hente brukerdata. Prøv igjen eller kontakt support.");
+            return;
+          }
+          
+          const userRole = session.user.role;
+          console.log("Brukerrolle ved innlogging:", userRole);
+          
+          // Forbedret omdirigering etter login for å sikre riktig dashboard
+          let redirectUrl = '/dashboard'; // Standard for COMPANY_ADMIN
+          
+          if (userRole === 'ADMIN' || userRole === 'SUPPORT') {
+            console.log("Omdirigerer ADMIN/SUPPORT direkte til admin dashboard");
+            redirectUrl = '/admin/dashboard';
+            // Legg til en admin=true parameter for ekstra sikkerhet
+            console.log(`Admin bruker detektert (${userRole}) - bruker admin/dashboard`);
+          } else if (userRole === 'EMPLOYEE') {
+            redirectUrl = '/employee-dashboard';
+          } 
+          // COMPANY_ADMIN går til standard /dashboard
+          
+          console.log(`Omdirigerer til ${redirectUrl} basert på rolle: ${userRole}`);
+          
+          // Bruk ren redirect med absolutt URL for å unngå problemer med relative paths
+          const baseUrl = window.location.origin;
+          const fullRedirectUrl = `${baseUrl}${redirectUrl}`;
+          
+          // Legg til admin=true for admin-brukere
+          const urlParams = new URLSearchParams();
+          urlParams.append('fresh', 'true');
+          urlParams.append('t', Date.now().toString());
+          
+          if (userRole === 'ADMIN' || userRole === 'SUPPORT') {
+            urlParams.append('admin', 'true');
+          }
+          
+          // Tvungen redirect med cache-busting parameter
+          window.location.href = `${fullRedirectUrl}?${urlParams.toString()}`;
+          return;
+        } catch (sessionError) {
+          console.error('Kunne ikke hente sesjon:', sessionError);
+          setAuthError("Pålogging vellykket, men kunne ikke hente brukerdata.");
+          window.location.href = '/dashboard';
         }
       }
     } catch (error) {

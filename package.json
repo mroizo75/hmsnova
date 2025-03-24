@@ -2,15 +2,18 @@
   "name": "hmsnova",
   "version": "0.1.0",
   "private": true,
+  "type": "commonjs",
   "scripts": {
     "dev": "next dev",
     "dev:withsockets": "concurrently \"next dev\" \"npm run workers:alt\"",
-    "build": "next build && npm run build:worker",
+    "build": "next build",
     "build:worker": "tsc -p tsconfig.worker.json",
+    "build:full": "npm run build && npm run build:worker",
     "build:strict": "tsc --noEmit && next build",
     "start": "next start",
     "start:withsockets": "concurrently \"next start\" \"npm run workers\"",
     "workers": "ts-node -r tsconfig-paths/register worker.ts",
+    "workers:prod": "node worker.js",
     "workers:dev": "ts-node-dev -r tsconfig-paths/register worker.ts",
     "workers:alt": "ts-node-dev -r tsconfig-paths/register --project tsconfig.worker.json --transpile-only --respawn worker.ts"
   },
@@ -65,6 +68,7 @@
     "@vercel/blob": "^0.27.0",
     "bcryptjs": "^2.4.3",
     "bullmq": "^3.16.2",
+    "chart.js": "^4.4.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
@@ -136,6 +140,5 @@
   "optionalDependencies": {
     "bufferutil": "^4.0.9",
     "utf-8-validate": "^6.0.5"
-  },
-  "type": "module"
+  }
 }

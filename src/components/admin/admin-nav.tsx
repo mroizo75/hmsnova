@@ -80,8 +80,29 @@ export function AdminNav() {
 
   const handleLogout = async () => {
     await signOut({
-      callbackUrl: "/login"
-    })
+      callbackUrl: "/",
+      redirect: false
+    }).then(() => {
+      // Tving sletting av alle cookies
+      const cookies = document.cookie.split(";");
+      cookies.forEach(cookie => {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      });
+      
+      // Deretter rens lokal lagring
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Erstatter current history state for å hindre tilbakenavigering
+      if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '/');
+      }
+      
+      // Til slutt, redirect med force reload (bruker window.location.replace for å erstatte i historikk)
+      window.location.replace("/?logout=complete&t=" + Date.now());
+    });
   }
 
   return (

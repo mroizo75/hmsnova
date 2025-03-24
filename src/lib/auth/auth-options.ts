@@ -8,8 +8,11 @@ import { Adapter } from "next-auth/adapters"
 declare module "next-auth" {
   interface User {
     id: string
+    email: string
+    name: string | null
     companyId: string
     role: string
+    isSystemAdmin: boolean
   }
   
   interface Session {
@@ -31,6 +34,36 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: MAX_AGE, // 12 timer i sekunder
+  },
+  // Legg til eksplisitt cookie-konfigurasjon - FORBEDRET FOR T3 STACK
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      }
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      }
+    }
   },
   pages: {
     signIn: '/login',
@@ -85,40 +118,57 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      // Beregn utløpstid for tokenet hvis det ikke finnes
-      if (!token.exp) {
-        token.exp = Math.floor(Date.now() / 1000) + MAX_AGE;
-      }
-      
+    async jwt({ token, user, trigger, session }) {
+      // Ved hver innlogging, hent oppdatert brukerinfo fra databasen
       if (user) {
-        token.id = user.id
-        token.role = user.role
-        token.companyId = user.companyId
-        token.isSystemAdmin = user.role === 'ADMIN' || user.role === 'SUPPORT'
-        // Forny token ved innlogging
-        token.exp = Math.floor(Date.now() / 1000) + MAX_AGE;
+        // Brukeren har nettopp logget inn, oppdater token med brukerdata
+        token.id = user.id;
+        token.role = user.role;
+        token.companyId = user.companyId;
+        token.isSystemAdmin = user.role === 'ADMIN' || user.role === 'SUPPORT';
+        console.log(`JWT Callback (LOGIN): Oppdaterer token med rolle ${user.role}`);
+      } else if (trigger === "update" && session) {
+        // Håndter sesjonsoppdateringer
+        console.log("JWT Callback (UPDATE): Oppdaterer token med ny sesjonsdata");
+        token.role = session.user.role;
+        token.companyId = session.user.companyId;
+      } else {
+        // Hver gang tokenet bekreftes (på hver forespørsel), sjekk om vi trenger å hente fersk brukerdata
+        try {
+          // Kjør en ekstra sjekk mot databasen for å sikre at vi har riktig rolle
+          const latestUserData = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { 
+              role: true,
+              companyId: true 
+            }
+          });
+          
+          if (latestUserData && (
+              latestUserData.role !== token.role || 
+              latestUserData.companyId !== token.companyId
+            )) {
+            console.log(`JWT Callback (REFRESH): Oppdaterer token med oppdatert rolle ${latestUserData.role}`);
+            token.role = latestUserData.role;
+            token.companyId = latestUserData.companyId;
+            token.isSystemAdmin = latestUserData.role === 'ADMIN' || latestUserData.role === 'SUPPORT';
+          }
+        } catch (error) {
+          console.error("Feil ved henting av oppdatert brukerinfo:", error);
+        }
       }
       
-      // Sjekk om tokenet snart utløper og forny det (hvis mindre enn 1 time gjenstår)
-      const ONE_HOUR = 60 * 60;
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      if (token.exp && (token.exp - currentTime) < ONE_HOUR) {
-        console.log("Fornyer JWT token som snart utløper");
-        token.exp = currentTime + MAX_AGE;
-      }
-      
-      return token
+      return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
-        session.user.companyId = token.companyId as string
-        session.user.isSystemAdmin = token.role === 'ADMIN' || token.role === 'SUPPORT'
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.companyId = token.companyId as string;
+        session.user.isSystemAdmin = token.role === 'ADMIN' || token.role === 'SUPPORT';
+        console.log(`Session Callback: Setter sesjon med rolle ${token.role}`);
       }
-      return session
+      return session;
     }
   }
 } 

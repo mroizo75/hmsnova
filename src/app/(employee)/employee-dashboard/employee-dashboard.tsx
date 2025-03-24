@@ -99,8 +99,12 @@ export function EmployeeDashboard({ initialSession, initialCompany }: EmployeeDa
     }
   ]
 
+  // Hent bedriftsinformasjon
   useEffect(() => {
-    const fetchCompany = async () => {
+    // FJERNER ROLLE-SJEKK HER for å unngå endeløs omdirigering
+    // Den vil likevel bli håndtert av server-siden og middleware
+
+    async function fetchCompany() {
       if (!initialCompany && session?.user?.companyId) {
         try {
           const response = await fetch(`/api/companies/${session.user.companyId}`)
@@ -114,7 +118,7 @@ export function EmployeeDashboard({ initialSession, initialCompany }: EmployeeDa
     }
 
     fetchCompany()
-  }, [session?.user?.companyId, initialCompany])
+  }, [session?.user?.companyId, initialCompany, session?.user?.role])
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -141,7 +145,33 @@ export function EmployeeDashboard({ initialSession, initialCompany }: EmployeeDa
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => {
+                  // Utfør signOut først med forced URL-refresh
+                  signOut({ 
+                    callbackUrl: '/',
+                    redirect: false
+                  }).then(() => {
+                    // Tving sletting av alle cookies
+                    const cookies = document.cookie.split(";");
+                    cookies.forEach(cookie => {
+                      const eqPos = cookie.indexOf("=");
+                      const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                    });
+                    
+                    // Deretter rens lokal lagring
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    
+                    // Erstatter current history state for å hindre tilbakenavigering
+                    if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+                      window.history.replaceState(null, '', '/');
+                    }
+                    
+                    // Til slutt, redirect med force reload (bruker window.location.replace for å erstatte i historikk)
+                    window.location.replace("/?logout=complete&t=" + Date.now());
+                  });
+                }}
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logg ut

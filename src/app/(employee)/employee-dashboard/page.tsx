@@ -10,14 +10,28 @@ import prisma from "@/lib/db"
 export default async function EmployeeDashboardPage() {
   const session = await getServerSession(authOptions)
   
+  console.log("Server-side: EmployeeDashboardPage - Brukerrolle:", session?.user?.role);
+  
   if (!session?.user) {
+    console.log("Server-side: Ingen sesjon funnet, omdirigerer til login");
     redirect('/login')
   }
 
-  // Redirect admin/company_admin til admin dashboard
-  if (session.user.role === 'ADMIN' || session.user.role === 'COMPANY_ADMIN') {
-    redirect('/dashboard')
+  // FJERN OMDIRIGERING FOR COMPANY_ADMIN BRUKERE FOR Å UNNGÅ LØKKER
+  // Vis en melding istedenfor å omdirigere
+  if (session.user.role !== 'EMPLOYEE') {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-2xl font-bold mb-4">Feil dashboard for din rolle</h2>
+        <p className="mb-4">Du er logget inn som {session.user.role}, og bør bruke hoved-dashboardet.</p>
+        <Link href="/dashboard" className="text-blue-600 hover:underline">
+          Gå til hoved-dashboard
+        </Link>
+      </div>
+    );
   }
+
+  console.log("Server-side: Employee Dashboard - Viser for EMPLOYEE bruker");
 
   // Hent bedriftsinformasjon
   const company = session.user.companyId ? 

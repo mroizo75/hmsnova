@@ -180,12 +180,33 @@ async function getHMSStats(companyId: string) {
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return null
-
-  // Redirect employee users til employee dashboard
-  if (session.user.role === 'EMPLOYEE') {
-    redirect('/employee-dashboard')
+  
+  console.log("SERVER SIDE DASHBOARD PAGE - BRUKER:", JSON.stringify({
+    role: session?.user?.role,
+    name: session?.user?.name,
+    email: session?.user?.email,
+    timestamp: new Date().toISOString()
+  }, null, 2));
+  
+  if (!session?.user) {
+    return null
   }
+
+  // FJERN OMDIRIGERING FOR EMPLOYEE BRUKERE FOR Å UNNGÅ LØKKER
+  // Vis en melding istedenfor å omdirigere
+  if (session.user.role === 'EMPLOYEE') {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-2xl font-bold mb-4">Du er logget inn som ansatt</h2>
+        <p className="mb-4">Du bør bruke ansatt-dashboardet for å få tilgang til dine funksjoner.</p>
+        <Link href="/employee-dashboard" className="text-blue-600 hover:underline">
+          Gå til ansatt-dashboard
+        </Link>
+      </div>
+    );
+  }
+  
+  console.log("Server-side Dashboard: Brukerrolle:", session.user.role, "- Viser dashboard");
 
   // Hent bedriftens ID fra brukerens sesjon
   const user = await prisma.user.findUnique({

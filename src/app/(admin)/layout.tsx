@@ -17,9 +17,28 @@ export default async function AdminLayout({
 }) {
   const session = await getServerSession(authOptions)
   
-  if (!session?.user || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
-    redirect('/login')
+  // Mer robust sjekk for admin-tilgang
+  if (!session?.user) {
+    console.log("Admin Layout: Ingen bruker funnet, omdirigerer til login");
+    redirect('/login?error=NotAuthenticated');
   }
+  
+  // Sjekk spesifikt for admin-rolle
+  if (!['ADMIN', 'SUPPORT'].includes(session.user.role)) {
+    console.log(`Admin Layout: Uautorisert bruker (${session.user.role}) prøver å aksessere admin, omdirigerer til dashboard`);
+    
+    // Omdirigering basert på brukerrolle
+    if (session.user.role === 'COMPANY_ADMIN') {
+      redirect('/dashboard');
+    } else if (session.user.role === 'EMPLOYEE') {
+      redirect('/employee-dashboard');
+    } else {
+      // Fallback for ukjente roller
+      redirect('/login?error=UnauthorizedAccess');
+    }
+  }
+  
+  console.log(`Admin Layout: Autorisert ${session.user.role} bruker, viser admin dashboard`);
 
   return (
     <div className="flex min-h-screen">

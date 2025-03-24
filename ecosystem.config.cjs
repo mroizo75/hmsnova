@@ -25,9 +25,9 @@ module.exports = {
       max_restarts: 10
     },
     {
-      name: "hmsnova-workers",
+      name: "hmsnova-socket",
       script: "npm",
-      args: "run workers",
+      args: "run workers:prod",
       env: {
         NODE_ENV: "production",
         REDIS_FALLBACK: "true",

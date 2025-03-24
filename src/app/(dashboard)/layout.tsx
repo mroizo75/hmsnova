@@ -16,10 +16,24 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  // Redirect employee users til employee dashboard
-  if (session.user.role === 'EMPLOYEE') {
-    redirect('/employee-dashboard')
+  // Spesifikk sjekk for ADMIN/SUPPORT - disse skal til admin/dashboard
+  if (session.user.role === 'ADMIN' || session.user.role === 'SUPPORT') {
+    console.log(`Dashboard Layout: ADMIN/SUPPORT bruker, omdirigerer til admin/dashboard`);
+    // Dette vil sikre at ADMIN/SUPPORT alltid havner i admin-dashboard
+    redirect('/admin/dashboard');
   }
+
+  // Sjekk brukerrolle - sett logisk betingelse for hva som er tillatt her
+  const allowedRoles = ['COMPANY_ADMIN', 'ADMIN', 'SUPPORT'];
+  
+  if (!allowedRoles.includes(session.user.role)) {
+    console.log(`Dashboard Layout: Uautorisert rolle (${session.user.role}), omdirigerer til riktig dashboard`);
+    
+    // Bruk absolutt URL med cache-busting for å sikre riktig omdirigering
+    redirect(`/employee-dashboard?from=layout&role=${session.user.role}&t=${Date.now()}`);
+  }
+  
+  console.log(`Dashboard Layout: Autorisert rolle (${session.user.role}), viser dashboard`);
 
   const modules = await prisma.module.findMany({
     where: {
